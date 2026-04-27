@@ -4314,10 +4314,13 @@
       const bookings = getBookings();
       const target = bookings.find((booking) => booking.id === bookingId);
       const updated = bookings.filter((booking) => booking.id !== bookingId);
-      saveBookings(updated);
-      addActivity(`Booking deleted: ${target ? target.ticketId : bookingId}`, 'Admin');
-      renderAdminPanel();
-      showToast('Booking deleted', 'warning');
+      void supabaseClient.from('bookings').delete().eq('id', bookingId).then(({ error }) => {
+        if (error) console.warn('delete booking', error);
+        saveBookings(updated);
+        addActivity(`Booking deleted: ${target ? target.ticketId : bookingId}`, 'Admin');
+        renderAdminPanel();
+        showToast('Booking deleted', 'warning');
+      }).catch((e) => { console.error(e); showToast('Could not delete booking on server', 'error'); });
     }
 
     function toggleAdminRole(userId) {
@@ -4347,13 +4350,20 @@
     }
 
     function deleteUser(userId) {
-      let users = getUsers();
-      const deleted = users.find((user) => user.id === userId);
-      users = users.filter((user) => user.id !== userId);
-      saveUsers(users);
-      saveBookings(getBookings().filter((booking) => booking.userId !== userId));
-      addActivity(`User deleted: ${deleted ? deleted.name : userId}`, 'Admin');
-      renderAdminPanel();
+      const deleted = getUsers().find((user) => user.id === userId);
+      Promise.all([
+        supabaseClient.from('bookings').delete().eq('userId', userId),
+        supabaseClient.from('orders').delete().eq('userId', userId),
+        supabaseClient.from('users').delete().eq('id', userId)
+      ]).then(() => {
+        const users = getUsers().filter((user) => user.id !== userId);
+        saveUsers(users);
+        saveBookings(getBookings().filter((booking) => String(booking.userId) !== String(userId)));
+        const orders = loadData(DB_KEYS.orders, []).filter((order) => String(order.userId) !== String(userId));
+        saveData(DB_KEYS.orders, orders);
+        addActivity(`User deleted: ${deleted ? deleted.name : userId}`, 'Admin');
+        renderAdminPanel();
+      }).catch((e) => { console.error(e); showToast('Could not delete user on server', 'error'); });
     }
 
     function adjustBalancePrompt(userId) {

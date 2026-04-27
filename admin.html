@@ -479,7 +479,14 @@
         </tr>`).join('') : '<tr><td colspan="8">No active shop orders.</td></tr>'}</tbody>`;
     }
     function setOrderStatus(id,status){ if(!isAdmin(me())) return alert('Admin only'); const orders=ro(K.orders,[]); const o=orders.find(x=>x.id===id); if(!o)return; o.status=status; so(K.orders,orders); act(`Order ${id} -> ${status}`); refresh(); }
-    function deleteOrder(id){ so(K.orders,ro(K.orders,[]).filter(o=>o.id!==id)); act(`Order deleted ${id}`); refresh(); }
+    function deleteOrder(id){
+      void supabaseClient.from('orders').delete().eq('id', id).then(({ error }) => {
+        if (error) console.warn('delete order', error);
+        so(K.orders, ro(K.orders, []).filter((o) => o.id !== id));
+        act(`Order deleted ${id}`);
+        refresh();
+      }).catch((e) => { console.error(e); alert('Could not delete order from server.'); });
+    }
     function renderOrderHistory(){
       const usersMap = new Map(ro(K.users,[]).map(u=>[String(u.id),u.name]));
       const orders = ro(K.orders,[]);
@@ -509,7 +516,14 @@
         </tr>`).join('') : '<tr><td colspan="5">No shipped history.</td></tr>'}</tbody>`;
     }
     function toggleBooking(id){ if(!isAdmin(me())) return alert('Admin only'); const arr=ro(K.bookings,[]); const x=arr.find(b=>b.id===id); if(!x) return; x.status=x.status==='Confirmed'?'Pending':'Confirmed'; so(K.bookings,arr); act(`Booking ${x.ticketId} -> ${x.status}`); refresh(); }
-    function removeBooking(id){ so(K.bookings,ro(K.bookings,[]).filter(b=>b.id!==id)); act(`Booking removed ${id}`); refresh(); }
+    function removeBooking(id){
+      void supabaseClient.from('bookings').delete().eq('id', id).then(({ error }) => {
+        if (error) console.warn('delete booking', error);
+        so(K.bookings, ro(K.bookings, []).filter((b) => b.id !== id));
+        act(`Booking removed ${id}`);
+        refresh();
+      }).catch((e) => { console.error(e); alert('Could not delete booking from server.'); });
+    }
 
     function roleBadges(roles=[]){ return roles.map(r=>`<span class="badge">${r}</span>`).join(''); }
     function renderUsers(){
