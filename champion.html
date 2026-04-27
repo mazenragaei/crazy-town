@@ -99,8 +99,23 @@
       { id:'ch-2', name:'Cairo Urban Champion Cup', prize:'15,000 EGP + Team Sponsorship', status:'Open' },
       { id:'ch-3', name:'Final Circle Invitational', prize:'30,000 EGP + Hall of Fame', status:'Coming Soon' }
     ];
-    const ro = (k,d)=>{ try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
-    const so = (k,v)=>localStorage.setItem(k, JSON.stringify(v));
+    const mem = {};
+    async function hydrateChampionKv() {
+      const { data, error } = await supabaseClient.from('app_kv').select('*');
+      if (error) { console.warn('app_kv load', error); return; }
+      (data || []).forEach((row) => { if (row && row.id != null) mem[row.id] = row.value; });
+    }
+    function ro(k, d) {
+      if (!Object.prototype.hasOwnProperty.call(mem, k)) return d;
+      const v = mem[k];
+      return v === undefined ? d : v;
+    }
+    function so(k, v) {
+      mem[k] = v;
+      void supabaseClient.from('app_kv').upsert({ id: k, value: v }, { onConflict: 'id' }).then(({ error }) => {
+        if (error) console.warn('app_kv upsert', k, error);
+      });
+    }
     const readSessionId = () => sessionStorage.getItem(K.session) || localStorage.getItem(K.session) || '';
     const me = () => sessionUser;
     async function loadSessionUser() {
@@ -121,9 +136,10 @@
         location.href = 'index.html';
       }
     }
-    function ensureSeed(){
-      if (!localStorage.getItem(K.championTournaments)) so(K.championTournaments, DEFAULT_TOURS);
-      if (!localStorage.getItem(K.championRegs)) so(K.championRegs, []);
+    async function ensureSeed(){
+      await hydrateChampionKv();
+      if (!Object.prototype.hasOwnProperty.call(mem, K.championTournaments)) so(K.championTournaments, DEFAULT_TOURS);
+      if (!Object.prototype.hasOwnProperty.call(mem, K.championRegs)) so(K.championRegs, []);
     }
     function addActivity(action, actor='Champion'){
       const arr = ro(K.activity,[]);
@@ -189,13 +205,19 @@
       renderTournaments();
       renderRegistrations();
     }
-    window.addEventListener('storage', () => render());
     async function init() {
       await loadSessionUser();
       if (!me()) return (location.href = 'index.html');
       guard();
-      ensureSeed();
+      await ensureSeed();
       render();
+      supabaseClient
+        .channel('champion-app-kv')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'app_kv' }, async () => {
+          await hydrateChampionKv();
+          render();
+        })
+        .subscribe();
     }
     init();
   </script>

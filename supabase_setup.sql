@@ -100,6 +100,15 @@ create index if not exists idx_support_tickets_userid on public.support_tickets(
 create index if not exists idx_vip_requests_userid on public.vip_requests("userId");
 
 -- =========================
+-- 2b) Key-value JSON store (id = former localStorage key, e.g. crazyTown_activity)
+-- =========================
+create table if not exists public.app_kv (
+  id text primary key,
+  value jsonb not null,
+  updated_at timestamptz default now()
+);
+
+-- =========================
 -- 3) updated_at triggers
 -- =========================
 create or replace function public.set_updated_at()
@@ -132,6 +141,11 @@ create trigger trg_teams_updated_at
 before update on public.teams
 for each row execute function public.set_updated_at();
 
+drop trigger if exists trg_app_kv_updated_at on public.app_kv;
+create trigger trg_app_kv_updated_at
+before update on public.app_kv
+for each row execute function public.set_updated_at();
+
 -- =========================
 -- 4) RLS helpers
 -- =========================
@@ -162,6 +176,7 @@ alter table public.orders enable row level security;
 alter table public.teams enable row level security;
 alter table public.support_tickets enable row level security;
 alter table public.vip_requests enable row level security;
+alter table public.app_kv enable row level security;
 
 -- Drop old policies if rerun
 drop policy if exists users_read_all on public.users;
@@ -192,6 +207,15 @@ drop policy if exists vip_read_owner_or_admin on public.vip_requests;
 drop policy if exists vip_insert_owner_or_admin on public.vip_requests;
 drop policy if exists vip_update_admin_only on public.vip_requests;
 drop policy if exists vip_delete_admin_only on public.vip_requests;
+
+drop policy if exists app_kv_anon_select on public.app_kv;
+drop policy if exists app_kv_anon_insert on public.app_kv;
+drop policy if exists app_kv_anon_update on public.app_kv;
+drop policy if exists app_kv_anon_delete on public.app_kv;
+drop policy if exists app_kv_auth_select on public.app_kv;
+drop policy if exists app_kv_auth_insert on public.app_kv;
+drop policy if exists app_kv_auth_update on public.app_kv;
+drop policy if exists app_kv_auth_delete on public.app_kv;
 
 -- users
 create policy users_read_all
@@ -349,6 +373,17 @@ for delete
 to authenticated
 using (public.is_admin_user());
 
+-- app_kv: open to anon for demo/static-site auth (tighten for production)
+create policy app_kv_anon_select on public.app_kv for select to anon using (true);
+create policy app_kv_anon_insert on public.app_kv for insert to anon with check (true);
+create policy app_kv_anon_update on public.app_kv for update to anon using (true) with check (true);
+create policy app_kv_anon_delete on public.app_kv for delete to anon using (true);
+
+create policy app_kv_auth_select on public.app_kv for select to authenticated using (true);
+create policy app_kv_auth_insert on public.app_kv for insert to authenticated with check (true);
+create policy app_kv_auth_update on public.app_kv for update to authenticated using (true) with check (true);
+create policy app_kv_auth_delete on public.app_kv for delete to authenticated using (true);
+
 -- =========================
 -- 6) Realtime publication
 -- =========================
@@ -363,6 +398,15 @@ exception
   when undefined_object then null;
 end
 $pub$;
+
+do $pub2$
+begin
+  alter publication supabase_realtime add table public.app_kv;
+exception
+  when duplicate_object then null;
+  when undefined_object then null;
+end
+$pub2$;
 
 -- NOTE:
 -- These policies require Supabase Auth sessions (authenticated role + auth.uid()).

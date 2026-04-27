@@ -64,6 +64,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     const K = { session: 'crazyTown_session', tournamentRegs: 'crazyTown_tournament_regs' };
+    let tournamentRegsCache = [];
     const SUPABASE_URL = 'https://gldwdwcpzcxcvqpcpiol.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsZHdkd2NwemN4Y3ZxcGNwaW9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMjE4NjAsImV4cCI6MjA5Mjg5Nzg2MH0.clwYiXpRG-2ZPC_WmGC56DdoVEiyVu2RgVe5yppxJ2E';
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -74,10 +75,17 @@
     let TEAMS = [];
 
     function loadRegs() {
-      try { return JSON.parse(localStorage.getItem(K.tournamentRegs) || '[]'); } catch { return []; }
+      return tournamentRegsCache;
     }
-    function saveRegs(regs) {
-      try { localStorage.setItem(K.tournamentRegs, JSON.stringify(regs)); } catch (e) { console.warn(e); }
+    async function saveRegs(regs) {
+      tournamentRegsCache = Array.isArray(regs) ? regs : [];
+      const { error } = await supabaseClient.from('app_kv').upsert({ id: K.tournamentRegs, value: tournamentRegsCache }, { onConflict: 'id' });
+      if (error) console.warn('app_kv tournament regs', error);
+    }
+    async function fetchTournamentRegsFromKv() {
+      const { data, error } = await supabaseClient.from('app_kv').select('value').eq('id', K.tournamentRegs).maybeSingle();
+      if (error) { console.warn('app_kv load regs', error); tournamentRegsCache = []; return; }
+      tournamentRegsCache = Array.isArray(data?.value) ? data.value : [];
     }
 
     async function refreshData() {
@@ -171,7 +179,7 @@
       if (!(team.captainId === user.id || isAdmin(user))) return alert('Only leader/admin can delete team.');
       const { error } = await supabaseClient.from('teams').delete().eq('id', team.id);
       if (error) console.error(error);
-      saveRegs(loadRegs().filter((r) => r.teamId !== team.id));
+      await saveRegs(loadRegs().filter((r) => r.teamId !== team.id));
       await refreshData();
       render();
     }
@@ -269,6 +277,7 @@
 
     async function init() {
       await refreshData();
+      await fetchTournamentRegsFromKv();
       if (!me()) return (location.href = 'index.html');
       render();
       supabaseClient
@@ -279,6 +288,10 @@
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, async () => {
           await refreshData();
+          render();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'app_kv' }, async () => {
+          await fetchTournamentRegsFromKv();
           render();
         })
         .subscribe();

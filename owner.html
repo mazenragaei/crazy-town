@@ -168,7 +168,20 @@
     }
     async function pushRows(table, rows){
       if (!Array.isArray(rows) || !rows.length) return;
-      await supabaseClient.from(table).upsert(rows, { onConflict:'id' });
+      const { error } = await supabaseClient.from(table).upsert(rows, { onConflict:'id' });
+      if (error) console.warn('Supabase upsert', table, error);
+    }
+    const DEDICATED_KEYS = new Set([K.users, K.bookings, K.orders, K.supportTickets]);
+    async function loadAllAppKvIntoCache(){
+      const { data, error } = await supabaseClient.from('app_kv').select('*');
+      if (error) { console.warn('app_kv load', error); return; }
+      if (!Array.isArray(data)) return;
+      data.forEach((row)=>{ if (row && row.id != null && Object.prototype.hasOwnProperty.call(row, 'value')) CACHE[row.id] = row.value; });
+    }
+    async function persistAppKvKey(k, v){
+      if (k === K.session || DEDICATED_KEYS.has(k)) return;
+      const { error } = await supabaseClient.from('app_kv').upsert({ id: k, value: v }, { onConflict: 'id' });
+      if (error) console.warn('app_kv upsert', k, error);
     }
     const ro = (k,d)=>Object.prototype.hasOwnProperty.call(CACHE, k) ? CACHE[k] : d;
     function so(k,v){
@@ -177,6 +190,7 @@
       if (k === K.bookings) pushRows('bookings', v);
       if (k === K.orders) pushRows('orders', v);
       if (k === K.supportTickets) pushRows('support_tickets', v);
+      void persistAppKvKey(k, v);
     }
     const me = ()=>ro(K.users,[]).find((u)=>String(u.id)===readSessionId());
     const hasRole = (user, role)=>!!user && Array.isArray(user.roles) && user.roles.includes(role);
@@ -361,10 +375,8 @@
       CACHE[K.bookings] = await fetchTable('bookings', []);
       CACHE[K.orders] = await fetchTable('orders', []);
       CACHE[K.supportTickets] = await fetchTable('support_tickets', []);
-      CACHE[K.activity] = [];
-      CACHE[K.settings] = { maintenance:false, supportEnabled:true, vipEnabled:true, notifications:[] };
-      CACHE[K.coupons] = [];
-      CACHE[K.rolePolicy] = DEFAULT_ROLE_POLICY;
+      await loadAllAppKvIntoCache();
+      if (!Object.prototype.hasOwnProperty.call(CACHE, K.rolePolicy)) CACHE[K.rolePolicy] = DEFAULT_ROLE_POLICY;
       guard();
       tabs();
       render();
@@ -373,6 +385,7 @@
         .on('postgres_changes', { event:'*', schema:'public', table:'bookings' }, async ()=>{ CACHE[K.bookings] = await fetchTable('bookings', []); render(); })
         .on('postgres_changes', { event:'*', schema:'public', table:'orders' }, async ()=>{ CACHE[K.orders] = await fetchTable('orders', []); render(); })
         .on('postgres_changes', { event:'*', schema:'public', table:'users' }, async ()=>{ CACHE[K.users] = await fetchTable('users', []); render(); })
+        .on('postgres_changes', { event:'*', schema:'public', table:'app_kv' }, async ()=>{ await loadAllAppKvIntoCache(); render(); })
         .subscribe();
     }
     bootstrapSupabase();

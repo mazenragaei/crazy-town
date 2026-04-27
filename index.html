@@ -3205,6 +3205,7 @@
       bookings: 'crazyTown_bookings',
       leaderboard: 'crazyTown_leaderboard',
       activity: 'crazyTown_activity',
+      settings: 'crazyTown_settings',
       session: 'crazyTown_session',
       coupons: 'crazyTown_coupons',
       inventory: 'crazyTown_inventory',
@@ -3239,7 +3240,7 @@
       return Object.prototype.hasOwnProperty.call(DATA_CACHE, key) ? DATA_CACHE[key] : fallback;
     }
 
-    const LOCAL_BRIDGE_KEYS = new Set([DB_KEYS.tournamentRegs, DB_KEYS.tournaments]);
+    const DEDICATED_TABLE_KEYS = new Set([DB_KEYS.users, DB_KEYS.bookings, DB_KEYS.orders, DB_KEYS.teams]);
 
     async function syncKeyToSupabase(key, value){
       if (key === DB_KEYS.users) await supabaseClient.from('users').upsert(value || [], { onConflict:'id' });
@@ -3247,21 +3248,27 @@
       if (key === DB_KEYS.orders) await supabaseClient.from('orders').upsert(value || [], { onConflict:'id' });
       if (key === DB_KEYS.teams) await supabaseClient.from('teams').upsert(value || [], { onConflict:'id' });
     }
+    async function persistAppKvKey(key, value) {
+      const { error } = await supabaseClient.from('app_kv').upsert({ id: key, value }, { onConflict: 'id' });
+      if (error) console.warn('app_kv upsert failed:', key, error);
+    }
+    async function loadAllAppKvIntoDataCache() {
+      const { data, error } = await supabaseClient.from('app_kv').select('*');
+      if (error) {
+        console.warn('app_kv load failed', error);
+        return;
+      }
+      if (!Array.isArray(data)) return;
+      data.forEach((row) => {
+        if (row && row.id != null && Object.prototype.hasOwnProperty.call(row, 'value')) DATA_CACHE[row.id] = row.value;
+      });
+    }
     function saveData(key, value) {
       DATA_CACHE[key] = value;
       void syncKeyToSupabase(key, value).catch((err) => console.warn('Supabase sync failed:', key, err));
-      if (LOCAL_BRIDGE_KEYS.has(key)) {
-        try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { console.warn('Local bridge write failed:', key, e); }
+      if (key !== DB_KEYS.session && !DEDICATED_TABLE_KEYS.has(key)) {
+        void persistAppKvKey(key, value).catch((err) => console.warn('app_kv sync failed:', key, err));
       }
-    }
-    function loadLocalBridgeIntoCache(key) {
-      if (!LOCAL_BRIDGE_KEYS.has(key)) return;
-      try {
-        const raw = localStorage.getItem(key);
-        if (!raw) return;
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length) DATA_CACHE[key] = parsed;
-      } catch (_) { /* ignore */ }
     }
 
     function ensureSeedData() {
@@ -4215,7 +4222,7 @@
     }
 
     function applySettingsSync() {
-      const settings = loadData('crazyTown_settings', { maintenance: false, notifications: [] });
+      const settings = loadData(DB_KEYS.settings, { maintenance: false, notifications: [] });
       const user = getCurrentUser();
       if (settings.maintenance && !isAdmin(user)) {
         const bookingForm = document.getElementById('bookingForm');
@@ -4412,14 +4419,20 @@
       renderAdminPanel();
     }
 
-    function clearAllData() {
+    async function clearAllData() {
       if (!confirm('Are you sure? This will clear users/bookings/leaderboard except root admin.')) return;
       DATA_CACHE[DB_KEYS.users] = [];
       DATA_CACHE[DB_KEYS.bookings] = [];
       DATA_CACHE[DB_KEYS.activity] = [];
       DATA_CACHE[DB_KEYS.leaderboard] = [];
-      supabaseClient.from('users').delete().neq('id', '');
-      supabaseClient.from('bookings').delete().neq('id', '');
+      const run = (p) => p.then(({ error }) => { if (error) console.warn('clearAllData', error); });
+      await run(supabaseClient.from('bookings').delete().neq('id', ''));
+      await run(supabaseClient.from('orders').delete().neq('id', ''));
+      await run(supabaseClient.from('teams').delete().neq('id', ''));
+      await run(supabaseClient.from('vip_requests').delete().neq('id', ''));
+      await run(supabaseClient.from('support_tickets').delete().neq('id', ''));
+      await run(supabaseClient.from('app_kv').delete().neq('id', ''));
+      await run(supabaseClient.from('users').delete().neq('id', ''));
       clearCurrentUser();
       ensureSeedData();
       addActivity('All data cleared by admin', 'Admin');
@@ -4540,18 +4553,7 @@
       DATA_CACHE[DB_KEYS.bookings] = Array.isArray(bookingsRes.data) ? bookingsRes.data : [];
       DATA_CACHE[DB_KEYS.orders] = Array.isArray(ordersRes.data) ? ordersRes.data : [];
       DATA_CACHE[DB_KEYS.teams] = Array.isArray(teamsRes.data) ? teamsRes.data : [];
-      DATA_CACHE[DB_KEYS.activity] = [];
-      DATA_CACHE[DB_KEYS.leaderboard] = [];
-      DATA_CACHE[DB_KEYS.coupons] = [];
-      DATA_CACHE[DB_KEYS.inventory] = [];
-      DATA_CACHE[DB_KEYS.news] = [];
-      DATA_CACHE[DB_KEYS.friends] = [];
-      DATA_CACHE[DB_KEYS.chat] = [];
-      DATA_CACHE[DB_KEYS.cart] = [];
-      DATA_CACHE[DB_KEYS.tournamentRegs] = [];
-      DATA_CACHE[DB_KEYS.tournaments] = [];
-      loadLocalBridgeIntoCache(DB_KEYS.tournamentRegs);
-      loadLocalBridgeIntoCache(DB_KEYS.tournaments);
+      await loadAllAppKvIntoDataCache();
     }
     document.addEventListener('DOMContentLoaded', async () => {
       try {
@@ -4611,6 +4613,11 @@
       .on('postgres_changes', { event:'*', schema:'public', table:'users' }, async () => {
         const res = await supabaseClient.from('users').select('*');
         DATA_CACHE[DB_KEYS.users] = Array.isArray(res.data) ? res.data : [];
+        applyLiveCacheToUI();
+      })
+      .on('postgres_changes', { event:'*', schema:'public', table:'app_kv' }, async () => {
+        await loadAllAppKvIntoDataCache();
+        applySettingsSync();
         applyLiveCacheToUI();
       })
       .subscribe((status) => {

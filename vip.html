@@ -189,9 +189,23 @@
 
     let currentUser = null;
     let myVipRequests = [];
-
-    function roLocal(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }
-    function soLocal(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { console.warn(e); } }
+    const kvMem = {};
+    async function hydrateAppKv() {
+      const { data, error } = await supabaseClient.from('app_kv').select('*');
+      if (error) { console.warn('app_kv load', error); return; }
+      (data || []).forEach((row) => { if (row && row.id != null) kvMem[row.id] = row.value; });
+    }
+    function roLocal(k, d) {
+      if (!Object.prototype.hasOwnProperty.call(kvMem, k)) return d;
+      const v = kvMem[k];
+      return v === undefined ? d : v;
+    }
+    function soLocal(k, v) {
+      kvMem[k] = v;
+      void supabaseClient.from('app_kv').upsert({ id: k, value: v }, { onConflict: 'id' }).then(({ error }) => {
+        if (error) console.warn('app_kv upsert', k, error);
+      });
+    }
 
     async function refreshUser() {
       const sid = readSessionId();
@@ -369,6 +383,7 @@
     async function init() {
       await refreshUser();
       if (!getUser()) return (location.href = 'index.html');
+      await hydrateAppKv();
       await refreshVipRequests();
       render();
       supabaseClient
@@ -380,6 +395,10 @@
         .on('postgres_changes', { event: '*', schema: 'public', table: 'vip_requests' }, async () => {
           await refreshVipRequests();
           renderVipRequests();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'app_kv' }, async () => {
+          await hydrateAppKv();
+          renderRecentVipActivity();
         })
         .subscribe();
     }
