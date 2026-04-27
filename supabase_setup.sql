@@ -307,6 +307,15 @@ using (public.is_admin_user());
 -- =========================
 alter publication supabase_realtime add table public.bookings;
 alter publication supabase_realtime add table public.orders;
+-- Balance/profile updates on the main site (ignore error if already a member of publication)
+do $pub$
+begin
+  alter publication supabase_realtime add table public.users;
+exception
+  when duplicate_object then null;
+  when undefined_object then null;
+end
+$pub$;
 
 -- NOTE:
 -- These policies require Supabase Auth sessions (authenticated role + auth.uid()).

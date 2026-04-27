@@ -4547,10 +4547,37 @@
       }
     });
 
+    function applyLiveCacheToUI() {
+      checkAuth();
+      const dash = document.getElementById('userDashboardModal');
+      if (dash && !dash.classList.contains('hidden')) {
+        const u = getCurrentUser();
+        if (u) showDashboard();
+      }
+      const admin = document.getElementById('adminPanelModal');
+      if (admin && !admin.classList.contains('hidden')) {
+        const u = getCurrentUser();
+        if (u && isAdmin(u)) renderAdminPanel();
+      }
+    }
+
     supabaseClient
-      .channel('page-live-bookings-orders')
-      .on('postgres_changes', { event:'*', schema:'public', table:'bookings' }, async ()=>{ const res = await supabaseClient.from('bookings').select('*'); DATA_CACHE[DB_KEYS.bookings] = Array.isArray(res.data) ? res.data : []; checkAuth(); })
-      .on('postgres_changes', { event:'*', schema:'public', table:'orders' }, async ()=>{ const res = await supabaseClient.from('orders').select('*'); DATA_CACHE[DB_KEYS.orders] = Array.isArray(res.data) ? res.data : []; checkAuth(); })
+      .channel('page-live-bookings-orders-users')
+      .on('postgres_changes', { event:'*', schema:'public', table:'bookings' }, async () => {
+        const res = await supabaseClient.from('bookings').select('*');
+        DATA_CACHE[DB_KEYS.bookings] = Array.isArray(res.data) ? res.data : [];
+        applyLiveCacheToUI();
+      })
+      .on('postgres_changes', { event:'*', schema:'public', table:'orders' }, async () => {
+        const res = await supabaseClient.from('orders').select('*');
+        DATA_CACHE[DB_KEYS.orders] = Array.isArray(res.data) ? res.data : [];
+        applyLiveCacheToUI();
+      })
+      .on('postgres_changes', { event:'*', schema:'public', table:'users' }, async () => {
+        const res = await supabaseClient.from('users').select('*');
+        DATA_CACHE[DB_KEYS.users] = Array.isArray(res.data) ? res.data : [];
+        applyLiveCacheToUI();
+      })
       .subscribe();
   </script>
 </body>

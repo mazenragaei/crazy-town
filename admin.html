@@ -1014,9 +1014,10 @@
       ensurePrivilegedSeed();
       guard(); tabs(); refresh();
       supabaseClient
-        .channel('admin-live-bookings-orders')
+        .channel('admin-live-bookings-orders-users')
         .on('postgres_changes', { event:'*', schema:'public', table:'bookings' }, async ()=>{ CACHE[K.bookings] = await fetchTable('bookings', []); refresh(); })
         .on('postgres_changes', { event:'*', schema:'public', table:'orders' }, async ()=>{ CACHE[K.orders] = await fetchTable('orders', []); refresh(); })
+        .on('postgres_changes', { event:'*', schema:'public', table:'users' }, async ()=>{ CACHE[K.users] = await fetchTable('users', []); refresh(); })
         .subscribe();
     }
     bootstrapSupabase();

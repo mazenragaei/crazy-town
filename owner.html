@@ -369,9 +369,10 @@
       tabs();
       render();
       supabaseClient
-        .channel('owner-live-bookings-orders')
+        .channel('owner-live-bookings-orders-users')
         .on('postgres_changes', { event:'*', schema:'public', table:'bookings' }, async ()=>{ CACHE[K.bookings] = await fetchTable('bookings', []); render(); })
         .on('postgres_changes', { event:'*', schema:'public', table:'orders' }, async ()=>{ CACHE[K.orders] = await fetchTable('orders', []); render(); })
+        .on('postgres_changes', { event:'*', schema:'public', table:'users' }, async ()=>{ CACHE[K.users] = await fetchTable('users', []); render(); })
         .subscribe();
     }
     bootstrapSupabase();
