@@ -82,14 +82,18 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     const K = {
-      users:'crazyTown_users',
       session:'crazyTown_session',
       championTournaments:'crazyTown_champion_tournaments',
       championRegs:'crazyTown_champion_regs',
       activity:'crazyTown_activity'
     };
+    const SUPABASE_URL = 'https://gldwdwcpzcxcvqpcpiol.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsZHdkd2NwemN4Y3ZxcGNwaW9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMjE4NjAsImV4cCI6MjA5Mjg5Nzg2MH0.clwYiXpRG-2ZPC_WmGC56DdoVEiyVu2RgVe5yppxJ2E';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    let sessionUser = null;
     const DEFAULT_TOURS = [
       { id:'ch-1', name:'Champion Midnight Ops', prize:'20,000 EGP + Elite Title', status:'Open' },
       { id:'ch-2', name:'Cairo Urban Champion Cup', prize:'15,000 EGP + Team Sponsorship', status:'Open' },
@@ -98,11 +102,19 @@
     const ro = (k,d)=>{ try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
     const so = (k,v)=>localStorage.setItem(k, JSON.stringify(v));
     const readSessionId = () => sessionStorage.getItem(K.session) || localStorage.getItem(K.session) || '';
-    const me = ()=>ro(K.users,[]).find((u)=>String(u.id)===readSessionId()) || null;
+    const me = () => sessionUser;
+    async function loadSessionUser() {
+      const sid = readSessionId();
+      if (!sid) { sessionUser = null; return null; }
+      const { data, error } = await supabaseClient.from('users').select('*').eq('id', sid).maybeSingle();
+      if (error) { console.warn('champion user', error); sessionUser = null; return null; }
+      sessionUser = data;
+      return sessionUser;
+    }
     const hasRole = (user, role)=>!!user && Array.isArray(user.roles) && user.roles.includes(role);
     const isAdmin = (user)=>hasRole(user, 'admin') || hasRole(user, 'owner') || hasRole(user, 'co-owner') || hasRole(user, 'ceo') || hasRole(user, 'hr');
 
-    function guard(){
+    function guard() {
       const user = me();
       if (!(hasRole(user, 'champion') || isAdmin(user))) {
         alert('Champion portal access denied.');
@@ -177,10 +189,15 @@
       renderTournaments();
       renderRegistrations();
     }
-    window.addEventListener('storage', ()=>render());
-    guard();
-    ensureSeed();
-    render();
+    window.addEventListener('storage', () => render());
+    async function init() {
+      await loadSessionUser();
+      if (!me()) return (location.href = 'index.html');
+      guard();
+      ensureSeed();
+      render();
+    }
+    init();
   </script>
 </body>
 </html>
