@@ -183,7 +183,7 @@
         kind:'operation'
       };
       OPS.unshift(op);
-      supabaseClient.from('orders').upsert([op], { onConflict:'id' });
+      void supabaseClient.from('orders').upsert([op], { onConflict:'id' }).then(({ error }) => { if (error) console.warn('operations upsert', error); });
       addActivity(`Operation reserved: ${scenario.name} (${difficulty})`, user.name);
       event.target.reset();
       document.getElementById('opSquadSize').value = 5;
@@ -213,7 +213,7 @@
       if (!user) return;
       const next = OPS.filter((item)=>!(item.id === id && String(item.userId) === String(user.id)));
       OPS = next;
-      supabaseClient.from('orders').delete().eq('id', id).eq('userId', user.id);
+      void supabaseClient.from('orders').delete().eq('id', id).eq('userId', user.id).then(({ error }) => { if (error) console.warn('operations delete', error); });
       addActivity(`Operation cancelled: ${id}`, user.name);
       render();
     }

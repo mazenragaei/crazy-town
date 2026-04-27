@@ -3239,6 +3239,8 @@
       return Object.prototype.hasOwnProperty.call(DATA_CACHE, key) ? DATA_CACHE[key] : fallback;
     }
 
+    const LOCAL_BRIDGE_KEYS = new Set([DB_KEYS.tournamentRegs, DB_KEYS.tournaments]);
+
     async function syncKeyToSupabase(key, value){
       if (key === DB_KEYS.users) await supabaseClient.from('users').upsert(value || [], { onConflict:'id' });
       if (key === DB_KEYS.bookings) await supabaseClient.from('bookings').upsert(value || [], { onConflict:'id' });
@@ -3247,7 +3249,19 @@
     }
     function saveData(key, value) {
       DATA_CACHE[key] = value;
-      syncKeyToSupabase(key, value);
+      void syncKeyToSupabase(key, value).catch((err) => console.warn('Supabase sync failed:', key, err));
+      if (LOCAL_BRIDGE_KEYS.has(key)) {
+        try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { console.warn('Local bridge write failed:', key, e); }
+      }
+    }
+    function loadLocalBridgeIntoCache(key) {
+      if (!LOCAL_BRIDGE_KEYS.has(key)) return;
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length) DATA_CACHE[key] = parsed;
+      } catch (_) { /* ignore */ }
     }
 
     function ensureSeedData() {
@@ -3321,7 +3335,11 @@
       if (!sessionId) return null;
       return getUsers().find((user) => String(user.id) === sessionId) || null;
     }
-    function setCurrentUser(userId) { sessionStorage.setItem(DB_KEYS.session, String(userId)); }
+    function setCurrentUser(userId) {
+      const id = String(userId || '');
+      sessionStorage.setItem(DB_KEYS.session, id);
+      localStorage.setItem(DB_KEYS.session, id);
+    }
     function clearCurrentUser() { sessionStorage.removeItem(DB_KEYS.session); localStorage.removeItem(DB_KEYS.session); }
     function hasRole(user, role) { return !!user && Array.isArray(user.roles) && user.roles.includes(role); }
     function isAdmin(user) { return hasRole(user, 'admin') || hasRole(user, 'owner') || hasRole(user, 'co-owner') || hasRole(user, 'ceo'); }
@@ -4522,9 +4540,16 @@
       DATA_CACHE[DB_KEYS.cart] = [];
       DATA_CACHE[DB_KEYS.tournamentRegs] = [];
       DATA_CACHE[DB_KEYS.tournaments] = [];
+      loadLocalBridgeIntoCache(DB_KEYS.tournamentRegs);
+      loadLocalBridgeIntoCache(DB_KEYS.tournaments);
     }
     document.addEventListener('DOMContentLoaded', async () => {
-      await bootstrapSupabaseData();
+      try {
+        await bootstrapSupabaseData();
+      } catch (e) {
+        console.error('Supabase bootstrap failed', e);
+        showToast('Could not load data from server. Check network and Supabase keys.', 'error');
+      }
       ensureSeedData();
       checkAuth();
       renderNews();
@@ -4578,7 +4603,9 @@
         DATA_CACHE[DB_KEYS.users] = Array.isArray(res.data) ? res.data : [];
         applyLiveCacheToUI();
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') console.warn('Realtime channel:', status);
+      });
   </script>
 </body>
 </html>

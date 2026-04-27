@@ -299,7 +299,7 @@
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const CACHE = {};
     function readSessionId(){ return sessionStorage.getItem(K.session) || localStorage.getItem(K.session) || ''; }
-    function writeSessionId(v){ sessionStorage.setItem(K.session, String(v || '')); }
+    function writeSessionId(v){ const id = String(v || ''); sessionStorage.setItem(K.session, id); localStorage.setItem(K.session, id); }
     async function fetchTable(table, fallback = []){
       const { data, error } = await supabaseClient.from(table).select('*');
       if (error) return fallback;
@@ -307,7 +307,8 @@
     }
     async function pushRows(table, rows){
       if (!Array.isArray(rows) || !rows.length) return;
-      await supabaseClient.from(table).upsert(rows, { onConflict:'id' });
+      const { error } = await supabaseClient.from(table).upsert(rows, { onConflict:'id' });
+      if (error) console.warn('Supabase upsert', table, error);
     }
     function ro(k,d){ return Object.prototype.hasOwnProperty.call(CACHE, k) ? CACHE[k] : d; }
     function so(k,v){
@@ -317,6 +318,7 @@
       if (k === K.orders) pushRows('orders', v);
       if (k === K.teams) pushRows('teams', v);
       if (k === K.supportTickets) pushRows('support_tickets', v);
+      if (k === K.vipRequests) pushRows('vip_requests', v);
     }
     const act = (a,by='Admin') => { const arr=ro(K.activity,[]); arr.unshift({id:Date.now()+Math.random(),action:a,actor:by,at:new Date().toISOString()}); CACHE[K.activity]=arr.slice(0,300); };
     const me = ()=>ro(K.users,[]).find(u=>String(u.id)===readSessionId());
@@ -797,14 +799,12 @@
       setPane('insights');
     }
     function resolveVipRequest(id, status){
-      const reqs = ro(K.vipRequests,[]);
-      const target = reqs.find((r)=>r.id===id);
-      if(!target) return;
-      target.status = status;
-      target.updatedAt = new Date().toISOString();
-      so(K.vipRequests, reqs);
-      act(`VIP request ${id} marked ${status}`);
-      refresh();
+      const updatedAt = new Date().toISOString();
+      supabaseClient.from('vip_requests').update({ status, "updatedAt": updatedAt }).eq('id', id).then(async () => {
+        CACHE[K.vipRequests] = await fetchTable('vip_requests', []);
+        act(`VIP request ${id} marked ${status}`);
+        refresh();
+      }).catch((err) => { console.error(err); alert('Could not update VIP request (check Supabase RLS/network).'); });
     }
     function purgeActivity(){
       const keep = ro(K.activity,[]).slice(0, 80);
@@ -999,6 +999,7 @@
       CACHE[K.orders] = await fetchTable('orders', []);
       CACHE[K.teams] = await fetchTable('teams', []);
       CACHE[K.supportTickets] = await fetchTable('support_tickets', []);
+      CACHE[K.vipRequests] = await fetchTable('vip_requests', []);
       CACHE[K.activity] = [];
       CACHE[K.leaderboard] = [];
       CACHE[K.coupons] = [];
@@ -1009,7 +1010,6 @@
       CACHE[K.shifts] = [];
       CACHE[K.tournaments] = [];
       CACHE[K.tournamentRegs] = [];
-      CACHE[K.vipRequests] = [];
       CACHE[K.rolePolicy] = DEFAULT_ROLE_POLICY;
       ensurePrivilegedSeed();
       guard(); tabs(); refresh();
@@ -1018,6 +1018,7 @@
         .on('postgres_changes', { event:'*', schema:'public', table:'bookings' }, async ()=>{ CACHE[K.bookings] = await fetchTable('bookings', []); refresh(); })
         .on('postgres_changes', { event:'*', schema:'public', table:'orders' }, async ()=>{ CACHE[K.orders] = await fetchTable('orders', []); refresh(); })
         .on('postgres_changes', { event:'*', schema:'public', table:'users' }, async ()=>{ CACHE[K.users] = await fetchTable('users', []); refresh(); })
+        .on('postgres_changes', { event:'*', schema:'public', table:'vip_requests' }, async ()=>{ CACHE[K.vipRequests] = await fetchTable('vip_requests', []); refresh(); })
         .subscribe();
     }
     bootstrapSupabase();

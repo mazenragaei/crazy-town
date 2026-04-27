@@ -178,103 +178,140 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    const K = { users:'crazyTown_users', session:'crazyTown_session', activity:'crazyTown_activity', vipRequests:'crazyTown_vip_requests', vipDailyBonus:'crazyTown_vip_daily_bonus' };
-    const ro = (k,d)=>{ try{return JSON.parse(localStorage.getItem(k)) ?? d;}catch{return d;} };
-    const so = (k,v)=>localStorage.setItem(k,JSON.stringify(v));
+    const K = { session: 'crazyTown_session', activity: 'crazyTown_activity', vipDailyBonus: 'crazyTown_vip_daily_bonus' };
+    const SUPABASE_URL = 'https://gldwdwcpzcxcvqpcpiol.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsZHdkd2NwemN4Y3ZxcGNwaW9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMjE4NjAsImV4cCI6MjA5Mjg5Nzg2MH0.clwYiXpRG-2ZPC_WmGC56DdoVEiyVu2RgVe5yppxJ2E';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    function getUser(){
-      const sid = localStorage.getItem(K.session);
-      return ro(K.users,[]).find((u)=>String(u.id)===sid) || null;
-    }
-    function isAdmin(user){ return Array.isArray(user?.roles) && user.roles.includes('admin'); }
-    function isVip(user){ return Array.isArray(user?.roles) && user.roles.includes('vip'); }
-    function addActivity(action, actor='System'){
-      const arr = ro(K.activity,[]);
-      arr.unshift({id:`act-${Date.now()}`, action, actor, at:new Date().toISOString()});
-      so(K.activity, arr.slice(0,300));
+    function readSessionId() { return sessionStorage.getItem(K.session) || localStorage.getItem(K.session) || ''; }
+
+    let currentUser = null;
+    let myVipRequests = [];
+
+    function roLocal(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }
+    function soLocal(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { console.warn(e); } }
+
+    async function refreshUser() {
+      const sid = readSessionId();
+      if (!sid) { currentUser = null; return null; }
+      const { data, error } = await supabaseClient.from('users').select('*').eq('id', sid).maybeSingle();
+      if (error) { console.warn('vip user', error); currentUser = null; return null; }
+      currentUser = data;
+      return currentUser;
     }
 
-    function vipAction(message){
+    async function refreshVipRequests() {
+      if (!currentUser) { myVipRequests = []; return; }
+      const { data, error } = await supabaseClient.from('vip_requests').select('*').eq('userId', currentUser.id).order('createdAt', { ascending: false });
+      if (error) { console.warn('vip_requests', error); myVipRequests = []; return; }
+      myVipRequests = Array.isArray(data) ? data : [];
+    }
+
+    function getUser() { return currentUser; }
+    function isAdmin(user) { return Array.isArray(user?.roles) && (user.roles.includes('admin') || user.roles.includes('owner') || user.roles.includes('co-owner') || user.roles.includes('ceo')); }
+    function isVip(user) { return Array.isArray(user?.roles) && user.roles.includes('vip'); }
+
+    function addActivity(action, actor = 'System') {
+      const arr = roLocal(K.activity, []);
+      arr.unshift({ id: `act-${Date.now()}`, action, actor, at: new Date().toISOString() });
+      soLocal(K.activity, arr.slice(0, 300));
+    }
+
+    function vipAction(message) {
       const user = getUser();
-      if(!user) return;
+      if (!user) return;
       alert(message);
       addActivity(`VIP action: ${message}`, user.name);
       renderRecentVipActivity();
     }
 
-    function goBack(){
+    function goBack() {
       if (window.history.length > 1) return window.history.back();
       location.href = 'index.html';
     }
 
-    function buyVip(){
-      const users = ro(K.users,[]);
+    async function buyVip() {
+      await refreshUser();
       const user = getUser();
-      if(!user) return location.href='index.html';
-      const idx = users.findIndex(u=>u.id===user.id);
-      if(idx===-1) return;
+      if (!user) return (location.href = 'index.html');
       const price = 1999;
-      if(Number(users[idx].balance||0) < price) return alert(`Not enough balance. Need ${price} EGP`);
-      users[idx].balance = Number(users[idx].balance||0) - price;
-      users[idx].roles = users[idx].roles || ['member'];
-      if(!users[idx].roles.includes('vip')) users[idx].roles.push('vip');
-      so(K.users, users);
-      addActivity(`${users[idx].name} purchased VIP`, users[idx].name);
-      alert(`VIP activated successfully. Remaining balance: ${Number(users[idx].balance || 0).toFixed(0)} EGP`);
+      if (Number(user.balance || 0) < price) return alert(`Not enough balance. Need ${price} EGP`);
+      const roles = Array.isArray(user.roles) ? [...user.roles] : ['member'];
+      if (!roles.includes('vip')) roles.push('vip');
+      const next = { ...user, balance: Number(user.balance || 0) - price, roles };
+      const { error } = await supabaseClient.from('users').upsert([next], { onConflict: 'id' });
+      if (error) {
+        console.error(error);
+        return alert('Could not complete purchase (check Supabase / RLS).');
+      }
+      currentUser = next;
+      addActivity(`${user.name} purchased VIP`, user.name);
+      alert(`VIP activated successfully. Remaining balance: ${Number(next.balance || 0).toFixed(0)} EGP`);
       render();
     }
 
-    function submitVipRequest(){
+    async function submitVipRequest() {
+      await refreshUser();
       const user = getUser();
-      if(!user) return location.href='index.html';
-      if(!(isAdmin(user) || isVip(user))) return alert('Upgrade to VIP first');
+      if (!user) return (location.href = 'index.html');
+      if (!(isAdmin(user) || isVip(user))) return alert('Upgrade to VIP first');
       const title = document.getElementById('vipReqTitle').value.trim();
       const priority = document.getElementById('vipReqPriority').value;
       const date = document.getElementById('vipReqDate').value;
       const budget = Number(document.getElementById('vipReqBudget').value || 0);
       const notes = document.getElementById('vipReqNotes').value.trim();
-      if(!title) return alert('Please enter request title');
-      const list = ro(K.vipRequests,[]);
-      list.unshift({
-        id:`vip-${Date.now()}`,
-        userId:user.id,
-        userName:user.name,
+      if (!title) return alert('Please enter request title');
+      const id = `vip-${Date.now()}`;
+      const createdAt = new Date().toISOString();
+      const row = {
+        id,
+        userId: user.id,
+        userName: user.name,
         title,
         priority,
-        date,
+        date: date || null,
         budget,
-        notes,
-        status:'Pending',
-        createdAt:new Date().toISOString()
-      });
-      so(K.vipRequests, list);
+        notes: notes || '',
+        status: 'Pending',
+        createdAt
+      };
+      const { error } = await supabaseClient.from('vip_requests').insert([row]);
+      if (error) {
+        console.error(error);
+        return alert('Could not submit VIP request. Run supabase_setup.sql (vip_requests) and check RLS.');
+      }
       addActivity(`VIP request submitted: ${title}`, user.name);
       document.getElementById('vipReqTitle').value = '';
       document.getElementById('vipReqDate').value = '';
       document.getElementById('vipReqBudget').value = '';
       document.getElementById('vipReqNotes').value = '';
       alert('VIP request sent successfully.');
+      await refreshVipRequests();
       renderVipRequests();
       renderRecentVipActivity();
     }
 
-    function claimDailyVipBonus(){
+    async function claimDailyVipBonus() {
+      await refreshUser();
       const user = getUser();
-      if(!user) return location.href='index.html';
-      if(!(isAdmin(user) || isVip(user))) return alert('VIP only');
-      const today = new Date().toISOString().slice(0,10);
-      const bonusMap = ro(K.vipDailyBonus,{});
+      if (!user) return (location.href = 'index.html');
+      if (!(isAdmin(user) || isVip(user))) return alert('VIP only');
+      const today = new Date().toISOString().slice(0, 10);
+      const bonusMap = roLocal(K.vipDailyBonus, {});
       if (bonusMap[String(user.id)] === today) return alert('Daily bonus already claimed today.');
-      const users = ro(K.users,[]);
-      const idx = users.findIndex(u=>String(u.id)===String(user.id));
-      if(idx===-1) return;
       const amount = 10;
-      users[idx].balance = Number(users[idx].balance || 0) + amount;
-      so(K.users, users);
+      const next = { ...user, balance: Number(user.balance || 0) + amount };
+      const { error } = await supabaseClient.from('users').upsert([next], { onConflict: 'id' });
+      if (error) {
+        console.error(error);
+        return alert('Could not apply bonus (check Supabase / RLS).');
+      }
+      currentUser = next;
       bonusMap[String(user.id)] = today;
-      so(K.vipDailyBonus, bonusMap);
-      addActivity(`VIP daily bonus +${amount} EGP`, users[idx].name);
+      soLocal(K.vipDailyBonus, bonusMap);
+      addActivity(`VIP daily bonus +${amount} EGP`, user.name);
       alert(`Daily bonus claimed: +${amount} EGP`);
       render();
     }
@@ -287,9 +324,9 @@
       });
     }
 
-    function render(){
+    function render() {
       const user = getUser();
-      if(!user) return location.href='index.html';
+      if (!user) return (location.href = 'index.html');
       const box = document.getElementById('vipStatusBox');
       if(isAdmin(user) || isVip(user)){
         box.innerHTML = `<h3 style="margin:0 0 6px 0;">VIP Access Granted</h3><p class="small">Welcome ${user.name}. You can use all VIP services now.</p>`;
@@ -307,31 +344,47 @@
       renderVipRequests();
     }
 
-    function renderRecentVipActivity(){
+    function renderRecentVipActivity() {
       const user = getUser();
       const box = document.getElementById('vipActivityList');
       if (!user || !box) return;
-      const activities = ro(K.activity,[])
-        .filter((item)=>String(item.actor || '').toLowerCase() === String(user.name || '').toLowerCase() && String(item.action || '').includes('VIP'))
+      const activities = roLocal(K.activity, [])
+        .filter((item) => String(item.actor || '').toLowerCase() === String(user.name || '').toLowerCase() && String(item.action || '').includes('VIP'))
         .slice(0, 8);
       box.innerHTML = activities.length
         ? activities.map((item)=>`<div style="padding:8px 0; border-bottom:1px solid var(--line);">${item.action}<br><span class="small">${new Date(item.at).toLocaleString()}</span></div>`).join('')
         : '<div>No VIP activity yet.</div>';
     }
 
-    function renderVipRequests(){
+    function renderVipRequests() {
       const user = getUser();
       const box = document.getElementById('vipRequestsList');
-      if(!user || !box) return;
-      const reqs = ro(K.vipRequests,[])
-        .filter((req)=>String(req.userId)===String(user.id))
-        .slice(0, 10);
+      if (!user || !box) return;
+      const reqs = myVipRequests.filter((req) => String(req.userId) === String(user.id)).slice(0, 10);
       box.innerHTML = reqs.length
         ? reqs.map((req)=>`<div style="padding:8px 0; border-bottom:1px solid var(--line);"><strong>${req.title}</strong> (${req.priority}) - ${req.status}<br><span class="small">${new Date(req.createdAt).toLocaleString()}${req.date ? ` | planned: ${req.date}` : ''}${req.budget ? ` | budget: ${req.budget} EGP` : ''}</span></div>`).join('')
         : '<div>No requests yet.</div>';
     }
 
-    render();
+    async function init() {
+      await refreshUser();
+      if (!getUser()) return (location.href = 'index.html');
+      await refreshVipRequests();
+      render();
+      supabaseClient
+        .channel('vip-user-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, async () => {
+          await refreshUser();
+          render();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'vip_requests' }, async () => {
+          await refreshVipRequests();
+          renderVipRequests();
+        })
+        .subscribe();
+    }
+
+    init();
   </script>
 </body>
 </html>

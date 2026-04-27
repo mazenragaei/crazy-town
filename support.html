@@ -72,21 +72,32 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    const K = {
-      users:'crazyTown_users',
-      session:'crazyTown_session',
-      supportTickets:'crazyTown_support_tickets',
-      activity:'crazyTown_activity'
-    };
-    const ro = (k,d)=>{ try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
-    const so = (k,v)=>localStorage.setItem(k, JSON.stringify(v));
-    const me = ()=>ro(K.users,[]).find((u)=>String(u.id)===localStorage.getItem(K.session)) || null;
+    const K = { session: 'crazyTown_session' };
+    const SUPABASE_URL = 'https://gldwdwcpzcxcvqpcpiol.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsZHdkd2NwemN4Y3ZxcGNwaW9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMjE4NjAsImV4cCI6MjA5Mjg5Nzg2MH0.clwYiXpRG-2ZPC_WmGC56DdoVEiyVu2RgVe5yppxJ2E';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    function addActivity(action, actor='System') {
-      const arr = ro(K.activity,[]);
-      arr.unshift({ id:`act-${Date.now()}`, action, actor, at:new Date().toISOString() });
-      so(K.activity, arr.slice(0,300));
+    function readSessionId() { return sessionStorage.getItem(K.session) || localStorage.getItem(K.session) || ''; }
+
+    let currentUser = null;
+    let myTickets = [];
+
+    async function loadUser() {
+      const sid = readSessionId();
+      if (!sid) { currentUser = null; return null; }
+      const { data, error } = await supabaseClient.from('users').select('*').eq('id', sid).maybeSingle();
+      if (error) { console.warn('support load user', error); currentUser = null; return null; }
+      currentUser = data;
+      return currentUser;
+    }
+
+    async function loadTickets() {
+      if (!currentUser) { myTickets = []; return; }
+      const { data, error } = await supabaseClient.from('support_tickets').select('*').eq('userId', currentUser.id).order('createdAt', { ascending: false });
+      if (error) { console.warn('support tickets', error); myTickets = []; return; }
+      myTickets = Array.isArray(data) ? data : [];
     }
 
     function goBack() {
@@ -94,58 +105,88 @@
       location.href = 'index.html';
     }
 
-    function submitTicket(event) {
+    async function submitTicket(event) {
       event.preventDefault();
-      const user = me();
-      if (!user) return location.href = 'index.html';
+      await loadUser();
+      if (!currentUser) return (location.href = 'index.html');
       const category = document.getElementById('ticketCategory').value;
       const priority = document.getElementById('ticketPriority').value;
       const subject = document.getElementById('ticketSubject').value.trim();
       const message = document.getElementById('ticketMessage').value.trim();
       if (!category || !priority || !subject || !message) return;
-      const tickets = ro(K.supportTickets,[]);
-      const ticket = {
-        id:`T-${Date.now()}`,
-        userId:user.id,
-        userName:user.name,
+      const id = `T-${Date.now()}`;
+      const createdAt = new Date().toISOString();
+      const row = {
+        id,
+        userId: currentUser.id,
+        userName: currentUser.name,
         category,
         priority,
-        subject,
-        message,
-        status:'Open',
-        createdAt:new Date().toISOString()
+        message: `Subject: ${subject}\n\n${message}`,
+        status: 'Open',
+        createdAt
       };
-      tickets.unshift(ticket);
-      so(K.supportTickets, tickets);
-      addActivity(`Support ticket submitted: ${ticket.id}`, user.name);
+      const { error } = await supabaseClient.from('support_tickets').insert([row]);
+      if (error) {
+        console.error(error);
+        alert('Could not submit ticket. Check Supabase table support_tickets and RLS policies.');
+        return;
+      }
       event.target.reset();
+      await loadTickets();
       render();
     }
 
+    function subjectFromMessage(msg) {
+      const m = String(msg || '').match(/^Subject:\s*(.+?)(?:\n\n|$)/s);
+      return m ? m[1].trim() : '';
+    }
+
+    function bodyFromMessage(msg) {
+      const s = String(msg || '');
+      return s.replace(/^Subject:\s*.+?\n\n/s, '').trim() || s;
+    }
+
     function render() {
-      const user = me();
-      if (!user) return location.href = 'index.html';
-      const mine = ro(K.supportTickets,[]).filter((t)=>String(t.userId)===String(user.id));
-      const openCount = mine.filter((t)=>!['Resolved','Closed'].includes(t.status || 'Open')).length;
-      const resolvedCount = mine.filter((t)=>['Resolved','Closed'].includes(t.status || 'Open')).length;
+      if (!currentUser) return (location.href = 'index.html');
+      const mine = myTickets.filter((t) => String(t.userId) === String(currentUser.id));
+      const openCount = mine.filter((t) => !['Resolved', 'Closed'].includes(t.status || 'Open')).length;
+      const resolvedCount = mine.filter((t) => ['Resolved', 'Closed'].includes(t.status || 'Open')).length;
       document.getElementById('openTicketsCount').textContent = openCount;
       document.getElementById('resolvedTicketsCount').textContent = resolvedCount;
       document.getElementById('lastTicketStatus').textContent = mine[0] ? mine[0].status : '-';
       document.getElementById('ticketsTable').innerHTML = `
         <thead><tr><th>Ticket</th><th>Category</th><th>Priority</th><th>Subject</th><th>Status</th><th>Date</th></tr></thead>
-        <tbody>${mine.length ? mine.map((t)=>`
+        <tbody>${mine.length ? mine.map((t) => {
+          const subj = subjectFromMessage(t.message) || '(no subject)';
+          const body = bodyFromMessage(t.message);
+          return `
           <tr>
             <td>${t.id}</td>
             <td>${t.category}</td>
             <td>${t.priority}</td>
-            <td>${t.subject}<br><span class="small">${t.message}</span></td>
+            <td>${subj}<br><span class="small">${body}</span></td>
             <td>${t.status || 'Open'}</td>
             <td>${new Date(t.createdAt).toLocaleString()}</td>
-          </tr>
-        `).join('') : '<tr><td colspan="6">No tickets yet.</td></tr>'}</tbody>`;
+          </tr>`;
+        }).join('') : '<tr><td colspan="6">No tickets yet.</td></tr>'}</tbody>`;
     }
 
-    render();
+    async function init() {
+      await loadUser();
+      if (!currentUser) return (location.href = 'index.html');
+      await loadTickets();
+      render();
+      supabaseClient
+        .channel('support-my-tickets')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, async () => {
+          await loadTickets();
+          render();
+        })
+        .subscribe();
+    }
+
+    init();
   </script>
 </body>
 </html>

@@ -61,94 +61,118 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    const K = { users:'crazyTown_users', session:'crazyTown_session', teams:'crazyTown_teams', tournamentRegs:'crazyTown_tournament_regs' };
-    const ro = (k,d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
-    const so = (k,v) => localStorage.setItem(k, JSON.stringify(v));
-    const me = () => ro(K.users,[]).find((u) => String(u.id) === localStorage.getItem(K.session));
-    const isAdmin = (user) => Array.isArray(user?.roles) && user.roles.includes('admin');
+    const K = { session: 'crazyTown_session', tournamentRegs: 'crazyTown_tournament_regs' };
+    const SUPABASE_URL = 'https://gldwdwcpzcxcvqpcpiol.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsZHdkd2NwemN4Y3ZxcGNwaW9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMjE4NjAsImV4cCI6MjA5Mjg5Nzg2MH0.clwYiXpRG-2ZPC_WmGC56DdoVEiyVu2RgVe5yppxJ2E';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    function readSessionId() { return sessionStorage.getItem(K.session) || localStorage.getItem(K.session) || ''; }
+
+    let USERS = [];
+    let TEAMS = [];
+
+    function loadRegs() {
+      try { return JSON.parse(localStorage.getItem(K.tournamentRegs) || '[]'); } catch { return []; }
+    }
+    function saveRegs(regs) {
+      try { localStorage.setItem(K.tournamentRegs, JSON.stringify(regs)); } catch (e) { console.warn(e); }
+    }
+
+    async function refreshData() {
+      const { data: usersData, error: uErr } = await supabaseClient.from('users').select('*');
+      if (uErr) console.warn('team users', uErr);
+      USERS = Array.isArray(usersData) ? usersData : [];
+      const { data: teamsData, error: tErr } = await supabaseClient.from('teams').select('*');
+      if (tErr) console.warn('team teams', tErr);
+      TEAMS = Array.isArray(teamsData) ? teamsData : [];
+    }
+
+    const me = () => USERS.find((u) => String(u.id) === readSessionId()) || null;
+    const isAdmin = (user) => Array.isArray(user?.roles) && (user.roles.includes('admin') || user.roles.includes('owner') || user.roles.includes('co-owner') || user.roles.includes('ceo') || user.roles.includes('hr'));
+
+    async function persistTeams() {
+      if (!TEAMS.length) return;
+      const { error } = await supabaseClient.from('teams').upsert(TEAMS, { onConflict: 'id' });
+      if (error) console.error('team upsert', error);
+    }
 
     function getTeamForUser(userId) {
-      return ro(K.teams, []).find((t) => (t.members || []).includes(userId)) || null;
+      return TEAMS.find((t) => (t.members || []).includes(userId)) || null;
     }
 
     function getManagedTeam(user) {
-      const teams = ro(K.teams, []);
       if (isAdmin(user) && adminSelectedTeamId) {
-        return teams.find((t) => t.id === adminSelectedTeamId) || null;
+        return TEAMS.find((t) => t.id === adminSelectedTeamId) || null;
       }
-      return teams.find((t) => (t.members || []).includes(user.id)) || null;
+      return TEAMS.find((t) => (t.members || []).includes(user.id)) || null;
     }
 
-    function addMemberToTeam() {
+    async function addMemberToTeam() {
       const user = me();
       if (!user) return;
-      const teams = ro(K.teams, []);
       const team = getManagedTeam(user);
       if (!team) return;
       if (!(team.captainId === user.id || isAdmin(user))) return alert('Only leader/admin can add members.');
       const email = document.getElementById('addMemberEmail').value.trim().toLowerCase();
-      const users = ro(K.users, []);
-      const target = users.find((u) => u.email === email);
+      const target = USERS.find((u) => u.email === email);
       if (!target) return alert('User not found.');
       if (target.id === user.id) return alert('Cannot add yourself.');
       if (team.members.includes(target.id)) return alert('User already in team.');
       const existingTeam = getTeamForUser(target.id);
       if (existingTeam) return alert('User already belongs to another team.');
       team.members.push(target.id);
-      so(K.teams, teams);
+      await persistTeams();
       document.getElementById('addMemberEmail').value = '';
       render();
     }
 
-    function leaveTeam() {
+    async function leaveTeam() {
       const user = me();
       if (!user) return;
-      const teams = ro(K.teams, []);
-      const team = teams.find((t) => (t.members || []).includes(user.id));
+      const team = TEAMS.find((t) => (t.members || []).includes(user.id));
       if (!team) return;
       if (team.captainId === user.id) return alert('Leader cannot leave before transferring leadership or deleting the team.');
       team.members = (team.members || []).filter((id) => id !== user.id);
-      so(K.teams, teams);
+      await persistTeams();
       render();
     }
 
-    function removeMember(memberId) {
+    async function removeMember(memberId) {
       const user = me();
       if (!user) return;
-      const teams = ro(K.teams, []);
       const team = getManagedTeam(user);
       if (!team) return;
       if (!(team.captainId === user.id || isAdmin(user))) return alert('Only leader/admin can remove members.');
       if (memberId === team.captainId) return alert('Cannot remove current leader.');
       team.members = (team.members || []).filter((id) => id !== memberId);
-      so(K.teams, teams);
+      await persistTeams();
       render();
     }
 
-    function transferLeadership(newLeaderId) {
+    async function transferLeadership(newLeaderId) {
       const user = me();
       if (!user) return;
-      const teams = ro(K.teams, []);
       const team = getManagedTeam(user);
       if (!team) return;
       if (!(team.captainId === user.id || isAdmin(user))) return alert('Only leader/admin can transfer leadership.');
       if (!team.members.includes(newLeaderId)) return;
       team.captainId = newLeaderId;
-      so(K.teams, teams);
+      await persistTeams();
       render();
     }
 
-    function deleteMyTeam() {
+    async function deleteMyTeam() {
       const user = me();
       if (!user) return;
-      const teams = ro(K.teams, []);
       const team = getManagedTeam(user);
       if (!team) return;
       if (!(team.captainId === user.id || isAdmin(user))) return alert('Only leader/admin can delete team.');
-      const filteredTeams = teams.filter((t) => t.id !== team.id);
-      so(K.teams, filteredTeams);
-      so(K.tournamentRegs, ro(K.tournamentRegs, []).filter((r) => r.teamId !== team.id));
+      const { error } = await supabaseClient.from('teams').delete().eq('id', team.id);
+      if (error) console.error(error);
+      saveRegs(loadRegs().filter((r) => r.teamId !== team.id));
+      await refreshData();
       render();
     }
 
@@ -163,9 +187,8 @@
     function render() {
       const user = me();
       if (!user) return location.href = 'index.html';
-      const users = ro(K.users, []);
-      const usersMap = new Map(users.map((u) => [u.id, u]));
-      const teams = ro(K.teams, []);
+      const usersMap = new Map(USERS.map((u) => [u.id, u]));
+      const teams = TEAMS;
       let team = teams.find((t) => (t.members || []).includes(user.id));
       if (!team && isAdmin(user) && teams.length) {
         if (!adminSelectedTeamId) adminSelectedTeamId = teams[0].id;
@@ -204,7 +227,7 @@
         ` : (isAdmin(user) ? '<button class="btn" onclick="deleteMyTeam()">Delete Team</button>' : '<button class="btn" onclick="leaveTeam()">Leave Team</button>')}
       `;
 
-      const regs = ro(K.tournamentRegs, []).filter((r) => r.teamId === team.id);
+      const regs = loadRegs().filter((r) => r.teamId === team.id);
       document.getElementById('teamRegistrationsCount').textContent = regs.length;
 
       document.getElementById('membersList').innerHTML = (team.members || []).map((memberId) => {
@@ -244,7 +267,24 @@
       `;
     }
 
-    render();
+    async function init() {
+      await refreshData();
+      if (!me()) return (location.href = 'index.html');
+      render();
+      supabaseClient
+        .channel('team-hub-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, async () => {
+          await refreshData();
+          render();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, async () => {
+          await refreshData();
+          render();
+        })
+        .subscribe();
+    }
+
+    init();
   </script>
 </body>
 </html>

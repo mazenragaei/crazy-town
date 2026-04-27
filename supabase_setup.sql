@@ -76,6 +76,20 @@ create table if not exists public.support_tickets (
   "updatedAt" timestamptz
 );
 
+create table if not exists public.vip_requests (
+  id text primary key,
+  "userId" text references public.users(id) on delete set null,
+  "userName" text,
+  title text,
+  priority text default 'normal',
+  date text,
+  budget numeric default 0,
+  notes text,
+  status text default 'Pending',
+  "createdAt" timestamptz default now(),
+  "updatedAt" timestamptz
+);
+
 -- =========================
 -- 2) Helpful indexes
 -- =========================
@@ -83,6 +97,7 @@ create index if not exists idx_bookings_userid on public.bookings("userId");
 create index if not exists idx_orders_userid on public.orders("userId");
 create index if not exists idx_orders_kind on public.orders(kind);
 create index if not exists idx_support_tickets_userid on public.support_tickets("userId");
+create index if not exists idx_vip_requests_userid on public.vip_requests("userId");
 
 -- =========================
 -- 3) updated_at triggers
@@ -146,6 +161,7 @@ alter table public.bookings enable row level security;
 alter table public.orders enable row level security;
 alter table public.teams enable row level security;
 alter table public.support_tickets enable row level security;
+alter table public.vip_requests enable row level security;
 
 -- Drop old policies if rerun
 drop policy if exists users_read_all on public.users;
@@ -171,6 +187,11 @@ drop policy if exists support_read_owner_or_admin on public.support_tickets;
 drop policy if exists support_insert_owner_or_admin on public.support_tickets;
 drop policy if exists support_update_admin_only on public.support_tickets;
 drop policy if exists support_delete_admin_only on public.support_tickets;
+
+drop policy if exists vip_read_owner_or_admin on public.vip_requests;
+drop policy if exists vip_insert_owner_or_admin on public.vip_requests;
+drop policy if exists vip_update_admin_only on public.vip_requests;
+drop policy if exists vip_delete_admin_only on public.vip_requests;
 
 -- users
 create policy users_read_all
@@ -298,6 +319,32 @@ with check (public.is_admin_user());
 
 create policy support_delete_admin_only
 on public.support_tickets
+for delete
+to authenticated
+using (public.is_admin_user());
+
+-- vip_requests
+create policy vip_read_owner_or_admin
+on public.vip_requests
+for select
+to authenticated
+using ("userId" = auth.uid()::text or public.is_admin_user());
+
+create policy vip_insert_owner_or_admin
+on public.vip_requests
+for insert
+to authenticated
+with check ("userId" = auth.uid()::text or public.is_admin_user());
+
+create policy vip_update_admin_only
+on public.vip_requests
+for update
+to authenticated
+using (public.is_admin_user())
+with check (public.is_admin_user());
+
+create policy vip_delete_admin_only
+on public.vip_requests
 for delete
 to authenticated
 using (public.is_admin_user());

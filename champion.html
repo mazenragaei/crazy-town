@@ -97,7 +97,8 @@
     ];
     const ro = (k,d)=>{ try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
     const so = (k,v)=>localStorage.setItem(k, JSON.stringify(v));
-    const me = ()=>ro(K.users,[]).find((u)=>String(u.id)===localStorage.getItem(K.session)) || null;
+    const readSessionId = () => sessionStorage.getItem(K.session) || localStorage.getItem(K.session) || '';
+    const me = ()=>ro(K.users,[]).find((u)=>String(u.id)===readSessionId()) || null;
     const hasRole = (user, role)=>!!user && Array.isArray(user.roles) && user.roles.includes(role);
     const isAdmin = (user)=>hasRole(user, 'admin') || hasRole(user, 'owner') || hasRole(user, 'co-owner') || hasRole(user, 'ceo') || hasRole(user, 'hr');
 
