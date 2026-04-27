@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Support Center - Crazy Town</title>
+  <style>
+    :root { --bg:#0f0f23; --card:#1a1a2e; --line:#2a2a42; --text:#fff; --muted:#9ca3af; --accent:#00c2ff; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Arial,sans-serif; background:var(--bg); color:var(--text); }
+    .wrap { width:min(1150px,95vw); margin:24px auto; }
+    .top { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+    .btn { border:1px solid var(--line); background:#151528; color:#fff; padding:10px 12px; border-radius:10px; cursor:pointer; text-decoration:none; display:inline-block; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:12px; margin-top:14px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
+    .small { color:var(--muted); font-size:12px; }
+    .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin:10px 0; }
+    input, select, textarea { width:100%; background:#121226; color:#fff; border:1px solid var(--line); border-radius:8px; padding:8px; }
+    table { width:100%; border-collapse:collapse; min-width:760px; }
+    th, td { border-bottom:1px solid var(--line); text-align:left; padding:10px; font-size:14px; }
+    .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:12px; margin-top:8px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <h1>Support Center</h1>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn" onclick="goBack()">&larr; Back</button>
+        <a class="btn" href="page.html">Main Website</a>
+        <a class="btn" href="operations.html">Operations</a>
+        <a class="btn" href="vip.html">VIP</a>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card"><div class="small">My Open Tickets</div><h2 id="openTicketsCount">0</h2></div>
+      <div class="card"><div class="small">Resolved Tickets</div><h2 id="resolvedTicketsCount">0</h2></div>
+      <div class="card"><div class="small">Last Ticket Status</div><h2 id="lastTicketStatus">-</h2></div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <h3 style="margin-top:0;">Create Support Ticket</h3>
+      <form onsubmit="submitTicket(event)">
+        <div class="row">
+          <select id="ticketCategory" required>
+            <option value="">Category</option>
+            <option>Booking Issue</option>
+            <option>Payment Issue</option>
+            <option>VIP Issue</option>
+            <option>Operations Issue</option>
+            <option>Account Issue</option>
+          </select>
+          <select id="ticketPriority" required>
+            <option value="">Priority</option>
+            <option>Normal</option>
+            <option>High</option>
+            <option>Urgent</option>
+          </select>
+        </div>
+        <input id="ticketSubject" placeholder="Subject" required>
+        <textarea id="ticketMessage" rows="4" placeholder="Describe your issue..." required></textarea>
+        <div style="margin-top:10px;">
+          <button class="btn" type="submit">Submit Ticket</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <h3 style="margin-top:0;">My Tickets</h3>
+      <div class="table-wrap"><table id="ticketsTable"></table></div>
+    </div>
+  </div>
+
+  <script>
+    const K = {
+      users:'crazyTown_users',
+      session:'crazyTown_session',
+      supportTickets:'crazyTown_support_tickets',
+      activity:'crazyTown_activity'
+    };
+    const ro = (k,d)=>{ try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+    const so = (k,v)=>localStorage.setItem(k, JSON.stringify(v));
+    const me = ()=>ro(K.users,[]).find((u)=>String(u.id)===localStorage.getItem(K.session)) || null;
+
+    function addActivity(action, actor='System') {
+      const arr = ro(K.activity,[]);
+      arr.unshift({ id:`act-${Date.now()}`, action, actor, at:new Date().toISOString() });
+      so(K.activity, arr.slice(0,300));
+    }
+
+    function goBack() {
+      if (window.history.length > 1) return window.history.back();
+      location.href = 'page.html';
+    }
+
+    function submitTicket(event) {
+      event.preventDefault();
+      const user = me();
+      if (!user) return location.href = 'page.html';
+      const category = document.getElementById('ticketCategory').value;
+      const priority = document.getElementById('ticketPriority').value;
+      const subject = document.getElementById('ticketSubject').value.trim();
+      const message = document.getElementById('ticketMessage').value.trim();
+      if (!category || !priority || !subject || !message) return;
+      const tickets = ro(K.supportTickets,[]);
+      const ticket = {
+        id:`T-${Date.now()}`,
+        userId:user.id,
+        userName:user.name,
+        category,
+        priority,
+        subject,
+        message,
+        status:'Open',
+        createdAt:new Date().toISOString()
+      };
+      tickets.unshift(ticket);
+      so(K.supportTickets, tickets);
+      addActivity(`Support ticket submitted: ${ticket.id}`, user.name);
+      event.target.reset();
+      render();
+    }
+
+    function render() {
+      const user = me();
+      if (!user) return location.href = 'page.html';
+      const mine = ro(K.supportTickets,[]).filter((t)=>String(t.userId)===String(user.id));
+      const openCount = mine.filter((t)=>!['Resolved','Closed'].includes(t.status || 'Open')).length;
+      const resolvedCount = mine.filter((t)=>['Resolved','Closed'].includes(t.status || 'Open')).length;
+      document.getElementById('openTicketsCount').textContent = openCount;
+      document.getElementById('resolvedTicketsCount').textContent = resolvedCount;
+      document.getElementById('lastTicketStatus').textContent = mine[0] ? mine[0].status : '-';
+      document.getElementById('ticketsTable').innerHTML = `
+        <thead><tr><th>Ticket</th><th>Category</th><th>Priority</th><th>Subject</th><th>Status</th><th>Date</th></tr></thead>
+        <tbody>${mine.length ? mine.map((t)=>`
+          <tr>
+            <td>${t.id}</td>
+            <td>${t.category}</td>
+            <td>${t.priority}</td>
+            <td>${t.subject}<br><span class="small">${t.message}</span></td>
+            <td>${t.status || 'Open'}</td>
+            <td>${new Date(t.createdAt).toLocaleString()}</td>
+          </tr>
+        `).join('') : '<tr><td colspan="6">No tickets yet.</td></tr>'}</tbody>`;
+    }
+
+    render();
+  </script>
+</body>
+</html>

@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Owner Control Center</title>
+  <style>
+    :root { --bg:#f4f7fb; --card:#ffffff; --line:#dbe3ef; --text:#1f2937; --muted:#64748b; --accent:#2563eb; --ok:#16a34a; --danger:#dc2626; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: Arial, sans-serif; background:var(--bg); color:var(--text); }
+    .wrap { width:min(1320px,96vw); margin:18px auto; }
+    .top { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; }
+    .btn { border:1px solid var(--line); background:#fff; color:var(--text); padding:10px 12px; border-radius:10px; cursor:pointer; text-decoration:none; display:inline-block; transition:all .2s ease; }
+    .btn:hover { border-color:#b9c9e2; transform:translateY(-1px); }
+    .btn.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .btn.danger { background:#fee2e2; border-color:#fecaca; color:#991b1b; }
+    .layout { display:grid; grid-template-columns:280px 1fr; gap:14px; margin-top:12px; }
+    .sidebar { position:sticky; top:10px; max-height:calc(100vh - 20px); overflow:auto; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
+    .tabs { display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+    .tab { width:100%; text-align:left; }
+    .tab.active { border-color:var(--accent); color:var(--accent); background:#eff6ff; }
+    .pane { display:none; }
+    .pane.active { display:block; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; }
+    .small { color:var(--muted); font-size:12px; }
+    .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin:10px 0; }
+    input, select, textarea { width:100%; border:1px solid var(--line); border-radius:8px; padding:8px; background:#fff; color:var(--text); }
+    table { width:100%; border-collapse:collapse; min-width:820px; }
+    th, td { border-bottom:1px solid var(--line); text-align:left; padding:10px; font-size:14px; }
+    .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:12px; margin-top:8px; }
+    @media (max-width: 980px) { .layout { grid-template-columns:1fr; } .sidebar { position:relative; top:0; max-height:none; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <h1>Owner Control Center</h1>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <a class="btn" href="page.html">Main Website</a>
+        <a class="btn" href="admin.html">Admin Panel</a>
+        <a class="btn" href="champion.html">Champion</a>
+        <a class="btn" href="vip.html">VIP</a>
+        <a class="btn" href="operations.html">Operations</a>
+        <a class="btn" href="support.html">Support</a>
+      </div>
+    </div>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="card">
+          <div class="small">Privileged Navigation</div>
+          <div class="tabs" id="tabs"></div>
+        </div>
+      </aside>
+
+      <main>
+        <section class="pane active" data-pane="overview">
+          <div class="grid">
+            <div class="card"><div class="small">Users</div><h2 id="statUsers">0</h2></div>
+            <div class="card"><div class="small">Bookings</div><h2 id="statBookings">0</h2></div>
+            <div class="card"><div class="small">Orders</div><h2 id="statOrders">0</h2></div>
+            <div class="card"><div class="small">Support Tickets</div><h2 id="statTickets">0</h2></div>
+          </div>
+          <div class="card" style="margin-top:12px;">
+            <h3 style="margin-top:0;">Global Launch Settings</h3>
+            <div class="row">
+              <label><input id="cfgMaintenance" type="checkbox"> Maintenance Mode</label>
+              <label><input id="cfgSupport" type="checkbox"> Support Enabled</label>
+              <label><input id="cfgVip" type="checkbox"> VIP Enabled</label>
+            </div>
+            <div class="row">
+              <input id="cfgNotification" placeholder="Global notification text">
+              <button class="btn primary" onclick="saveGlobalSettings()">Save Settings</button>
+            </div>
+          </div>
+          <div class="card" style="margin-top:12px;">
+            <h3 style="margin-top:0;">Emergency Actions</h3>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn" onclick="exportAllBackup()">Export Full Backup</button>
+              <button class="btn danger" onclick="clearRuntimeCaches()">Clear Chat/Cart Cache</button>
+              <button class="btn danger" onclick="forceSignOutEveryone()">Force Sign-out All</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="pane" data-pane="roles">
+          <div class="card">
+            <h3 style="margin-top:0;">Role Governance (Owner/Co-Owner/CEO Full Control)</h3>
+            <div class="small">HR can be assigned here, but cannot edit owner/co-owner/ceo from admin panel.</div>
+            <div class="table-wrap"><table id="rolesTable"></table></div>
+          </div>
+        </section>
+
+        <section class="pane" data-pane="policy">
+          <div class="card">
+            <h3 style="margin-top:0;">Role Policy Matrix</h3>
+            <div class="small">Control each role permissions globally. Changes apply immediately in admin panel.</div>
+            <div class="table-wrap"><table id="policyTable"></table></div>
+            <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn primary" onclick="saveRolePolicy()">Save Policy</button>
+              <button class="btn" onclick="resetRolePolicy()">Reset Default</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="pane" data-pane="discounts">
+          <div class="card">
+            <h3 style="margin-top:0;">Advanced Targeted Discounts</h3>
+            <div class="row">
+              <input id="dcCode" placeholder="Code">
+              <select id="dcType"><option value="percent">Percent</option><option value="fixed">Fixed</option></select>
+              <input id="dcValue" type="number" placeholder="Value">
+            </div>
+            <div class="row">
+              <select id="dcTargetGroup">
+                <option value="all">All Users</option>
+                <option value="vip">VIP Only</option>
+                <option value="admin">Admins Only</option>
+                <option value="user">Specific User</option>
+              </select>
+              <select id="dcTargetUser"></select>
+              <button class="btn primary" onclick="createDiscount()">Create Discount</button>
+            </div>
+            <div class="table-wrap"><table id="discountsTable"></table></div>
+          </div>
+        </section>
+
+        <section class="pane" data-pane="audit">
+          <div class="card">
+            <h3 style="margin-top:0;">Audit Timeline</h3>
+            <div id="auditList" class="small"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const K = {
+      users:'crazyTown_users', bookings:'crazyTown_bookings', orders:'crazyTown_orders', supportTickets:'crazyTown_support_tickets',
+      activity:'crazyTown_activity', settings:'crazyTown_settings', coupons:'crazyTown_coupons', session:'crazyTown_session', rolePolicy:'crazyTown_role_policy'
+    };
+    const TABS = ['overview', 'roles', 'policy', 'discounts', 'audit'];
+    const POLICY_PERMISSIONS = ['accessAdminPanel', 'accessOwnerControl', 'managePrivilegedRoles', 'manageStaffRoles', 'manageTargetedDiscounts', 'runProductionMode'];
+    const POLICY_ROLES = ['owner', 'co-owner', 'ceo', 'hr', 'admin', 'champion', 'vip', 'member'];
+    const DEFAULT_ROLE_POLICY = {
+      owner:{ accessAdminPanel:true, accessOwnerControl:true, managePrivilegedRoles:true, manageStaffRoles:true, manageTargetedDiscounts:true, runProductionMode:true },
+      'co-owner':{ accessAdminPanel:true, accessOwnerControl:true, managePrivilegedRoles:true, manageStaffRoles:true, manageTargetedDiscounts:true, runProductionMode:true },
+      ceo:{ accessAdminPanel:true, accessOwnerControl:true, managePrivilegedRoles:true, manageStaffRoles:true, manageTargetedDiscounts:true, runProductionMode:true },
+      hr:{ accessAdminPanel:true, accessOwnerControl:false, managePrivilegedRoles:false, manageStaffRoles:true, manageTargetedDiscounts:false, runProductionMode:false },
+      admin:{ accessAdminPanel:true, accessOwnerControl:false, managePrivilegedRoles:false, manageStaffRoles:false, manageTargetedDiscounts:false, runProductionMode:false },
+      champion:{ accessAdminPanel:false, accessOwnerControl:false, managePrivilegedRoles:false, manageStaffRoles:false, manageTargetedDiscounts:false, runProductionMode:false },
+      vip:{ accessAdminPanel:false, accessOwnerControl:false, managePrivilegedRoles:false, manageStaffRoles:false, manageTargetedDiscounts:false, runProductionMode:false },
+      member:{ accessAdminPanel:false, accessOwnerControl:false, managePrivilegedRoles:false, manageStaffRoles:false, manageTargetedDiscounts:false, runProductionMode:false }
+    };
+    const SUPABASE_URL = 'https://gldwdwcpzcxcvqpcpiol.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsZHdkd2NwemN4Y3ZxcGNwaW9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMjE4NjAsImV4cCI6MjA5Mjg5Nzg2MH0.clwYiXpRG-2ZPC_WmGC56DdoVEiyVu2RgVe5yppxJ2E';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const CACHE = {};
+    function readSessionId(){ return sessionStorage.getItem(K.session) || localStorage.getItem(K.session) || ''; }
+    function clearSessionId(){ sessionStorage.removeItem(K.session); localStorage.removeItem(K.session); }
+    async function fetchTable(table, fallback = []){
+      const { data, error } = await supabaseClient.from(table).select('*');
+      if (error) return fallback;
+      return Array.isArray(data) ? data : fallback;
+    }
+    async function pushRows(table, rows){
+      if (!Array.isArray(rows) || !rows.length) return;
+      await supabaseClient.from(table).upsert(rows, { onConflict:'id' });
+    }
+    const ro = (k,d)=>Object.prototype.hasOwnProperty.call(CACHE, k) ? CACHE[k] : d;
+    function so(k,v){
+      CACHE[k] = v;
+      if (k === K.users) pushRows('users', v);
+      if (k === K.bookings) pushRows('bookings', v);
+      if (k === K.orders) pushRows('orders', v);
+      if (k === K.supportTickets) pushRows('support_tickets', v);
+    }
+    const me = ()=>ro(K.users,[]).find((u)=>String(u.id)===readSessionId());
+    const hasRole = (user, role)=>!!user && Array.isArray(user.roles) && user.roles.includes(role);
+    const canAccessOwnerControls = (user)=>hasRole(user, 'owner') || hasRole(user, 'co-owner') || hasRole(user, 'ceo');
+    function getRolePolicy(){
+      const current = ro(K.rolePolicy, DEFAULT_ROLE_POLICY);
+      return { ...DEFAULT_ROLE_POLICY, ...current };
+    }
+
+    function guard() {
+      const user = me();
+      if (!canAccessOwnerControls(user)) {
+        alert('Owner control access denied.');
+        location.href = 'page.html';
+      }
+    }
+    function tabs() {
+      const box = document.getElementById('tabs');
+      box.innerHTML = TABS.map((id)=>`<button class="btn tab ${id === 'overview' ? 'active':''}" data-id="${id}" onclick="setPane('${id}')">${id.toUpperCase()}</button>`).join('');
+    }
+    function setPane(id) {
+      document.querySelectorAll('.pane').forEach((p)=>p.classList.toggle('active', p.dataset.pane === id));
+      document.querySelectorAll('.tab').forEach((t)=>t.classList.toggle('active', t.dataset.id === id));
+    }
+    function act(action, actor='Owner Control'){
+      const arr = ro(K.activity,[]);
+      arr.unshift({ id:Date.now()+Math.random(), action, actor, at:new Date().toISOString() });
+      so(K.activity, arr.slice(0, 300));
+    }
+    function exportAllBackup(){
+      const data = {};
+      Object.values(K).forEach((k)=>{ if (k !== K.session) data[k] = ro(k, null); });
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'crazy-town-owner-backup.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      act('Full backup exported from Owner Control');
+    }
+    function clearRuntimeCaches(){
+      act('Runtime cache cleared by owner');
+      alert('Runtime cache cleared.');
+    }
+    function forceSignOutEveryone(){
+      clearSessionId();
+      act('Forced sign-out initiated for all sessions');
+      alert('Session key cleared on this client. Other clients will require re-login on refresh.');
+      location.href = 'page.html';
+    }
+    function saveGlobalSettings(){
+      const settings = ro(K.settings, { maintenance:false, notifications:[] });
+      settings.maintenance = document.getElementById('cfgMaintenance').checked;
+      settings.supportEnabled = document.getElementById('cfgSupport').checked;
+      settings.vipEnabled = document.getElementById('cfgVip').checked;
+      const text = document.getElementById('cfgNotification').value.trim();
+      if (text) {
+        settings.notifications = settings.notifications || [];
+        settings.notifications.unshift({ text, at:new Date().toISOString() });
+      }
+      so(K.settings, settings);
+      act('Global settings updated from Owner Control');
+      render();
+      alert('Settings saved.');
+    }
+    function renderRolesTable(){
+      const users = ro(K.users,[]);
+      document.getElementById('rolesTable').innerHTML = `
+        <thead><tr><th>Name</th><th>Email</th><th>Roles</th><th>Add Role</th><th>Remove Role</th></tr></thead>
+        <tbody>${users.map((u)=>`<tr>
+          <td>${u.name}</td><td>${u.email || '-'}</td><td>${(u.roles || ['member']).join(' / ')}</td>
+          <td><select id="add-role-${u.id}"><option>member</option><option>vip</option><option>champion</option><option>hr</option><option>admin</option><option>co-owner</option><option>ceo</option><option>owner</option></select> <button class="btn" onclick="addRole('${u.id}')">Add</button></td>
+          <td><select id="remove-role-${u.id}"><option>member</option><option>vip</option><option>champion</option><option>hr</option><option>admin</option><option>co-owner</option><option>ceo</option><option>owner</option></select> <button class="btn" onclick="removeRole('${u.id}')">Remove</button></td>
+        </tr>`).join('')}</tbody>`;
+    }
+    function addRole(id){
+      const users = ro(K.users,[]);
+      const u = users.find((x)=>String(x.id)===String(id));
+      if(!u) return;
+      const role = document.getElementById(`add-role-${id}`).value;
+      u.roles = Array.isArray(u.roles) ? u.roles : ['member'];
+      if(!u.roles.includes(role)) u.roles.push(role);
+      so(K.users, users);
+      act(`Role ${role} granted to ${u.name}`, me()?.name || 'Owner');
+      render();
+    }
+    function removeRole(id){
+      const users = ro(K.users,[]);
+      const u = users.find((x)=>String(x.id)===String(id));
+      if(!u) return;
+      const role = document.getElementById(`remove-role-${id}`).value;
+      if (u.id === 'root-admin' && role === 'owner') return alert('Root Admin must keep owner role.');
+      u.roles = (u.roles || ['member']).filter((r)=>r !== role);
+      if (!u.roles.length) u.roles = ['member'];
+      so(K.users, users);
+      act(`Role ${role} removed from ${u.name}`, me()?.name || 'Owner');
+      render();
+    }
+    function createDiscount(){
+      const code = document.getElementById('dcCode').value.trim().toUpperCase();
+      const type = document.getElementById('dcType').value;
+      const value = Number(document.getElementById('dcValue').value || 0);
+      const targetGroup = document.getElementById('dcTargetGroup').value || 'all';
+      const targetUserId = document.getElementById('dcTargetUser').value;
+      if(!code) return alert('Enter discount code.');
+      if (targetGroup === 'user' && !targetUserId) return alert('Select user for user-target discount.');
+      const coupons = ro(K.coupons,[]);
+      coupons.push({ code, type, value, active:true, targetGroup, targetUserId:targetGroup === 'user' ? targetUserId : '', createdByRole:'owner-control' });
+      so(K.coupons, coupons);
+      act(`Discount ${code} created for ${targetGroup}`, me()?.name || 'Owner');
+      renderDiscounts();
+    }
+    function renderDiscounts(){
+      const coupons = ro(K.coupons,[]);
+      const users = ro(K.users,[]);
+      document.getElementById('dcTargetUser').innerHTML = `<option value="">Select user...</option>${users.map((u)=>`<option value="${u.id}">${u.name}</option>`).join('')}`;
+      document.getElementById('discountsTable').innerHTML = `
+        <thead><tr><th>Code</th><th>Type</th><th>Value</th><th>Target</th><th>Active</th></tr></thead>
+        <tbody>${coupons.map((c)=>`<tr><td>${c.code}</td><td>${c.type}</td><td>${c.value}</td><td>${c.targetGroup || 'all'}${c.targetUserId ? ` (${users.find((u)=>String(u.id)===String(c.targetUserId))?.name || c.targetUserId})` : ''}</td><td>${c.active ? 'Yes' : 'No'}</td></tr>`).join('')}</tbody>`;
+    }
+    function renderAudit(){
+      const list = ro(K.activity,[]).slice(0, 120);
+      document.getElementById('auditList').innerHTML = list.length
+        ? list.map((x)=>`<div style="padding:8px 0; border-bottom:1px solid var(--line);"><strong>${new Date(x.at).toLocaleString()}</strong> - ${x.actor}: ${x.action}</div>`).join('')
+        : 'No audit entries.';
+    }
+    function renderOverview(){
+      const users = ro(K.users,[]);
+      const bookings = ro(K.bookings,[]);
+      const orders = ro(K.orders,[]);
+      const tickets = ro(K.supportTickets,[]);
+      const settings = ro(K.settings,{ maintenance:false, supportEnabled:true, vipEnabled:true, notifications:[] });
+      document.getElementById('statUsers').textContent = users.length;
+      document.getElementById('statBookings').textContent = bookings.length;
+      document.getElementById('statOrders').textContent = orders.length;
+      document.getElementById('statTickets').textContent = tickets.length;
+      document.getElementById('cfgMaintenance').checked = !!settings.maintenance;
+      document.getElementById('cfgSupport').checked = settings.supportEnabled !== false;
+      document.getElementById('cfgVip').checked = settings.vipEnabled !== false;
+      document.getElementById('cfgNotification').value = '';
+    }
+    function renderPolicyTable(){
+      const policy = getRolePolicy();
+      const header = POLICY_PERMISSIONS.map((p)=>`<th>${p}</th>`).join('');
+      const rows = POLICY_ROLES.map((role)=>{
+        const cells = POLICY_PERMISSIONS.map((perm)=>{
+          const checked = policy[role]?.[perm] ? 'checked' : '';
+          return `<td><input type="checkbox" data-role="${role}" data-perm="${perm}" ${checked}></td>`;
+        }).join('');
+        return `<tr><td><strong>${role}</strong></td>${cells}</tr>`;
+      }).join('');
+      document.getElementById('policyTable').innerHTML = `<thead><tr><th>Role</th>${header}</tr></thead><tbody>${rows}</tbody>`;
+    }
+    function saveRolePolicy(){
+      const policy = getRolePolicy();
+      document.querySelectorAll('#policyTable input[type="checkbox"]').forEach((input)=>{
+        const role = input.getAttribute('data-role');
+        const perm = input.getAttribute('data-perm');
+        if (!policy[role]) policy[role] = {};
+        policy[role][perm] = input.checked;
+      });
+      so(K.rolePolicy, policy);
+      act('Role policy matrix updated', me()?.name || 'Owner');
+      alert('Role policy saved successfully.');
+    }
+    function resetRolePolicy(){
+      if (!confirm('Reset role policy to defaults?')) return;
+      so(K.rolePolicy, DEFAULT_ROLE_POLICY);
+      act('Role policy reset to default', me()?.name || 'Owner');
+      renderPolicyTable();
+    }
+    function render(){
+      renderOverview();
+      renderRolesTable();
+      renderPolicyTable();
+      renderDiscounts();
+      renderAudit();
+    }
+    async function bootstrapSupabase(){
+      CACHE[K.users] = await fetchTable('users', []);
+      CACHE[K.bookings] = await fetchTable('bookings', []);
+      CACHE[K.orders] = await fetchTable('orders', []);
+      CACHE[K.supportTickets] = await fetchTable('support_tickets', []);
+      CACHE[K.activity] = [];
+      CACHE[K.settings] = { maintenance:false, supportEnabled:true, vipEnabled:true, notifications:[] };
+      CACHE[K.coupons] = [];
+      CACHE[K.rolePolicy] = DEFAULT_ROLE_POLICY;
+      guard();
+      tabs();
+      render();
+      supabaseClient
+        .channel('owner-live-bookings-orders')
+        .on('postgres_changes', { event:'*', schema:'public', table:'bookings' }, async ()=>{ CACHE[K.bookings] = await fetchTable('bookings', []); render(); })
+        .on('postgres_changes', { event:'*', schema:'public', table:'orders' }, async ()=>{ CACHE[K.orders] = await fetchTable('orders', []); render(); })
+        .subscribe();
+    }
+    bootstrapSupabase();
+  </script>
+</body>
+</html>
