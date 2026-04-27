@@ -30,7 +30,7 @@
   <div class="wrap">
     <div class="top">
       <div>
-        <a class="btn" href="page.html">Main Website</a>
+        <a class="btn" href="index.html">Main Website</a>
         <a class="btn" href="vip.html">VIP</a>
         <a class="btn" href="operations.html">Operations</a>
       </div>
@@ -105,7 +105,7 @@
       const user = me();
       if (!(hasRole(user, 'champion') || isAdmin(user))) {
         alert('Champion portal access denied.');
-        location.href = 'page.html';
+        location.href = 'index.html';
       }
     }
     function ensureSeed(){

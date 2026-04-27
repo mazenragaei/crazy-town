@@ -31,7 +31,7 @@
       <h1>Operations Center</h1>
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
         <button class="btn" onclick="goBack()">&larr; Back</button>
-        <a class="btn" href="page.html">Main Website</a>
+        <a class="btn" href="index.html">Main Website</a>
         <a class="btn" href="team.html">My Team Hub</a>
         <a class="btn" href="vip.html">VIP Portal</a>
         <a class="btn" href="support.html">Support</a>
@@ -129,7 +129,7 @@
 
     function goBack() {
       if (window.history.length > 1) return window.history.back();
-      location.href = 'page.html';
+      location.href = 'index.html';
     }
 
     function renderScenarioCards() {
@@ -154,7 +154,7 @@
     function reserveOperation(event) {
       event.preventDefault();
       const user = me();
-      if (!user) return location.href = 'page.html';
+      if (!user) return location.href = 'index.html';
       const scenarioId = document.getElementById('opScenario').value;
       const difficulty = document.getElementById('opDifficulty').value;
       const date = document.getElementById('opDate').value;
@@ -254,7 +254,7 @@
 
     function render() {
       const user = me();
-      if (!user) return location.href = 'page.html';
+      if (!user) return location.href = 'index.html';
       const dateInput = document.getElementById('opDate');
       if (dateInput) dateInput.min = new Date().toISOString().split('T')[0];
       renderScenarioCards();

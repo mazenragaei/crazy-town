@@ -355,8 +355,8 @@
       so(K.users, users);
     }
 
-    function guard(){ const u=me(); if(!isAdmin(u)){ alert('Admin only'); location.href='page.html'; } }
-    function goHome(){ location.href='page.html'; }
+    function guard(){ const u=me(); if(!isAdmin(u)){ alert('Admin only'); location.href='index.html'; } }
+    function goHome(){ location.href='index.html'; }
     function goBack(){
       if (window.history.length > 1) return window.history.back();
       goHome();

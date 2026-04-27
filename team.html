@@ -26,7 +26,7 @@
     <div class="top">
       <h1>My Team Hub</h1>
       <div>
-        <a class="btn" href="page.html">Main Website</a>
+        <a class="btn" href="index.html">Main Website</a>
         <a class="btn" href="operations.html">Operations Center</a>
         <a class="btn" href="support.html">Support</a>
         <a class="btn" href="admin.html">Admin Panel</a>
@@ -162,7 +162,7 @@
 
     function render() {
       const user = me();
-      if (!user) return location.href = 'page.html';
+      if (!user) return location.href = 'index.html';
       const users = ro(K.users, []);
       const usersMap = new Map(users.map((u) => [u.id, u]));
       const teams = ro(K.teams, []);

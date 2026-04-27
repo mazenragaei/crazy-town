@@ -27,7 +27,7 @@
       <h1>Support Center</h1>
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
         <button class="btn" onclick="goBack()">&larr; Back</button>
-        <a class="btn" href="page.html">Main Website</a>
+        <a class="btn" href="index.html">Main Website</a>
         <a class="btn" href="operations.html">Operations</a>
         <a class="btn" href="vip.html">VIP</a>
       </div>
@@ -91,13 +91,13 @@
 
     function goBack() {
       if (window.history.length > 1) return window.history.back();
-      location.href = 'page.html';
+      location.href = 'index.html';
     }
 
     function submitTicket(event) {
       event.preventDefault();
       const user = me();
-      if (!user) return location.href = 'page.html';
+      if (!user) return location.href = 'index.html';
       const category = document.getElementById('ticketCategory').value;
       const priority = document.getElementById('ticketPriority').value;
       const subject = document.getElementById('ticketSubject').value.trim();
@@ -124,7 +124,7 @@
 
     function render() {
       const user = me();
-      if (!user) return location.href = 'page.html';
+      if (!user) return location.href = 'index.html';
       const mine = ro(K.supportTickets,[]).filter((t)=>String(t.userId)===String(user.id));
       const openCount = mine.filter((t)=>!['Resolved','Closed'].includes(t.status || 'Open')).length;
       const resolvedCount = mine.filter((t)=>['Resolved','Closed'].includes(t.status || 'Open')).length;

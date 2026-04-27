@@ -39,7 +39,7 @@
       <h1>VIP Portal</h1>
       <div>
         <button class="btn" onclick="goBack()">&larr; Back</button>
-        <a class="btn" href="page.html">Main Website</a>
+        <a class="btn" href="index.html">Main Website</a>
         <a class="btn" href="team.html">My Team Hub</a>
         <a class="btn" href="operations.html">Operations Center</a>
         <a class="btn" href="support.html">Support</a>
@@ -205,13 +205,13 @@
 
     function goBack(){
       if (window.history.length > 1) return window.history.back();
-      location.href = 'page.html';
+      location.href = 'index.html';
     }
 
     function buyVip(){
       const users = ro(K.users,[]);
       const user = getUser();
-      if(!user) return location.href='page.html';
+      if(!user) return location.href='index.html';
       const idx = users.findIndex(u=>u.id===user.id);
       if(idx===-1) return;
       const price = 1999;
@@ -227,7 +227,7 @@
 
     function submitVipRequest(){
       const user = getUser();
-      if(!user) return location.href='page.html';
+      if(!user) return location.href='index.html';
       if(!(isAdmin(user) || isVip(user))) return alert('Upgrade to VIP first');
       const title = document.getElementById('vipReqTitle').value.trim();
       const priority = document.getElementById('vipReqPriority').value;
@@ -261,7 +261,7 @@
 
     function claimDailyVipBonus(){
       const user = getUser();
-      if(!user) return location.href='page.html';
+      if(!user) return location.href='index.html';
       if(!(isAdmin(user) || isVip(user))) return alert('VIP only');
       const today = new Date().toISOString().slice(0,10);
       const bonusMap = ro(K.vipDailyBonus,{});
@@ -289,7 +289,7 @@
 
     function render(){
       const user = getUser();
-      if(!user) return location.href='page.html';
+      if(!user) return location.href='index.html';
       const box = document.getElementById('vipStatusBox');
       if(isAdmin(user) || isVip(user)){
         box.innerHTML = `<h3 style="margin:0 0 6px 0;">VIP Access Granted</h3><p class="small">Welcome ${user.name}. You can use all VIP services now.</p>`;

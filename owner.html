@@ -37,7 +37,7 @@
     <div class="top">
       <h1>Owner Control Center</h1>
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
-        <a class="btn" href="page.html">Main Website</a>
+        <a class="btn" href="index.html">Main Website</a>
         <a class="btn" href="admin.html">Admin Panel</a>
         <a class="btn" href="champion.html">Champion</a>
         <a class="btn" href="vip.html">VIP</a>
@@ -190,7 +190,7 @@
       const user = me();
       if (!canAccessOwnerControls(user)) {
         alert('Owner control access denied.');
-        location.href = 'page.html';
+        location.href = 'index.html';
       }
     }
     function tabs() {
@@ -226,7 +226,7 @@
       clearSessionId();
       act('Forced sign-out initiated for all sessions');
       alert('Session key cleared on this client. Other clients will require re-login on refresh.');
-      location.href = 'page.html';
+      location.href = 'index.html';
     }
     function saveGlobalSettings(){
       const settings = ro(K.settings, { maintenance:false, notifications:[] });
