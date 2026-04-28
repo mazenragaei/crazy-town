@@ -3,1065 +3,280 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Crazy Town Admin</title>
+  <title>Admin Panel - Crazy Town</title>
   <style>
     :root { --bg:#0f0f23; --card:#1a1a2e; --text:#fff; --muted:#9ca3af; --line:#2a2a42; --accent:#00c2ff; --ok:#22c55e; --warn:#f59e0b; --danger:#ef4444; }
     * { box-sizing: border-box; }
-    body { margin:0; font-family: Arial, sans-serif; background:linear-gradient(180deg,#0d1024,#0f0f23); color:var(--text); }
-    .wrap { width:min(900px,96vw); margin:18px auto; max-width:100%; }
-    .top { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center; position:sticky; top:10px; z-index:10; background:rgba(15,15,35,0.86); backdrop-filter:blur(8px); border:1px solid var(--line); border-radius:14px; padding:10px 12px; margin-bottom:12px; }
-    .admin-main-layout { display:grid; grid-template-columns:280px 1fr; gap:14px; align-items:start; }
-    .admin-sidebar { position:sticky; top:84px; max-height:calc(100vh - 98px); overflow:auto; padding-right:4px; }
-    .admin-content { min-width:0; }
-    .tabs { display:flex; gap:8px; flex-wrap:nowrap; flex-direction:column; margin:10px 0; }
-    .tab, .btn { border:1px solid var(--line); background:#151528; color:var(--text); padding:10px 12px; border-radius:10px; cursor:pointer; transition:all .22s ease; }
-    .tab:hover, .btn:hover { transform:translateY(-1px); border-color:#3c4568; background:#1b1b34; }
-    .tab { text-align:left; width:100%; }
-    .tab.active { border-color:var(--accent); color:var(--accent); background:rgba(0,194,255,0.12); }
-    .grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
-    .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
-    .pane { display:none; }
-    .pane.active { display:block; animation:fadePane .22s ease; }
-    @keyframes fadePane { from{opacity:.5; transform:translateY(3px);} to{opacity:1; transform:translateY(0);} }
-    table { width:100%; border-collapse: collapse; min-width:860px; }
-    th, td { border-bottom:1px solid var(--line); padding:10px; text-align:left; font-size:14px; }
-    th { position:sticky; top:0; background:#16162d; z-index:1; }
-    tr:nth-child(even) td { background:rgba(255,255,255,0.01); }
-    .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:12px; margin-top:10px; }
-    input, select, textarea { width:100%; background:#121226; color:#fff; border:1px solid var(--line); border-radius:8px; padding:8px; }
-    .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin:10px 0; }
-    .badge { padding:2px 8px; border-radius:999px; border:1px solid var(--line); font-size:12px; margin-right:4px; display:inline-block; }
-    .ok { color:var(--ok); } .warn { color:var(--warn); } .danger { color:var(--danger); }
-    .small { color:var(--muted); font-size:12px; }
-    .log { max-height:280px; overflow:auto; }
-    .search-wrap { position:relative; width:min(860px,100%); }
-    .search-card { margin-top:0; padding:12px; background:linear-gradient(135deg,rgba(0,194,255,0.08),rgba(26,26,46,0.9)); }
-    .prod-card { margin-top:10px; background:linear-gradient(135deg,rgba(34,197,94,0.08),rgba(26,26,46,0.9)); }
-    @media (max-width: 980px) {
-      .admin-main-layout { grid-template-columns:1fr; }
-      .admin-sidebar { position:relative; top:0; max-height:none; overflow:visible; }
+    body { 
+      margin:0; font-family: 'Rajdhani', sans-serif; 
+      background: #0d1024; color: var(--text); 
     }
-    #adminSearchResults {
-      position:absolute;
-      top: calc(100% + 6px);
-      left:0;
-      right:0;
-      background:#121226;
-      border:1px solid var(--line);
-      border-radius:12px;
-      max-height:280px;
-      overflow:auto;
-      z-index:20;
-      display:none;
+    .wrap { width: min(1300px, 96vw); margin: 24px auto; }
+    .top { 
+      display:flex; justify-content:space-between; align-items:center; 
+      background: var(--card); border: 1px solid var(--line); padding: 15px 24px; border-radius: 12px; margin-bottom: 20px;
     }
-    .search-item {
-      padding:10px;
-      border-bottom:1px solid var(--line);
-      cursor:pointer;
+    .btn { 
+      border:1px solid var(--line); background:#151528; color:#fff; padding:10px 16px; border-radius:8px; 
+      cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:8px;
     }
-    .search-item:last-child { border-bottom:none; }
-    .search-item:hover, .search-item.active { background:#1b1b33; }
-    .search-item .small { display:block; margin-top:4px; }
+    .btn:hover { background: #1b1b34; border-color: var(--accent); }
+    .btn-primary { background: var(--accent); color: #000; font-weight: 700; }
+    
+    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 20px; }
+    .stat-card { background: var(--card); border: 1px solid var(--line); padding: 20px; border-radius: 12px; }
+    .stat-card .small { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
+    .stat-card h2 { margin: 5px 0 0; font-size: 2rem; color: var(--accent); }
+
+    .tabs { display:flex; gap: 10px; margin-bottom: 20px; background: rgba(255,255,255,0.02); padding: 8px; border-radius: 10px; overflow-x: auto; }
+    .tab { padding: 10px 20px; cursor: pointer; border-radius: 8px; border: 1px solid transparent; color: var(--muted); font-weight: 600; white-space: nowrap; }
+    .tab.active { background: var(--accent); color: #000; border-color: var(--accent); }
+    
+    .pane { display: none; }
+    .pane.active { display: block; }
+    
+    .table-wrap { overflow: auto; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+    table { width: 100%; border-collapse: collapse; min-width: 800px; }
+    th, td { padding: 15px; text-align: left; border-bottom: 1px solid var(--line); }
+    th { background: rgba(255,255,255,0.03); color: var(--muted); font-size: 0.85rem; text-transform: uppercase; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .badge { padding: 4px 10px; border-radius: 5px; font-size: 0.75rem; font-weight: 700; }
+    .badge-ok { background: rgba(34,197,94,0.1); color: #86efac; border: 1px solid rgba(34,197,94,0.2); }
+    .badge-warn { background: rgba(245,158,11,0.1); color: #fcd34d; border: 1px solid rgba(245,158,11,0.2); }
+    
+    .actions { display: flex; gap: 8px; }
+    
+    #loadingOverlay {
+      position: fixed; inset: 0; background: var(--bg); z-index: 3000;
+      display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 20px;
+    }
   </style>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 </head>
-<body>
+<body style="opacity: 0;"> <!-- Hidden until guard passes -->
+
+  <div id="loadingOverlay">
+    <i class="fas fa-spinner fa-spin fa-2x" style="color: var(--accent);"></i>
+    <p>Authorizing access...</p>
+  </div>
+
   <div class="wrap">
     <div class="top">
-      <h1>Admin Control Center</h1>
-      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-        <button class="btn" onclick="goBack()">&larr; Back</button>
-        <button class="btn" onclick="goHome()">Main Website</button>
-        <button class="btn" onclick="exportAllBackup()">Backup JSON</button>
-        <button class="btn" onclick="startProductionMode()">Production Mode</button>
-        <button class="btn" id="ownerOnlyBtn" style="display:none;" onclick="openOwnerControls()">Owner Controls</button>
-        <input id="quickFilter" type="search" placeholder="Quick filter in current tab..." oninput="applyQuickFilter()" style="min-width:220px;">
+      <div style="display: flex; align-items: center; gap: 15px;">
+        <h1 style="margin:0; font-size: 1.5rem;">Admin Panel</h1>
+        <div class="badge badge-ok">Connected</div>
+      </div>
+      <div class="actions">
+        <a href="index.html" class="btn"><i class="fas fa-home"></i> Website</a>
+        <button onclick="logout()" class="btn" style="color: var(--danger);"><i class="fas fa-sign-out-alt"></i> Sign Out</button>
       </div>
     </div>
-    <div class="admin-main-layout">
-      <aside class="admin-sidebar">
-        <div class="card search-card">
-          <div class="search-wrap">
-            <input id="adminGlobalSearch" type="search" placeholder="Search users, orders, coupons, tools..." oninput="handleAdminSearchInput()" onfocus="handleAdminSearchInput()">
-            <div id="adminSearchResults"></div>
-          </div>
-          <div class="small" style="margin-top:8px;">Type any name, order id, feature, or section then choose from results.</div>
-        </div>
-        <div class="tabs" id="tabs"></div>
-        <div class="card prod-card">
-          <h4 style="margin-top:0;">Launch Workflow</h4>
-          <div class="small">One click to export backup, clean demo records, and set production-safe settings.</div>
-          <button class="btn" style="margin-top:8px; width:100%;" onclick="startProductionMode()">Run Production Mode</button>
-        </div>
-      </aside>
-      <div class="admin-content">
-        <div class="grid">
-          <div class="card"><div class="small">Total Revenue</div><h2 id="statRevenue">0</h2></div>
-          <div class="card"><div class="small">Total Bookings</div><h2 id="statBookings">0</h2></div>
-          <div class="card"><div class="small">Total Users</div><h2 id="statUsers">0</h2></div>
-          <div class="card"><div class="small">Total Shop Orders</div><h2 id="statOrders">0</h2></div>
-        </div>
 
-    <section class="pane" data-pane="insights">
-      <h3>Smart Insights & Alerts</h3>
-      <div class="grid">
-        <div class="card"><div class="small">Pending Bookings</div><h2 id="pendingBookingsStat">0</h2></div>
-        <div class="card"><div class="small">Pending Shop Orders</div><h2 id="pendingOrdersStat">0</h2></div>
-        <div class="card"><div class="small">Low Stock Items</div><h2 id="lowStockStat">0</h2></div>
-        <div class="card"><div class="small">VIP Users</div><h2 id="vipUsersStat">0</h2></div>
-      </div>
-      <div class="row">
-        <button class="btn" onclick="setPane('bookings')">Open Bookings</button>
-        <button class="btn" onclick="setPane('commerce')">Open Inventory</button>
-        <button class="btn" onclick="setPane('users')">Open Users</button>
-        <button class="btn" onclick="purgeActivity()">Cleanup Activity Log</button>
-      </div>
-      <div class="card" style="margin-top:10px;">
-        <h4>Low Stock Alerts</h4>
-        <div id="lowStockList" class="small"></div>
-      </div>
-      <div class="card" style="margin-top:10px;">
-        <h4>Top Spending Customers</h4>
-        <div id="topCustomersList" class="small"></div>
-      </div>
-      <div class="card" style="margin-top:10px;">
-        <h4>Recent Priority Actions</h4>
-        <div id="priorityActionList" class="small"></div>
-      </div>
-      <div class="card" style="margin-top:10px;">
-        <h4>VIP Requests Queue</h4>
-        <div id="vipRequestQueue" class="small"></div>
-      </div>
-    </section>
+    <div class="grid">
+      <div class="stat-card"><div class="small">Total Users</div><h2 id="totalUsers">0</h2></div>
+      <div class="stat-card"><div class="small">Total Bookings</div><h2 id="totalBookings">0</h2></div>
+      <div class="stat-card"><div class="small">Revenue</div><h2 id="totalRevenue">0 EGP</h2></div>
+      <div class="stat-card"><div class="small">Pending</div><h2 id="pendingBookings">0</h2></div>
+    </div>
 
-    <section class="pane active" data-pane="bookings">
-      <h3>Bookings & Calendar</h3>
-      <div class="table-wrap"><table id="bookingsTable"></table></div>
-      <h3 style="margin-top:12px;">Shop Orders</h3>
-      <div class="table-wrap"><table id="ordersTable"></table></div>
-    </section>
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('users', this)">Users</div>
+      <div class="tab" onclick="switchTab('bookings', this)">Bookings</div>
+      <div class="tab" onclick="switchTab('orders', this)">Shop Orders</div>
+      <div class="tab" onclick="switchTab('settings', this)">Settings</div>
+    </div>
 
-    <section class="pane" data-pane="order-history">
-      <h3 style="margin-top:12px;">Accepted Orders History</h3>
-      <div class="table-wrap"><table id="acceptedOrdersTable"></table></div>
-      <h3 style="margin-top:12px;">Rejected Orders History</h3>
-      <div class="table-wrap"><table id="rejectedOrdersTable"></table></div>
-      <h3 style="margin-top:12px;">Shipped Orders History</h3>
-      <div class="table-wrap"><table id="shippedOrdersTable"></table></div>
-    </section>
-
-    <section class="pane" data-pane="users">
-      <h3>Users / Roles / Wallet</h3>
-      <p class="small">Multi-role enabled: member + vip + admin</p>
-      <div class="table-wrap"><table id="usersTable"></table></div>
-    </section>
-
-    <section class="pane" data-pane="team-control">
-      <h3>Teams Control (Admin)</h3>
-      <div class="card">
-        <h4>Create Team Between Members</h4>
-        <div class="row">
-          <input id="adminTeamName" placeholder="Team name">
-          <select id="adminTeamCaptain"></select>
-          <button class="btn" onclick="createTeamFromAdmin()">Create Team</button>
-        </div>
-        <div class="row">
-          <select id="adminTeamMembers" multiple size="6"></select>
-          <div class="small">Hold Ctrl to select multiple members</div>
-        </div>
-      </div>
-      <div class="card" style="margin-top:10px;">
-        <h4>Team Management</h4>
-        <div id="teamControlList"></div>
-      </div>
-      <div class="card" style="margin-top:10px;">
-        <h4>Team Registrations Management</h4>
-        <div id="teamControlRegs"></div>
-      </div>
-    </section>
-
-    <section class="pane" data-pane="leaderboard">
-      <h3>Leaderboard Editor</h3>
-      <div class="row">
-        <input id="lbName" placeholder="Player name">
-        <input id="lbPoints" type="number" placeholder="Points">
-        <button class="btn" onclick="addLeaderboard()">Add</button>
-      </div>
-      <div class="table-wrap"><table id="leaderboardTable"></table></div>
-    </section>
-
-    <section class="pane" data-pane="commerce">
-      <h3>Discounts / Inventory / Returns</h3>
-      <div class="card">
-        <h4>Coupons</h4>
-        <div class="row">
-          <input id="cpCode" placeholder="Code ex CRAZY20">
-          <select id="cpType"><option value="percent">Percent</option><option value="fixed">Fixed</option></select>
-          <input id="cpValue" type="number" placeholder="Value">
-          <select id="cpTargetGroup">
-            <option value="all">All Users</option>
-            <option value="vip">VIP Only</option>
-            <option value="admin">Admins Only</option>
-            <option value="user">Specific User</option>
-          </select>
-          <select id="cpTargetUser"></select>
-          <button class="btn" onclick="addCoupon()">Create Coupon</button>
-        </div>
-        <div class="table-wrap"><table id="couponTable"></table></div>
-      </div>
-      <div class="card" style="margin-top:10px;">
-        <h4>Inventory</h4>
-        <div class="row">
-          <input id="invName" placeholder="Item name">
-          <input id="invQty" type="number" placeholder="Qty">
-          <input id="invPrice" type="number" placeholder="Price">
-          <button class="btn" onclick="addInventory()">Add Item</button>
-        </div>
-        <div class="table-wrap"><table id="inventoryTable"></table></div>
-      </div>
-    </section>
-
-    <section class="pane" data-pane="operations">
-      <h3>Operations</h3>
-      <div class="row">
-        <button class="btn" onclick="toggleMaintenance()">Toggle Maintenance Mode</button>
-        <button class="btn" onclick="sendGlobalNotification()">Send Notification</button>
-        <button class="btn" onclick="simulateSystemMonitor()">System Monitor</button>
-      </div>
-      <div class="card"><div id="operationsStatus" class="small"></div></div>
-      <div class="card" style="margin-top:10px;">
-        <h4>Staff Shifts</h4>
-        <div class="row">
-          <input id="shiftName" placeholder="Employee">
-          <input id="shiftTime" placeholder="Shift ex 10:00-18:00">
-          <button class="btn" onclick="addShift()">Add Shift</button>
-        </div>
-        <div id="shiftList"></div>
-      </div>
-    </section>
-
-    <section class="pane" data-pane="customers">
-      <h3>Customer Analytics / Points / Badges / Skills / Matches / Teams / Tournaments</h3>
-      <div class="table-wrap"><table id="customersTable"></table></div>
-      <div class="card" style="margin-top:10px;">
-        <h4>Tournaments Management</h4>
-        <div class="row">
-          <input id="tourName" placeholder="Tournament name">
-          <input id="tourDate" type="date">
-          <button class="btn" onclick="addTournament()">Add Tournament</button>
-        </div>
-        <div id="tournamentList"></div>
-      </div>
-      <div class="card" style="margin-top:10px;">
-        <h4>Teams & Registrations</h4>
-        <div id="teamList"></div>
-        <div id="registrationList" style="margin-top:10px;"></div>
-      </div>
-    </section>
-
-    <section class="pane" data-pane="news">
-      <h3>News & Blog</h3>
-      <div class="row">
-        <input id="newsTitle" placeholder="News title">
-        <input id="newsBody" placeholder="News body">
-        <button class="btn" onclick="addNews()">Publish</button>
-      </div>
-      <div id="newsList"></div>
-    </section>
-
-    <section class="pane" data-pane="support">
-      <h3>Support Tickets</h3>
-      <div class="small">Manage players support requests and replies.</div>
-      <div class="table-wrap"><table id="supportTable"></table></div>
-    </section>
-
-        <section class="pane" data-pane="activity">
-          <h3>Activity Log</h3>
-          <div id="activityLog" class="card log"></div>
-        </section>
+    <!-- Users Pane -->
+    <div id="pane-users" class="pane active">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Name</th><th>Email / Phone</th><th>Roles</th><th>Balance</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="usersTableBody"></tbody>
+        </table>
       </div>
     </div>
+
+    <!-- Bookings Pane -->
+    <div id="pane-bookings" class="pane">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Ticket ID</th><th>User</th><th>Mission</th><th>Date/Time</th><th>Status</th><th>Action</th></tr>
+          </thead>
+          <tbody id="bookingsTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Orders Pane -->
+    <div id="pane-orders" class="pane">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>ID</th><th>User</th><th>Total</th><th>Status</th><th>Action</th></tr>
+          </thead>
+          <tbody id="ordersTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    const K = {
-      users:'crazyTown_users', bookings:'crazyTown_bookings', leaderboard:'crazyTown_leaderboard', activity:'crazyTown_activity',
-      coupons:'crazyTown_coupons', inventory:'crazyTown_inventory', news:'crazyTown_news',
-      friends:'crazyTown_friends', session:'crazyTown_session', settings:'crazyTown_settings', shifts:'crazyTown_shifts', tournaments:'crazyTown_tournaments', orders:'crazyTown_orders', tournamentRegs:'crazyTown_tournament_regs', teams:'crazyTown_teams', vipRequests:'crazyTown_vip_requests', supportTickets:'crazyTown_support_tickets', rolePolicy:'crazyTown_role_policy',
-      adminLastPane:'crazyTown_admin_last_pane'
-    };
-    const TABS = ['insights','bookings','order-history','users','team-control','leaderboard','commerce','operations','customers','news','support','activity'];
-    let adminSearchIndex = [];
-    let adminSearchVisible = [];
-    let adminSearchActiveIndex = -1;
     const SUPABASE_URL = 'https://gldwdwcpzcxcvqpcpiol.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsZHdkd2NwemN4Y3ZxcGNwaW9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMjE4NjAsImV4cCI6MjA5Mjg5Nzg2MH0.clwYiXpRG-2ZPC_WmGC56DdoVEiyVu2RgVe5yppxJ2E';
-    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const CACHE = {};
-    function readSessionId(){ return sessionStorage.getItem(K.session) || ro(K.session, ''); }
-    async function writeSessionId(v){
-      const id = String(v || '');
-      sessionStorage.setItem(K.session, id);
-      so(K.session, id);
-    }
-    async function fetchTable(table, fallback = []){
-      const { data, error } = await supabaseClient.from(table).select('*');
-      if (error) return fallback;
-      return Array.isArray(data) ? data : fallback;
-    }
-    async function pushRows(table, rows){
-      if (!Array.isArray(rows) || !rows.length) return;
-      const { error } = await supabaseClient.from(table).upsert(rows, { onConflict:'id' });
-      if (error) console.warn('Supabase upsert', table, error);
-    }
-    const DEDICATED_KEYS = new Set([K.users, K.bookings, K.orders, K.teams, K.supportTickets, K.vipRequests]);
-    async function loadAllAppKvIntoCache(){
-      const { data, error } = await supabaseClient.from('app_kv').select('*');
-      if (error) { console.warn('app_kv load', error); return; }
-      if (!Array.isArray(data)) return;
-      data.forEach((row)=>{ if (row && row.id != null && Object.prototype.hasOwnProperty.call(row, 'value')) CACHE[row.id] = row.value; });
-    }
-    async function persistAppKvKey(k, v){
-      if (DEDICATED_KEYS.has(k)) return;
-      const { error } = await supabaseClient.from('app_kv').upsert({ id: k, value: v }, { onConflict: 'id' });
-      if (error) console.warn('app_kv upsert', k, error);
-    }
-    function ro(k,d){ return Object.prototype.hasOwnProperty.call(CACHE, k) ? CACHE[k] : d; }
-    function so(k,v){
-      CACHE[k] = v;
-      if (k === K.users) pushRows('users', v);
-      if (k === K.bookings) pushRows('bookings', v);
-      if (k === K.orders) pushRows('orders', v);
-      if (k === K.teams) pushRows('teams', v);
-      if (k === K.supportTickets) pushRows('support_tickets', v);
-      if (k === K.vipRequests) pushRows('vip_requests', v);
-      void persistAppKvKey(k, v);
-    }
-    const act = (a,by='Admin') => { const arr=ro(K.activity,[]); arr.unshift({id:Date.now()+Math.random(),action:a,actor:by,at:new Date().toISOString()}); so(K.activity, arr.slice(0,300)); };
-    const me = async ()=>{
-      const cached = ro(K.users,[]).find(u=>String(u.id)===readSessionId());
-      if (cached) return cached;
-      const sid = readSessionId();
-      if (!sid) return null;
-      const { data, error } = await supabaseClient.from('users').select('*').eq('id', sid).maybeSingle();
-      if (error || !data) return null;
-      CACHE[K.users] = ro(K.users, []);
-      const existingIndex = CACHE[K.users].findIndex((u) => String(u.id) === sid);
-      if (existingIndex >= 0) {
-        CACHE[K.users][existingIndex] = data;
-      } else {
-        CACHE[K.users].push(data);
-      }
-      return data;
-    };
-    const DEFAULT_ROLE_POLICY = {
-      owner:{ accessAdminPanel:true, accessOwnerControl:true, managePrivilegedRoles:true, manageStaffRoles:true, manageTargetedDiscounts:true, runProductionMode:true },
-      'co-owner':{ accessAdminPanel:true, accessOwnerControl:true, managePrivilegedRoles:true, manageStaffRoles:true, manageTargetedDiscounts:true, runProductionMode:true },
-      ceo:{ accessAdminPanel:true, accessOwnerControl:true, managePrivilegedRoles:true, manageStaffRoles:true, manageTargetedDiscounts:true, runProductionMode:true },
-      hr:{ accessAdminPanel:true, accessOwnerControl:false, managePrivilegedRoles:false, manageStaffRoles:true, manageTargetedDiscounts:false, runProductionMode:false },
-      admin:{ accessAdminPanel:true, accessOwnerControl:false, managePrivilegedRoles:false, manageStaffRoles:false, manageTargetedDiscounts:false, runProductionMode:false },
-      vip:{ accessAdminPanel:false, accessOwnerControl:false, managePrivilegedRoles:false, manageStaffRoles:false, manageTargetedDiscounts:false, runProductionMode:false },
-      member:{ accessAdminPanel:false, accessOwnerControl:false, managePrivilegedRoles:false, manageStaffRoles:false, manageTargetedDiscounts:false, runProductionMode:false }
-    };
-    const hasRole = (user, role)=>!!user && Array.isArray(user.roles) && user.roles.includes(role);
-    function getRolePolicy(){
-      const policy = ro(K.rolePolicy, DEFAULT_ROLE_POLICY);
-      return { ...DEFAULT_ROLE_POLICY, ...policy };
-    }
-    function roleCan(user, permission){
-      if (!user || !Array.isArray(user.roles)) return false;
-      const policy = getRolePolicy();
-      return user.roles.some((role)=>!!policy[role]?.[permission]);
-    }
-    const isAdmin = (u)=>roleCan(u, 'accessAdminPanel');
-    const canManageRoles = (u)=>roleCan(u, 'managePrivilegedRoles');
-    const canManageStaffRoles = (u)=>roleCan(u, 'manageStaffRoles');
-    const canManageTargetedDiscounts = (u)=>roleCan(u, 'manageTargetedDiscounts');
-    const isOwner = (u)=>roleCan(u, 'accessOwnerControl');
-    const PROTECTED_ROLES = ['owner', 'co-owner', 'ceo'];
-    function ensurePrivilegedSeed(){
-      const users = ro(K.users,[]);
-      const root = users.find((u)=>String(u.id) === 'root-admin');
-      if (!root) return;
-      if (!Array.isArray(root.roles)) root.roles = ['admin'];
-      if (!root.roles.includes('owner')) root.roles.push('owner');
-      if (!root.roles.includes('admin')) root.roles.push('admin');
-      so(K.users, users);
-    }
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsZHdkd2NwemN4Y3ZxcGNwaW9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMjE4NjAsImV4cCI6MjA5Mjg5Nzg2MH0.clwYiXpRG-2ZPC_WmGC56DdoVEiyVu2RgVe5yppxJ2E';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    async function guard(){ const u=await me(); if(!u){ alert('Please login first on the main page.'); location.href='index.html'; } if(!isAdmin(u)){ alert('Admin only. Your current roles: ' + (u.roles || []).join(', ')); location.href='index.html'; } }
-    function goHome(){ location.href='index.html'; }
-    function goBack(){
-      if (window.history.length > 1) return window.history.back();
-      goHome();
-    }
-    function setPane(id){
-      document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('active', p.dataset.pane===id));
-      document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.id===id));
-      sessionStorage.setItem(K.adminLastPane, id);
-      so(K.adminLastPane, id);
-      applyQuickFilter();
-    }
-    function prettyTabName(id){
-      const map = {
-        insights:'Insights',
-        bookings:'Bookings',
-        'order-history':'Order History',
-        users:'Users',
-        'team-control':'Team Control',
-        leaderboard:'Leaderboard',
-        commerce:'Commerce',
-        operations:'Operations',
-        customers:'Customers',
-        news:'News',
-        support:'Support',
-        activity:'Activity'
-      };
-      return map[id] || id;
-    }
-    function tabs(){
-      const lastPane = sessionStorage.getItem(K.adminLastPane) || ro(K.adminLastPane, '');
-      const activePane = TABS.includes(lastPane) ? lastPane : 'bookings';
-      const box=document.getElementById('tabs');
-      box.innerHTML=TABS.map(t=>`<button class="tab ${t===activePane?'active':''}" data-id="${t}" onclick="setPane('${t}')">${prettyTabName(t)}</button>`).join('');
-      setPane(activePane);
-    }
-    function currency(n){ return `${Number(n||0).toFixed(0)} EGP`; }
+    let currentUser = null;
 
-    function renderStats(){
-      const users=ro(K.users,[]), bookings=ro(K.bookings,[]), orders=ro(K.orders,[]);
-      document.getElementById('statRevenue').textContent = currency(bookings.reduce((s,b)=>s+Number(b.price||0),0));
-      document.getElementById('statBookings').textContent = bookings.length;
-      document.getElementById('statUsers').textContent = users.length;
-      document.getElementById('statOrders').textContent = orders.length;
-    }
-
-    function renderInsights(){
-      const users = ro(K.users,[]);
-      const bookings = ro(K.bookings,[]);
-      const orders = ro(K.orders,[]);
-      const inventory = ro(K.inventory,[]);
-      const activity = ro(K.activity,[]);
-      const vipRequests = ro(K.vipRequests,[]);
-      const pendingBookings = bookings.filter(b=>(b.status||'Pending') !== 'Confirmed');
-      const pendingOrders = orders.filter(o=>!['Confirmed','Cancelled','Shipped'].includes(o.status || 'Pending Confirmation'));
-      const lowStock = inventory.filter(i=>Number(i.qty || 0) <= 5);
-      const vipUsers = users.filter(u=>Array.isArray(u.roles) && u.roles.includes('vip'));
-
-      document.getElementById('pendingBookingsStat').textContent = pendingBookings.length;
-      document.getElementById('pendingOrdersStat').textContent = pendingOrders.length;
-      document.getElementById('lowStockStat').textContent = lowStock.length;
-      document.getElementById('vipUsersStat').textContent = vipUsers.length;
-
-      document.getElementById('lowStockList').innerHTML = lowStock.length
-        ? lowStock.map(item=>`<div>${item.name}: <strong>${item.qty}</strong> left</div>`).join('')
-        : '<div>No low stock alerts.</div>';
-
-      const spendMap = new Map();
-      bookings.forEach((b)=>{
-        const key = String(b.userId || b.name || 'Unknown');
-        spendMap.set(key, Number(spendMap.get(key) || 0) + Number(b.price || 0));
-      });
-      const usersMap = new Map(users.map(u=>[String(u.id), u.name]));
-      const top = [...spendMap.entries()]
-        .sort((a,b)=>b[1]-a[1])
-        .slice(0,5)
-        .map(([id, total])=>({ name: usersMap.get(id) || id, total }));
-      document.getElementById('topCustomersList').innerHTML = top.length
-        ? top.map((row, idx)=>`<div>#${idx+1} ${row.name} - <strong>${currency(row.total)}</strong></div>`).join('')
-        : '<div>No spending data yet.</div>';
-
-      const priority = activity.slice(0, 8);
-      document.getElementById('priorityActionList').innerHTML = priority.length
-        ? priority.map((x)=>`<div>${new Date(x.at).toLocaleString()} - ${x.actor}: ${x.action}</div>`).join('')
-        : '<div>No recent actions.</div>';
-
-      const pendingVip = vipRequests.filter((req)=>(req.status || 'Pending') === 'Pending').slice(0, 8);
-      document.getElementById('vipRequestQueue').innerHTML = pendingVip.length
-        ? pendingVip.map((req)=>`<div style="margin-bottom:8px;"><strong>${req.userName}</strong> - ${req.title} (${req.priority})<br><span class="small">${new Date(req.createdAt).toLocaleString()}</span><br><button class="btn" onclick="resolveVipRequest('${req.id}','Approved')">Approve</button> <button class="btn" onclick="resolveVipRequest('${req.id}','Rejected')">Reject</button></div>`).join('')
-        : '<div>No pending VIP requests.</div>';
-    }
-
-    function renderBookings(){
-      const bookings=ro(K.bookings,[]);
-      document.getElementById('bookingsTable').innerHTML = `
-        <thead><tr><th>Ticket</th><th>User</th><th>Date</th><th>Status</th><th>Payment</th><th>Price</th><th>Actions</th></tr></thead>
-        <tbody>${bookings.map(b=>`<tr>
-          <td>${b.ticketId}</td><td>${b.name}</td><td>${b.date} ${b.time}</td><td>${b.status}</td><td>${b.paymentMethod||'-'}</td><td>${currency(b.price)}</td>
-          <td><button class="btn" onclick="toggleBooking('${b.id}')">Toggle</button> <button class="btn" onclick="removeBooking('${b.id}')">Delete</button></td>
-        </tr>`).join('')}</tbody>`;
-      const usersMap = new Map(ro(K.users,[]).map(u=>[String(u.id),u.name]));
-      const orders = ro(K.orders,[]);
-      const activeOrders = orders.filter(o => !['Confirmed','Cancelled','Shipped'].includes(o.status || 'Pending Confirmation'));
-      document.getElementById('ordersTable').innerHTML = `
-        <thead><tr><th>Order ID</th><th>User</th><th>Items</th><th>Delivery</th><th>Status</th><th>Total</th><th>Date</th><th>Action</th></tr></thead>
-        <tbody>${activeOrders.length ? activeOrders.map(o=>`<tr>
-          <td>${o.id}</td>
-          <td>${usersMap.get(String(o.userId)) || 'Unknown'}</td>
-          <td>${(o.items||[]).map(i=>`${i.name} x${i.qty}`).join(', ')}</td>
-          <td>${o.delivery ? `${o.delivery.city}, ${o.delivery.address}<br><small>${o.delivery.name} - ${o.delivery.phone}</small>` : '-'}</td>
-          <td>${o.status || 'Pending Confirmation'}</td>
-          <td>${currency(o.total)}</td>
-          <td>${new Date(o.createdAt).toLocaleString()}</td>
-          <td>
-            <button class="btn" onclick="setOrderStatus('${o.id}','Confirmed')">Confirm</button>
-            <button class="btn" onclick="setOrderStatus('${o.id}','Shipped')">Ship</button>
-            <button class="btn" onclick="setOrderStatus('${o.id}','Cancelled')">Cancel</button>
-            <button class="btn" onclick="deleteOrder('${o.id}')">Delete</button>
-          </td>
-        </tr>`).join('') : '<tr><td colspan="8">No active shop orders.</td></tr>'}</tbody>`;
-    }
-    function setOrderStatus(id,status){ void me().then(u => { if(!isAdmin(u)) return alert('Admin only'); const orders=ro(K.orders,[]); const o=orders.find(x=>x.id===id); if(!o)return; o.status=status; so(K.orders,orders); act(`Order ${id} -> ${status}`); refresh(); }); }
-    function deleteOrder(id){
-      void supabaseClient.from('orders').delete().eq('id', id).then(({ error }) => {
-        if (error) console.warn('delete order', error);
-        so(K.orders, ro(K.orders, []).filter((o) => o.id !== id));
-        act(`Order deleted ${id}`);
-        refresh();
-      }).catch((e) => { console.error(e); alert('Could not delete order from server.'); });
-    }
-    function renderOrderHistory(){
-      const usersMap = new Map(ro(K.users,[]).map(u=>[String(u.id),u.name]));
-      const orders = ro(K.orders,[]);
-      const acceptedOrders = orders.filter(o => (o.status || '') === 'Confirmed');
-      const rejectedOrders = orders.filter(o => (o.status || '') === 'Cancelled');
-      const shippedOrders = orders.filter(o => (o.status || '') === 'Shipped');
-
-      document.getElementById('acceptedOrdersTable').innerHTML = `
-        <thead><tr><th>Order ID</th><th>User</th><th>Total</th><th>Date</th><th>Action</th></tr></thead>
-        <tbody>${acceptedOrders.length ? acceptedOrders.map(o=>`<tr>
-          <td>${o.id}</td><td>${usersMap.get(String(o.userId)) || 'Unknown'}</td><td>${currency(o.total)}</td><td>${new Date(o.createdAt).toLocaleString()}</td>
-          <td><button class="btn" onclick="deleteOrder('${o.id}')">Delete</button></td>
-        </tr>`).join('') : '<tr><td colspan="5">No accepted history.</td></tr>'}</tbody>`;
-
-      document.getElementById('rejectedOrdersTable').innerHTML = `
-        <thead><tr><th>Order ID</th><th>User</th><th>Total</th><th>Date</th><th>Action</th></tr></thead>
-        <tbody>${rejectedOrders.length ? rejectedOrders.map(o=>`<tr>
-          <td>${o.id}</td><td>${usersMap.get(String(o.userId)) || 'Unknown'}</td><td>${currency(o.total)}</td><td>${new Date(o.createdAt).toLocaleString()}</td>
-          <td><button class="btn" onclick="deleteOrder('${o.id}')">Delete</button></td>
-        </tr>`).join('') : '<tr><td colspan="5">No rejected history.</td></tr>'}</tbody>`;
-
-      document.getElementById('shippedOrdersTable').innerHTML = `
-        <thead><tr><th>Order ID</th><th>User</th><th>Total</th><th>Date</th><th>Action</th></tr></thead>
-        <tbody>${shippedOrders.length ? shippedOrders.map(o=>`<tr>
-          <td>${o.id}</td><td>${usersMap.get(String(o.userId)) || 'Unknown'}</td><td>${currency(o.total)}</td><td>${new Date(o.createdAt).toLocaleString()}</td>
-          <td><button class="btn" onclick="deleteOrder('${o.id}')">Delete</button></td>
-        </tr>`).join('') : '<tr><td colspan="5">No shipped history.</td></tr>'}</tbody>`;
-    }
-    function toggleBooking(id){ void me().then(u => { if(!isAdmin(u)) return alert('Admin only'); const arr=ro(K.bookings,[]); const x=arr.find(b=>b.id===id); if(!x) return; x.status=x.status==='Confirmed'?'Pending':'Confirmed'; so(K.bookings,arr); act(`Booking ${x.ticketId} -> ${x.status}`); refresh(); }); }
-    function removeBooking(id){
-      void supabaseClient.from('bookings').delete().eq('id', id).then(({ error }) => {
-        if (error) console.warn('delete booking', error);
-        so(K.bookings, ro(K.bookings, []).filter((b) => b.id !== id));
-        act(`Booking removed ${id}`);
-        refresh();
-      }).catch((e) => { console.error(e); alert('Could not delete booking from server.'); });
-    }
-
-    function roleBadges(roles=[]){ return roles.map(r=>`<span class="badge">${r}</span>`).join(''); }
-    function renderUsers(){
-      const users=ro(K.users,[]);
-      const current = me();
-      const roleActionsLocked = !canManageStaffRoles(current);
-      document.getElementById('usersTable').innerHTML = `
-        <thead><tr><th>Name</th><th>Email</th><th>Roles</th><th>Balance</th><th>Actions</th></tr></thead>
-        <tbody>${users.map(u=>`<tr>
-          <td>${u.name}</td><td>${u.email}</td><td>${roleBadges(u.roles||['member'])}</td><td>${currency(u.balance)}</td>
-          <td>
-            <select id="role-${u.id}" ${roleActionsLocked ? 'disabled' : ''}><option>member</option><option>vip</option><option>champion</option><option>hr</option><option>admin</option><option>co-owner</option><option>ceo</option><option>owner</option></select>
-            <button class="btn" onclick="addRole('${u.id}')" ${roleActionsLocked ? 'disabled' : ''}>Add Role</button>
-            <button class="btn" onclick="removeRole('${u.id}')" ${roleActionsLocked ? 'disabled' : ''}>Remove Role</button>
-            <button class="btn" onclick="balance('${u.id}')">Balance +/-</button>
-            <button class="btn" onclick="toggleBan('${u.id}')">${u.is_banned?'Unban':'Ban'}</button>
-          </td>
-        </tr>`).join('')}</tbody>`;
-    }
-    function addRole(id){
-      const current = me();
-      if(!canManageStaffRoles(current)) return alert('Only owner/co-owner/ceo/hr can manage roles.');
-      const role=document.getElementById(`role-${id}`).value;
-      const users=ro(K.users,[]);
-      const u=users.find(x=>String(x.id)===String(id));
-      if(!u)return;
-      const targetRoles = Array.isArray(u.roles) ? u.roles : [];
-      const touchingProtectedRole = PROTECTED_ROLES.includes(role) || targetRoles.some((r)=>PROTECTED_ROLES.includes(r));
-      if (hasRole(current, 'hr') && touchingProtectedRole) return alert('HR cannot edit owner/co-owner/ceo roles.');
-      u.roles=u.roles||['member'];
-      if(!u.roles.includes(role))u.roles.push(role);
-      so(K.users,users);
-      act(`Role ${role} added to ${u.name}`, current?.name || 'Admin');
-      refresh();
-    }
-    function removeRole(id){
-      const current = me();
-      if(!canManageStaffRoles(current)) return alert('Only owner/co-owner/ceo/hr can manage roles.');
-      const role=document.getElementById(`role-${id}`).value;
-      const users=ro(K.users,[]);
-      const u=users.find(x=>String(x.id)===String(id));
-      if(!u)return;
-      const targetRoles = Array.isArray(u.roles) ? u.roles : [];
-      const touchingProtectedRole = PROTECTED_ROLES.includes(role) || targetRoles.some((r)=>PROTECTED_ROLES.includes(r));
-      if (hasRole(current, 'hr') && touchingProtectedRole) return alert('HR cannot edit owner/co-owner/ceo roles.');
-      if (u.id === 'root-admin' && role === 'owner') return alert('Root Admin must keep owner role.');
-      u.roles=(u.roles||['member']).filter(r=>r!==role);
-      if(!u.roles.length)u.roles=['member'];
-      so(K.users,users);
-      act(`Role ${role} removed from ${u.name}`, current?.name || 'Admin');
-      refresh();
-    }
-    function balance(id){ if(!isAdmin(me())) return alert('Admin only'); const amount=Number(prompt('Amount (+/-)','100')); if(Number.isNaN(amount))return; const users=ro(K.users,[]); const u=users.find(x=>String(x.id)===String(id)); if(!u)return; u.balance=Number(u.balance||0)+amount; so(K.users,users); act(`Balance ${amount} for ${u.name}`); refresh(); }
-    function toggleBan(id){ const users=ro(K.users,[]); const u=users.find(x=>String(x.id)===String(id)); if(!u)return; u.is_banned=!u.is_banned; so(K.users,users); act(`${u.name} ${u.is_banned?'banned':'unbanned'}`); refresh(); }
-
-    function renderLeaderboard(){
-      const lb=ro(K.leaderboard,[]);
-      document.getElementById('leaderboardTable').innerHTML = `<thead><tr><th>Name</th><th>Points</th><th></th></tr></thead><tbody>${lb.map(x=>`<tr><td>${x.name}</td><td>${x.points}</td><td><button class="btn" onclick="editLb('${x.id}')">Edit</button> <button class="btn" onclick="delLb('${x.id}')">Delete</button></td></tr>`).join('')}</tbody>`;
-    }
-    function addLeaderboard(){ const name=document.getElementById('lbName').value.trim(); const points=Number(document.getElementById('lbPoints').value||0); if(!name)return; const lb=ro(K.leaderboard,[]); lb.push({id:'lb-'+Date.now(),name,points}); so(K.leaderboard,lb); act(`Leaderboard add ${name}`); refresh(); }
-    function editLb(id){ const lb=ro(K.leaderboard,[]); const x=lb.find(i=>i.id===id); if(!x)return; const p=Number(prompt('Points',x.points)); if(Number.isNaN(p))return; x.points=p; so(K.leaderboard,lb); act(`Leaderboard edit ${x.name}`); refresh(); }
-    function delLb(id){ so(K.leaderboard,ro(K.leaderboard,[]).filter(x=>x.id!==id)); act(`Leaderboard delete ${id}`); refresh(); }
-
-    function renderCommerce(){
-      const cps=ro(K.coupons,[]), inv=ro(K.inventory,[]);
-      const users=ro(K.users,[]);
-      const targetUserSelect = document.getElementById('cpTargetUser');
-      if (targetUserSelect) targetUserSelect.innerHTML = `<option value="">Select user...</option>${users.map((u)=>`<option value="${u.id}">${u.name} (${u.email || '-'})</option>`).join('')}`;
-      document.getElementById('couponTable').innerHTML = `<thead><tr><th>Code</th><th>Type</th><th>Value</th><th>Target</th><th>Active</th><th></th></tr></thead><tbody>${cps.map(c=>`<tr><td>${c.code}</td><td>${c.type}</td><td>${c.value}</td><td>${c.targetGroup || 'all'}${c.targetUserId ? ` (${users.find((u)=>String(u.id)===String(c.targetUserId))?.name || c.targetUserId})` : ''}</td><td>${c.active?'Yes':'No'}</td><td><button class="btn" onclick="toggleCoupon('${c.code}')">Toggle</button></td></tr>`).join('')}</tbody>`;
-      document.getElementById('inventoryTable').innerHTML = `<thead><tr><th>Name</th><th>Qty</th><th>Price</th><th></th></tr></thead><tbody>${inv.map(i=>`<tr><td>${i.name}</td><td>${i.qty}</td><td>${currency(i.price)}</td><td><button class="btn" onclick="changeInv('${i.id}')">Edit</button> <button class="btn" onclick="delInv('${i.id}')">Delete</button></td></tr>`).join('')}</tbody>`;
-    }
-    function addCoupon(){
-      const current = me();
-      if(!canManageTargetedDiscounts(current)) return alert('No permission to create targeted discounts.');
-      const code=document.getElementById('cpCode').value.trim().toUpperCase();
-      const type=document.getElementById('cpType').value;
-      const value=Number(document.getElementById('cpValue').value||0);
-      const targetGroup=document.getElementById('cpTargetGroup').value || 'all';
-      const targetUserId=document.getElementById('cpTargetUser').value;
-      if(!code)return;
-      if (targetGroup === 'user' && !targetUserId) return alert('Select a user for specific-user discount.');
-      const cps=ro(K.coupons,[]);
-      cps.push({code,type,value,active:true,targetGroup,targetUserId:targetGroup === 'user' ? targetUserId : '',createdByRole:(current?.roles || []).join(',')});
-      so(K.coupons,cps);
-      act(`Coupon added ${code} for ${targetGroup}`, current?.name || 'Admin');
-      refresh();
-    }
-    function toggleCoupon(code){ const cps=ro(K.coupons,[]); const c=cps.find(x=>x.code===code); if(!c)return; c.active=!c.active; so(K.coupons,cps); act(`Coupon ${code} toggled`); refresh(); }
-    function addInventory(){ const name=document.getElementById('invName').value.trim(); const qty=Number(document.getElementById('invQty').value||0); const price=Number(document.getElementById('invPrice').value||0); if(!name)return; const inv=ro(K.inventory,[]); inv.push({id:'inv-'+Date.now(),name,qty,price}); so(K.inventory,inv); act(`Inventory add ${name}`); refresh(); }
-    function changeInv(id){ const inv=ro(K.inventory,[]); const i=inv.find(x=>x.id===id); if(!i)return; const qty=Number(prompt('Qty',i.qty)); if(Number.isNaN(qty))return; i.qty=qty; so(K.inventory,inv); act(`Inventory edit ${i.name}`); refresh(); }
-    function delInv(id){ so(K.inventory,ro(K.inventory,[]).filter(i=>i.id!==id)); act(`Inventory delete ${id}`); refresh(); }
-
-    function toggleMaintenance(){ const s=ro(K.settings,{maintenance:false,notifications:[]}); s.maintenance=!s.maintenance; so(K.settings,s); act(`Maintenance ${s.maintenance?'ON':'OFF'}`); refresh(); }
-    function sendGlobalNotification(){ const txt=prompt('Notification text'); if(!txt)return; const s=ro(K.settings,{maintenance:false,notifications:[]}); s.notifications=s.notifications||[]; s.notifications.unshift({text:txt,at:new Date().toISOString()}); so(K.settings,s); act(`Notification sent`); refresh(); }
-    function simulateSystemMonitor(){ const users=ro(K.users,[]).length; const bookings=ro(K.bookings,[]).length; document.getElementById('operationsStatus').textContent = `System health OK | users:${users} bookings:${bookings} | external integrations: ready`; }
-    function addShift(){ const n=document.getElementById('shiftName').value.trim(); const t=document.getElementById('shiftTime').value.trim(); if(!n||!t)return; const arr=ro(K.shifts,[]); arr.push({id:'sh-'+Date.now(),name:n,time:t}); so(K.shifts,arr); act(`Shift added ${n}`); refresh(); }
-    function renderOperations(){
-      const s=ro(K.settings,{maintenance:false,notifications:[]}), shifts=ro(K.shifts,[]);
-      document.getElementById('operationsStatus').innerHTML = `Maintenance: <span class="${s.maintenance?'danger':'ok'}">${s.maintenance?'ON':'OFF'}</span><br>Notifications: ${(s.notifications||[]).length}`;
-      document.getElementById('shiftList').innerHTML = shifts.map(x=>`<div class="small">${x.name} - ${x.time}</div>`).join('') || '<div class="small">No shifts</div>';
-    }
-
-    function renderCustomers(){
-      const users=ro(K.users,[]);
-      document.getElementById('customersTable').innerHTML = `<thead><tr><th>Player</th><th>Points</th><th>Badges</th><th>Skill</th><th>Matches</th><th>Team</th><th>Tournament</th><th>Actions</th></tr></thead><tbody>
-        ${users.map(u=>`<tr><td>${u.name}</td><td>${u.points||0}</td><td>${(u.badges||[]).join(', ')||'-'}</td><td>${u.skill||'Bronze'}</td><td>${u.matches||0}</td><td>${u.team||'-'}</td><td>${u.tournament||'-'}</td><td><button class="btn" onclick="editPlayer('${u.id}')">Edit</button></td></tr>`).join('')}
-      </tbody>`;
-      const tr=ro(K.tournaments,[]);
-      document.getElementById('tournamentList').innerHTML = tr.map(t=>`<div class="small">${t.name} - ${t.date}</div>`).join('') || '<div class="small">No tournaments</div>';
-      const teams = ro(K.teams,[]);
-      document.getElementById('teamList').innerHTML = teams.length
-        ? teams.map(t=>`<div class="small"><strong>${t.name}</strong> | members: ${(t.members||[]).length} <button class="btn" onclick="removeTeam('${t.id}')">Delete</button></div>`).join('')
-        : '<div class="small">No teams created</div>';
-      const regs = ro(K.tournamentRegs,[]);
-      document.getElementById('registrationList').innerHTML = regs.length
-        ? regs.map(r=>`<div class="small">${r.teamName} -> ${r.tournamentName} (${r.status}) <button class="btn" onclick="cancelRegistration('${r.id}')">Cancel</button></div>`).join('')
-        : '<div class="small">No team registrations</div>';
-    }
-    function editPlayer(id){
-      const users=ro(K.users,[]), u=users.find(x=>String(x.id)===String(id)); if(!u)return;
-      u.points = Number(prompt('Points',u.points||0)) || 0;
-      u.skill = prompt('Skill',u.skill||'Bronze') || 'Bronze';
-      u.badges = (prompt('Badges comma separated',(u.badges||[]).join(',')) || '').split(',').map(x=>x.trim()).filter(Boolean);
-      u.matches = Number(prompt('Matches',u.matches||0)) || 0;
-      u.team = prompt('Team',u.team||'') || '';
-      u.tournament = prompt('Tournament',u.tournament||'') || '';
-      so(K.users,users); act(`Player profile updated ${u.name}`); refresh();
-    }
-    function addTournament(){ const name=document.getElementById('tourName').value.trim(); const date=document.getElementById('tourDate').value; if(!name)return; const tr=ro(K.tournaments,[]); tr.push({id:'t-'+Date.now(),name,date}); so(K.tournaments,tr); act(`Tournament add ${name}`); refresh(); }
-    function removeTeam(id){ so(K.teams,ro(K.teams,[]).filter(t=>t.id!==id)); so(K.tournamentRegs,ro(K.tournamentRegs,[]).filter(r=>r.teamId!==id)); act(`Team removed ${id}`); refresh(); }
-    function cancelRegistration(id){ so(K.tournamentRegs,ro(K.tournamentRegs,[]).filter(r=>r.id!==id)); act(`Registration cancelled ${id}`); refresh(); }
-
-    function populateTeamControlSelectors(){
-      const users = ro(K.users,[]);
-      const captainSelect = document.getElementById('adminTeamCaptain');
-      const membersSelect = document.getElementById('adminTeamMembers');
-      if (!captainSelect || !membersSelect) return;
-      captainSelect.innerHTML = users.map(u=>`<option value="${u.id}">${u.name} (${u.email})</option>`).join('');
-      membersSelect.innerHTML = users.map(u=>`<option value="${u.id}">${u.name} (${u.email})</option>`).join('');
-    }
-
-    function createTeamFromAdmin(){
-      const name = document.getElementById('adminTeamName').value.trim();
-      const captainId = document.getElementById('adminTeamCaptain').value;
-      const memberIds = Array.from(document.getElementById('adminTeamMembers').selectedOptions).map(o=>o.value);
-      if(!name || !captainId) return;
-      const teams = ro(K.teams,[]);
-      if (teams.some(t => t.name.toLowerCase() === name.toLowerCase())) return;
-      const uniqueMembers = [...new Set([captainId, ...memberIds])];
-      teams.push({ id:`team-${Date.now()}`, name, captainId, members: uniqueMembers, invitedIds: [] });
-      so(K.teams, teams);
-      document.getElementById('adminTeamName').value = '';
-      act(`Admin created team ${name}`);
-      refresh();
-    }
-
-    function removeMemberFromTeam(teamId, memberId){
-      const teams = ro(K.teams,[]);
-      const team = teams.find(t=>t.id===teamId);
-      if(!team) return;
-      if(team.captainId === memberId) return;
-      team.members = (team.members||[]).filter(id=>id!==memberId);
-      so(K.teams, teams);
-      act(`Member removed from ${team.name}`);
-      refresh();
-    }
-
-    function setTeamLeader(teamId, memberId){
-      const teams = ro(K.teams,[]);
-      const team = teams.find(t=>t.id===teamId);
-      if(!team) return;
-      if(!team.members.includes(memberId)) return;
-      team.captainId = memberId;
-      so(K.teams, teams);
-      act(`Leader changed for ${team.name}`);
-      refresh();
-    }
-
-    function renderTeamControl(){
-      const users = ro(K.users,[]);
-      const usersMap = new Map(users.map(u=>[u.id,u.name]));
-      const teams = ro(K.teams,[]);
-      const regs = ro(K.tournamentRegs,[]);
-      const teamList = document.getElementById('teamControlList');
-      const regList = document.getElementById('teamControlRegs');
-      if(teamList){
-        teamList.innerHTML = teams.length ? teams.map(team=>`
-          <div class="small" style="margin-bottom:10px; border-bottom:1px solid var(--line); padding-bottom:8px;">
-            <strong>${team.name}</strong> | Leader: ${usersMap.get(team.captainId)||'Unknown'} | Members: ${(team.members||[]).length}
-            <button class="btn" onclick="removeTeam('${team.id}')">Delete Team</button>
-            <div style="margin-top:6px;">
-              ${(team.members||[]).map(memberId=>`
-                <span class="badge">${usersMap.get(memberId)||memberId}</span>
-                ${memberId!==team.captainId?`<button class="btn" onclick="setTeamLeader('${team.id}','${memberId}')">Make Leader</button> <button class="btn" onclick="removeMemberFromTeam('${team.id}','${memberId}')">Remove</button>`:'<span class="small">Leader</span>'}
-              `).join('')}
-            </div>
-          </div>
-        `).join('') : '<div class="small">No teams available.</div>';
-      }
-      if(regList){
-        regList.innerHTML = regs.length ? regs.map(r=>`<div class="small">${r.teamName} -> ${r.tournamentName} (${r.status}) <button class="btn" onclick="cancelRegistration('${r.id}')">Cancel</button></div>`).join('') : '<div class="small">No registrations.</div>';
-      }
-    }
-
-    function addNews(){ const title=document.getElementById('newsTitle').value.trim(); const body=document.getElementById('newsBody').value.trim(); if(!title||!body)return; const n=ro(K.news,[]); n.unshift({id:'n-'+Date.now(),title,body,date:new Date().toISOString()}); so(K.news,n); act(`News published ${title}`); refresh(); }
-    function renderNews(){ const n=ro(K.news,[]); document.getElementById('newsList').innerHTML=n.map(x=>`<div class="card" style="margin:8px 0;"><strong>${x.title}</strong><p>${x.body}</p><span class="small">${new Date(x.date).toLocaleString()}</span></div>`).join(''); }
-    function renderSupport(){
-      const tickets = ro(K.supportTickets,[]);
-      document.getElementById('supportTable').innerHTML = `
-        <thead><tr><th>Ticket</th><th>User</th><th>Category</th><th>Priority</th><th>Message</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
-        <tbody>${tickets.length ? tickets.map(t=>`<tr>
-          <td>${t.id}</td>
-          <td>${t.userName || 'Unknown'}</td>
-          <td>${t.category || '-'}</td>
-          <td>${t.priority || 'normal'}</td>
-          <td>${t.message || '-'}</td>
-          <td>${t.status || 'Open'}</td>
-          <td>${new Date(t.createdAt).toLocaleString()}</td>
-          <td>
-            <button class="btn" onclick="setSupportTicketStatus('${t.id}','In Progress')">In Progress</button>
-            <button class="btn" onclick="setSupportTicketStatus('${t.id}','Resolved')">Resolved</button>
-            <button class="btn" onclick="setSupportTicketStatus('${t.id}','Closed')">Close</button>
-          </td>
-        </tr>`).join('') : '<tr><td colspan="8">No support tickets yet.</td></tr>'}</tbody>`;
-    }
-    function setSupportTicketStatus(id, status){
-      const tickets = ro(K.supportTickets,[]);
-      const target = tickets.find((t)=>t.id===id);
-      if(!target) return;
-      target.status = status;
-      target.updatedAt = new Date().toISOString();
-      so(K.supportTickets, tickets);
-      act(`Support ticket ${id} -> ${status}`);
-      refresh();
-    }
-
-    function renderActivity(){ const a=ro(K.activity,[]); document.getElementById('activityLog').innerHTML = a.map(x=>`<div class="small"><strong>${new Date(x.at).toLocaleString()}</strong> - ${x.actor}: ${x.action}</div>`).join('') || 'No activity'; }
-    function exportAllBackup(){ const data={}; Object.values(K).forEach(k=>data[k]=ro(k,null)); const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='crazy-town-backup.json'; a.click(); URL.revokeObjectURL(url); act('Full backup exported'); }
-    function isDemoUser(user){
-      const email = String(user?.email || '').toLowerCase();
-      const name = String(user?.name || '').toLowerCase();
-      return email.includes('@example.com') || name.includes('test') || name.includes('demo') || name.includes('sample');
-    }
-    function startProductionMode(){
-      const current = me();
-      if (!roleCan(current, 'runProductionMode')) return alert('No permission for Production Mode.');
-      if (!confirm('Run Production Mode now? This exports a backup, cleans demo data, and applies launch settings.')) return;
-      exportAllBackup();
-      const users = ro(K.users,[]);
-      const safeUsers = users.filter((user)=>!isDemoUser(user) || isAdmin(user));
-      so(K.users, safeUsers);
-      const safeUserIds = new Set(safeUsers.map((user)=>String(user.id)));
-
-      const bookings = ro(K.bookings,[]).filter((booking)=>safeUserIds.has(String(booking.userId)));
-      const orders = ro(K.orders,[]).filter((order)=>safeUserIds.has(String(order.userId)));
-      const friends = ro(K.friends,[]).filter((edge)=>safeUserIds.has(String(edge.from)) && safeUserIds.has(String(edge.to)));
-      const teams = ro(K.teams,[]).map((team)=>({
-        ...team,
-        members: (team.members || []).filter((id)=>safeUserIds.has(String(id))),
-        invitedIds: (team.invitedIds || []).filter((id)=>safeUserIds.has(String(id)))
-      })).filter((team)=>(team.members || []).length >= 1);
-      const regs = ro(K.tournamentRegs,[]).filter((reg)=>safeUserIds.has(String(reg.captainId)));
-      const vipRequests = ro(K.vipRequests,[]).filter((req)=>safeUserIds.has(String(req.userId)));
-      const supportTickets = ro(K.supportTickets,[]).filter((ticket)=>safeUserIds.has(String(ticket.userId)));
-      const activity = ro(K.activity,[]).slice(0, 120);
-      const settings = {
-        maintenance:false,
-        notifications:[{ text:'System is live in production mode.', at:new Date().toISOString() }],
-        launchMode:'production',
-        supportEnabled:true,
-        vipEnabled:true
-      };
-
-      so(K.bookings, bookings);
-      so(K.orders, orders);
-      so(K.friends, friends);
-      so(K.teams, teams);
-      so(K.tournamentRegs, regs);
-      so(K.vipRequests, vipRequests);
-      so(K.supportTickets, supportTickets);
-      so(K.activity, activity);
-      so(K.settings, settings);
-
-      act(`Production Mode applied. Users kept: ${safeUsers.length}, bookings: ${bookings.length}, orders: ${orders.length}`);
-      alert('Production Mode completed successfully.');
-      refresh();
-      setPane('insights');
-    }
-    function resolveVipRequest(id, status){
-      const updatedAt = new Date().toISOString();
-      supabaseClient.from('vip_requests').update({ status, "updatedAt": updatedAt }).eq('id', id).then(async () => {
-        CACHE[K.vipRequests] = await fetchTable('vip_requests', []);
-        act(`VIP request ${id} marked ${status}`);
-        refresh();
-      }).catch((err) => { console.error(err); alert('Could not update VIP request (check Supabase RLS/network).'); });
-    }
-    function purgeActivity(){
-      const keep = ro(K.activity,[]).slice(0, 80);
-      so(K.activity, keep);
-      act('Activity log cleanup executed');
-      refresh();
-    }
-
-    function hideAdminSearchResults(){
-      const box = document.getElementById('adminSearchResults');
-      if (!box) return;
-      box.style.display = 'none';
-      box.innerHTML = '';
-      adminSearchVisible = [];
-      adminSearchActiveIndex = -1;
-    }
-
-    function showAdminSearchResults(items){
-      const box = document.getElementById('adminSearchResults');
-      if (!box) return;
-      adminSearchVisible = items;
-      adminSearchActiveIndex = -1;
-      if (!items.length) {
-        box.innerHTML = '<div class="search-item"><strong>No results</strong><span class="small">Try another keyword.</span></div>';
-        box.style.display = 'block';
+    async function checkAuth() {
+      const sessionId = sessionStorage.getItem('crazyTown_session');
+      if (!sessionId) {
+        alert('Please login first');
+        location.href = 'index.html';
         return;
       }
-      box.innerHTML = items.map((item, index)=>`
-        <div class="search-item" data-index="${index}" onclick="selectAdminSearchResult(${index})">
-          <strong>${item.title}</strong>
-          <span class="small">${item.hint}</span>
-        </div>
+
+      const { data: user, error } = await supabaseClient.from('users').select('*').eq('id', sessionId).maybeSingle();
+      
+      if (!user || (!user.roles?.some(r => ['admin', 'owner', 'ceo', 'hr'].includes(r)))) {
+        alert('Access denied. Administrator privileges required.');
+        location.href = 'index.html';
+        return;
+      }
+
+      currentUser = user;
+      document.body.style.opacity = '1';
+      document.getElementById('loadingOverlay').classList.add('hidden');
+      loadAllData();
+    }
+
+    async function loadAllData() {
+      // Load Users
+      const { data: users } = await supabaseClient.from('users').select('*').order('joined', { ascending: false });
+      renderUsers(users || []);
+
+      // Load Bookings
+      const { data: bookings } = await supabaseClient.from('bookings').select('*').order('createdAt', { ascending: false });
+      renderBookings(bookings || []);
+
+      // Load Orders
+      const { data: orders } = await supabaseClient.from('orders').select('*').order('createdAt', { ascending: false });
+      renderOrders(orders || []);
+
+      updateStats(users || [], bookings || [], orders || []);
+    }
+
+    function renderUsers(users) {
+      const body = document.getElementById('usersTableBody');
+      body.innerHTML = users.map(u => `
+        <tr>
+          <td>
+            <strong>${u.name}</strong><br>
+            <span style="font-size: 0.75rem; opacity: 0.5;">ID: ${u.id}</span>
+          </td>
+          <td>${u.email || '-'}<br>${u.phone || '-'}</td>
+          <td>${(u.roles || []).map(r => `<span class="badge badge-ok" style="margin-right: 4px;">${r}</span>`).join('')}</td>
+          <td>${Number(u.balance || 0).toFixed(0)} EGP</td>
+          <td>
+            <button onclick="toggleRole('${u.id}', 'vip')" class="btn" style="padding: 5px 10px;">VIP</button>
+            <button onclick="toggleRole('${u.id}', 'admin')" class="btn" style="padding: 5px 10px;">Admin</button>
+            <button onclick="adjustBalance('${u.id}')" class="btn" style="padding: 5px 10px;">EGP</button>
+          </td>
+        </tr>
       `).join('');
-      box.style.display = 'block';
     }
 
-    function refreshSearchActiveItem(){
-      const box = document.getElementById('adminSearchResults');
-      if (!box) return;
-      box.querySelectorAll('.search-item').forEach((el, idx)=>el.classList.toggle('active', idx === adminSearchActiveIndex));
+    function renderBookings(bookings) {
+      const body = document.getElementById('bookingsTableBody');
+      body.innerHTML = bookings.map(b => `
+        <tr>
+          <td>${b.ticketId}</td>
+          <td>${b.name}</td>
+          <td>${b.mission}</td>
+          <td>${b.date} ${b.time}</td>
+          <td><span class="badge ${b.status === 'Confirmed' ? 'badge-ok' : 'badge-warn'}">${b.status}</span></td>
+          <td>
+            <button onclick="confirmBooking('${b.id}')" class="btn btn-primary" style="padding: 5px 10px;">Confirm</button>
+            <button onclick="deleteBooking('${b.id}')" class="btn" style="padding: 5px 10px; color: var(--danger);"><i class="fas fa-trash"></i></button>
+          </td>
+        </tr>
+      `).join('');
     }
 
-    function navigateToSearchTarget(item){
-      if (!item) return;
-      if (item.pane) setPane(item.pane);
-      if (item.selector) {
-        setTimeout(() => {
-          const target = document.querySelector(item.selector);
-          if (!target) return;
-          target.scrollIntoView({ behavior:'smooth', block:'center' });
-          target.style.outline = '2px solid var(--accent)';
-          setTimeout(()=>{ target.style.outline = ''; }, 1500);
-        }, 50);
-      }
+    function renderOrders(orders) {
+      const body = document.getElementById('ordersTableBody');
+      body.innerHTML = orders.map(o => `
+        <tr>
+          <td>${o.id}</td>
+          <td>${o.userId}</td>
+          <td>${o.total} EGP</td>
+          <td>${o.status}</td>
+          <td><button class="btn">View</button></td>
+        </tr>
+      `).join('');
     }
 
-    function selectAdminSearchResult(index){
-      const item = adminSearchVisible[index];
-      hideAdminSearchResults();
-      const input = document.getElementById('adminGlobalSearch');
-      if (input) input.value = item ? item.title : '';
-      navigateToSearchTarget(item);
+    function updateStats(users, bookings, orders) {
+      document.getElementById('totalUsers').textContent = users.length;
+      document.getElementById('totalBookings').textContent = bookings.length;
+      document.getElementById('pendingBookings').textContent = bookings.filter(b => b.status === 'Pending').length;
+      const revenue = bookings.reduce((sum, b) => sum + (Number(b.price) || 0), 0);
+      document.getElementById('totalRevenue').textContent = `${revenue.toFixed(0)} EGP`;
     }
 
-    function buildAdminSearchIndex(){
-      const users = ro(K.users,[]);
-      const bookings = ro(K.bookings,[]);
-      const orders = ro(K.orders,[]);
-      const coupons = ro(K.coupons,[]);
-      const inventory = ro(K.inventory,[]);
-      const tournaments = ro(K.tournaments,[]);
-      const vipRequests = ro(K.vipRequests,[]);
-      const supportTickets = ro(K.supportTickets,[]);
-      const base = [
-        { title:'Insights & Alerts', hint:'Open insights tab', pane:'insights', selector:'[data-pane="insights"] h3' },
-        { title:'Bookings', hint:'Open bookings tab', pane:'bookings', selector:'[data-pane="bookings"] h3' },
-        { title:'Order History', hint:'Open order-history tab', pane:'order-history', selector:'[data-pane="order-history"] h3' },
-        { title:'Users / Roles / Wallet', hint:'Open users tab', pane:'users', selector:'#usersTable' },
-        { title:'Team Control', hint:'Open team-control tab', pane:'team-control', selector:'#teamControlList' },
-        { title:'Leaderboard Editor', hint:'Open leaderboard tab', pane:'leaderboard', selector:'#leaderboardTable' },
-        { title:'Commerce - Coupons', hint:'Open commerce tab', pane:'commerce', selector:'#couponTable' },
-        { title:'Commerce - Inventory', hint:'Open commerce tab', pane:'commerce', selector:'#inventoryTable' },
-        { title:'Operations', hint:'Open operations tab', pane:'operations', selector:'#operationsStatus' },
-        { title:'Customer Analytics', hint:'Open customers tab', pane:'customers', selector:'#customersTable' },
-        { title:'News & Blog', hint:'Open news tab', pane:'news', selector:'#newsList' },
-        { title:'Support Tickets', hint:'Open support tab', pane:'support', selector:'#supportTable' },
-        { title:'Activity Log', hint:'Open activity tab', pane:'activity', selector:'#activityLog' },
-      ];
-      const usersItems = users.map((u)=>({ title:`User: ${u.name}`, hint:`${u.email || 'No email'} | roles: ${(u.roles||[]).join(', ') || 'member'}`, pane:'users', selector:'#usersTable' }));
-      const bookingsItems = bookings.map((b)=>({ title:`Booking: ${b.ticketId || b.id}`, hint:`${b.name || 'Unknown'} | ${b.status || 'Pending'}`, pane:'bookings', selector:'#bookingsTable' }));
-      const ordersItems = orders.map((o)=>({ title:`Order: ${o.id}`, hint:`Status: ${o.status || 'Pending Confirmation'}`, pane:'bookings', selector:'#ordersTable' }));
-      const couponItems = coupons.map((c)=>({ title:`Coupon: ${c.code}`, hint:`${c.type} ${c.value} | ${c.active ? 'Active':'Inactive'}`, pane:'commerce', selector:'#couponTable' }));
-      const inventoryItems = inventory.map((i)=>({ title:`Inventory: ${i.name}`, hint:`Qty ${i.qty} | ${currency(i.price)}`, pane:'commerce', selector:'#inventoryTable' }));
-      const tourItems = tournaments.map((t)=>({ title:`Tournament: ${t.name}`, hint:`Date: ${t.date || '-'}`, pane:'customers', selector:'#tournamentList' }));
-      const vipReqItems = vipRequests.map((req)=>({ title:`VIP Request: ${req.title}`, hint:`${req.userName} | ${req.status || 'Pending'}`, pane:'insights', selector:'#vipRequestQueue' }));
-      const supportItems = supportTickets.map((ticket)=>({ title:`Support: ${ticket.id}`, hint:`${ticket.userName || 'Unknown'} | ${ticket.status || 'Open'}`, pane:'support', selector:'#supportTable' }));
-      adminSearchIndex = [...base, ...usersItems, ...bookingsItems, ...ordersItems, ...couponItems, ...inventoryItems, ...tourItems, ...vipReqItems, ...supportItems];
+    function switchTab(paneId, el) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
+      el.classList.add('active');
+      document.getElementById(`pane-${paneId}`).classList.add('active');
     }
 
-    function handleAdminSearchInput(){
-      const input = document.getElementById('adminGlobalSearch');
-      if (!input) return;
-      const query = input.value.trim().toLowerCase();
-      buildAdminSearchIndex();
-      if (!query) return hideAdminSearchResults();
-      const items = adminSearchIndex
-        .filter((item)=>`${item.title} ${item.hint}`.toLowerCase().includes(query))
-        .slice(0, 18);
-      showAdminSearchResults(items);
+    async function toggleRole(userId, role) {
+      if (userId === 'root-admin') return alert('Cannot modify Root');
+      const { data: user } = await supabaseClient.from('users').select('roles').eq('id', userId).single();
+      let roles = user.roles || [];
+      if (roles.includes(role)) roles = roles.filter(r => r !== role);
+      else roles.push(role);
+      
+      const { error } = await supabaseClient.from('users').update({ roles }).eq('id', userId);
+      if (!error) loadAllData();
     }
 
-    function applyQuickFilter(){
-      const input = document.getElementById('quickFilter');
-      const query = String(input?.value || '').trim().toLowerCase();
-      const activePane = document.querySelector('.pane.active');
-      if (!activePane) return;
-      const rows = activePane.querySelectorAll('tbody tr');
-      rows.forEach((row) => {
-        const text = row.textContent.toLowerCase();
-        row.style.display = !query || text.includes(query) ? '' : 'none';
-      });
+    async function adjustBalance(userId) {
+      const amount = prompt('Amount to add (e.g. 500 or -200):');
+      if (amount === null) return;
+      const { data: user } = await supabaseClient.from('users').select('balance').eq('id', userId).single();
+      const next = (Number(user.balance) || 0) + Number(amount);
+      await supabaseClient.from('users').update({ balance: next }).eq('id', userId);
+      loadAllData();
     }
 
-    function bindCouponTargetVisibility(){
-      const groupEl = document.getElementById('cpTargetGroup');
-      const userEl = document.getElementById('cpTargetUser');
-      if (!groupEl || !userEl) return;
-      const update = () => {
-        const userMode = groupEl.value === 'user';
-        userEl.style.display = userMode ? '' : 'none';
-      };
-      groupEl.onchange = update;
-      update();
+    async function confirmBooking(id) {
+      await supabaseClient.from('bookings').update({ status: 'Confirmed' }).eq('id', id);
+      loadAllData();
     }
 
-    document.addEventListener('click', (event)=>{
-      const wrap = document.querySelector('.search-wrap');
-      if (!wrap || wrap.contains(event.target)) return;
-      hideAdminSearchResults();
-    });
-
-    document.addEventListener('keydown', (event)=>{
-      const visible = adminSearchVisible.length && document.getElementById('adminSearchResults')?.style.display === 'block';
-      if (!visible) return;
-      if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        adminSearchActiveIndex = Math.min(adminSearchVisible.length - 1, adminSearchActiveIndex + 1);
-        refreshSearchActiveItem();
-      } else if (event.key === 'ArrowUp') {
-        event.preventDefault();
-        adminSearchActiveIndex = Math.max(0, adminSearchActiveIndex - 1);
-        refreshSearchActiveItem();
-      } else if (event.key === 'Enter') {
-        event.preventDefault();
-        if (adminSearchActiveIndex >= 0) selectAdminSearchResult(adminSearchActiveIndex);
-      } else if (event.key === 'Escape') {
-        hideAdminSearchResults();
-      }
-    });
-
-    function openOwnerControls(){
-      const current = me();
-      if (!(hasRole(current, 'owner') || hasRole(current, 'co-owner') || hasRole(current, 'ceo'))) return alert('Owner controls are only for owner/co-owner/ceo.');
-      window.location.href = 'owner.html';
+    async function deleteBooking(id) {
+       if (confirm('Delete this booking?')) {
+         await supabaseClient.from('bookings').delete().eq('id', id);
+         loadAllData();
+       }
     }
 
-    async function refresh(){
-      const current = await me();
-      const ownerBtn = document.getElementById('ownerOnlyBtn');
-      if (ownerBtn) ownerBtn.style.display = (hasRole(current, 'owner') || hasRole(current, 'co-owner') || hasRole(current, 'ceo')) ? 'inline-block' : 'none';
-      renderStats();
-      renderInsights();
-      renderBookings();
-      renderOrderHistory();
-      renderUsers();
-      populateTeamControlSelectors();
-      renderTeamControl();
-      renderLeaderboard();
-      renderCommerce();
-      bindCouponTargetVisibility();
-      renderOperations();
-      renderCustomers();
-      renderNews();
-      renderSupport();
-      renderActivity();
-      applyQuickFilter();
-      buildAdminSearchIndex();
-    }
-    async function bootstrapSupabase(){
-      CACHE[K.users] = await fetchTable('users', []);
-      CACHE[K.bookings] = await fetchTable('bookings', []);
-      CACHE[K.orders] = await fetchTable('orders', []);
-      CACHE[K.teams] = await fetchTable('teams', []);
-      CACHE[K.supportTickets] = await fetchTable('support_tickets', []);
-      CACHE[K.vipRequests] = await fetchTable('vip_requests', []);
-      await loadAllAppKvIntoCache();
-      if (!Object.prototype.hasOwnProperty.call(CACHE, K.rolePolicy)) CACHE[K.rolePolicy] = DEFAULT_ROLE_POLICY;
-      ensurePrivilegedSeed();
-      tabs(); refresh();
-      await guard();
-      supabaseClient
-        .channel('admin-live-bookings-orders-users')
-        .on('postgres_changes', { event:'*', schema:'public', table:'bookings' }, async ()=>{ CACHE[K.bookings] = await fetchTable('bookings', []); refresh(); })
-        .on('postgres_changes', { event:'*', schema:'public', table:'orders' }, async ()=>{ CACHE[K.orders] = await fetchTable('orders', []); refresh(); })
-        .on('postgres_changes', { event:'*', schema:'public', table:'users' }, async ()=>{ CACHE[K.users] = await fetchTable('users', []); refresh(); })
-        .on('postgres_changes', { event:'*', schema:'public', table:'vip_requests' }, async ()=>{ CACHE[K.vipRequests] = await fetchTable('vip_requests', []); refresh(); })
-        .on('postgres_changes', { event:'*', schema:'public', table:'app_kv' }, async ()=>{ await loadAllAppKvIntoCache(); refresh(); })
-        .subscribe();
-    }
-    bootstrapSupabase();
+    function logout() { sessionStorage.removeItem('crazyTown_session'); location.href = 'index.html'; }
+
+    // Real-time updates
+    supabaseClient.channel('admin-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, loadAllData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, loadAllData)
+      .subscribe();
+
+    checkAuth();
   </script>
 </body>
 </html>

@@ -7,223 +7,128 @@
   <style>
     :root { --bg:#070b18; --card:#111a2f; --line:#243252; --text:#e7eefc; --muted:#9fb2d3; --gold:#fbbf24; --accent:#38bdf8; }
     * { box-sizing: border-box; }
-    body { margin:0; font-family: Arial, sans-serif; background:radial-gradient(circle at top,#0f1a35,#070b18); color:var(--text); }
-    .wrap { width:min(1180px,95vw); margin:20px auto; }
-    .top { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
-    .btn { border:1px solid var(--line); background:#0f1730; color:var(--text); padding:10px 12px; border-radius:10px; text-decoration:none; display:inline-block; cursor:pointer; }
-    .hero { margin-top:12px; border:1px solid rgba(251,191,36,0.4); background:linear-gradient(135deg,rgba(251,191,36,0.18),rgba(17,26,47,0.95)); border-radius:16px; padding:18px; text-align:center; }
-    .hero .cup { font-size:56px; color:var(--gold); }
-    .hero h1 { margin:8px 0 4px; letter-spacing:2px; }
-    .hero p { color:var(--muted); margin:0; }
-    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px; margin-top:14px; }
-    .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
-    .small { color:var(--muted); font-size:12px; }
-    .badge { display:inline-block; padding:4px 10px; border-radius:999px; border:1px solid rgba(251,191,36,0.45); color:#fde68a; font-size:12px; }
-    .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin:10px 0; }
-    input, select, textarea { width:100%; background:#0b1328; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px; }
-    table { width:100%; border-collapse:collapse; min-width:600px; }
-    th, td { border-bottom:1px solid var(--line); text-align:left; padding:10px; font-size:14px; }
-    .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:12px; margin-top:8px; }
+    body { 
+      margin:0; font-family: 'Orbitron', sans-serif; 
+      background: radial-gradient(circle at top, #0f1a35, #070b18); 
+      color: var(--text); min-height: 100vh;
+    }
+    .wrap { width: min(1000px, 95vw); margin: 40px auto; }
+    .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+    .btn { 
+      border: 1px solid var(--line); background: rgba(15, 23, 48, 0.6); color: #fff; padding: 12px 20px; 
+      border-radius: 10px; text-decoration: none; cursor: pointer; transition: 0.3s;
+    }
+    .btn:hover { background: var(--line); border-color: var(--accent); }
+    
+    .hero { 
+      text-align: center; padding: 50px; border: 1px solid rgba(251, 191, 36, 0.3);
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(17, 26, 47, 0.8));
+      border-radius: 20px; margin-bottom: 30px;
+    }
+    .cup { font-size: 80px; color: var(--gold); margin-bottom: 20px; text-shadow: 0 0 30px rgba(251, 191, 36, 0.4); }
+    
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+    .stat-card { background: var(--card); border: 1px solid var(--line); padding: 30px; border-radius: 16px; text-align: center; }
+    .stat-card h2 { font-size: 2.5rem; color: var(--gold); margin: 10px 0; }
+    
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 30px; }
+    
+    #loadingOverlay {
+      position: fixed; inset: 0; background: #070b18; z-index: 3000;
+      display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 20px;
+    }
+    .hidden { display: none !important; }
   </style>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 </head>
-<body>
+<body style="opacity: 0;">
+
+  <div id="loadingOverlay">
+    <i class="fas fa-trophy fa-spin fa-3x" style="color: var(--gold);"></i>
+    <p style="font-family: 'Orbitron', sans-serif; letter-spacing: 2px;">VERIFYING CHAMPION STATUS...</p>
+  </div>
+
   <div class="wrap">
     <div class="top">
-      <div>
-        <a class="btn" href="index.html">Main Website</a>
-        <a class="btn" href="vip.html">VIP</a>
-        <a class="btn" href="operations.html">Operations</a>
-      </div>
+      <a href="index.html" class="btn"><i class="fas fa-arrow-left mr-2"></i> Back to City</a>
+      <h1 style="margin:0; font-size: 1.2rem; letter-spacing: 3px; color: var(--gold);">CHAMPION DIVISION</h1>
+      <button onclick="logout()" class="btn" style="color: var(--gold); border-color: var(--gold);">LEAVE PORTAL</button>
     </div>
 
     <div class="hero">
-      <div class="cup">&#127942;</div>
-      <h1>CRAZY TOWN</h1>
-      <p>Champion Elite Division</p>
+      <div class="cup"><i class="fas fa-crown"></i></div>
+      <h1 id="welcomeName">WELCOME, CHAMPION</h1>
+      <p style="color: var(--muted); letter-spacing: 1px;">Accessing restricted elite tactical data</p>
     </div>
 
     <div class="grid">
-      <div class="card"><div class="small">Champion Discount</div><h2>35%</h2><span class="badge">Auto Applied</span></div>
-      <div class="card"><div class="small">Champion Tournaments</div><h2 id="champTourCount">0</h2></div>
-      <div class="card"><div class="small">My Champion Card</div><h2 id="champCardCode">-</h2></div>
-      <div class="card"><div class="small">My Rank</div><h2 id="champUserRank">Champion</h2></div>
-    </div>
-
-    <div class="card" style="margin-top:12px;">
-      <h3 style="margin-top:0;">Champion Card</h3>
-      <div style="border:1px solid rgba(251,191,36,0.45); border-radius:12px; padding:14px; background:linear-gradient(135deg,rgba(251,191,36,0.18),rgba(11,19,40,0.95));">
-        <div class="small">CRAZY TOWN - CHAMPION ACCESS</div>
-        <h3 id="champCardName" style="margin:6px 0;">-</h3>
-        <div class="small">Card ID: <span id="champCardId">-</span></div>
+      <div class="stat-card">
+        <div style="font-size: 0.8rem; color: var(--muted); text-transform: uppercase;">Division Discount</div>
+        <h2>35% OFF</h2>
+        <div style="font-size: 0.75rem; color: var(--accent);">AUTOMATICALLY APPLIED</div>
+      </div>
+      <div class="stat-card">
+        <div style="font-size: 0.8rem; color: var(--muted); text-transform: uppercase;">Rank</div>
+        <h2 id="userRankText">ELITE</h2>
+        <div style="font-size: 0.75rem; color: var(--gold);">LEGENDARY STATUS</div>
+      </div>
+      <div class="stat-card">
+        <div style="font-size: 0.8rem; color: var(--muted); text-transform: uppercase;">Points</div>
+        <h2 id="userPoints">0</h2>
+        <div style="font-size: 0.75rem; color: var(--accent);">SEASON 2 SCORE</div>
       </div>
     </div>
 
-    <div class="card" style="margin-top:12px;">
-      <h3 style="margin-top:0;">Champion-Only Tournaments</h3>
-      <div class="table-wrap"><table id="champTourTable"></table></div>
-    </div>
-
-    <div class="card" style="margin-top:12px;">
-      <h3 style="margin-top:0;">Champion Registration</h3>
-      <form onsubmit="registerChampionTournament(event)">
-        <div class="row">
-          <select id="champTourSelect" required></select>
-          <input id="champTeamTag" placeholder="Team tag" required>
-          <input id="champPreferredDate" type="date" required>
-        </div>
-        <textarea id="champNotes" rows="3" placeholder="Champion tactical notes..."></textarea>
-        <div style="margin-top:8px;"><button class="btn" type="submit">Register as Champion</button></div>
-      </form>
-    </div>
-
-    <div class="card" style="margin-top:12px;">
-      <h3 style="margin-top:0;">My Champion Registrations</h3>
-      <div class="table-wrap"><table id="champRegTable"></table></div>
+    <div class="card" style="margin-top: 30px;">
+      <h3 style="margin-top: 0; color: var(--accent);"><i class="fas fa-medal mr-2"></i> CHAMPION ID CARD</h3>
+      <div style="background: linear-gradient(135deg, #162447, #1f4068); padding: 30px; border-radius: 15px; border: 1px solid var(--accent); position: relative; overflow: hidden;">
+        <div style="position: absolute; top: -20px; right: -20px; font-size: 150px; opacity: 0.05;"><i class="fas fa-crosshairs"></i></div>
+        <div style="font-size: 0.8rem; opacity: 0.5; margin-bottom: 20px;">CRAZY TOWN TACTICAL CITY - ELITE OPERATIVE</div>
+        <h2 id="cardName" style="margin: 0; font-size: 2rem;">CHAMPION NAME</h2>
+        <div id="cardId" style="margin-top: 10px; font-family: monospace; color: var(--accent); letter-spacing: 2px;">CT-ELITE-0000</div>
+      </div>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    const K = {
-      session:'crazyTown_session',
-      championTournaments:'crazyTown_champion_tournaments',
-      championRegs:'crazyTown_champion_regs',
-      activity:'crazyTown_activity'
-    };
     const SUPABASE_URL = 'https://gldwdwcpzcxcvqpcpiol.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsZHdkd2NwemN4Y3ZxcGNwaW9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMjE4NjAsImV4cCI6MjA5Mjg5Nzg2MH0.clwYiXpRG-2ZPC_WmGC56DdoVEiyVu2RgVe5yppxJ2E';
-    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    let sessionUser = null;
-    const DEFAULT_TOURS = [
-      { id:'ch-1', name:'Champion Midnight Ops', prize:'20,000 EGP + Elite Title', status:'Open' },
-      { id:'ch-2', name:'Cairo Urban Champion Cup', prize:'15,000 EGP + Team Sponsorship', status:'Open' },
-      { id:'ch-3', name:'Final Circle Invitational', prize:'30,000 EGP + Hall of Fame', status:'Coming Soon' }
-    ];
-    const mem = {};
-    async function loadAllAppKvIntoCache() {
-      const { data, error } = await supabaseClient.from('app_kv').select('*');
-      if (error) { console.warn('app_kv load', error); return; }
-      (data || []).forEach((row) => { if (row && row.id != null) mem[row.id] = row.value; });
-    }
-    function roLocal(k, d) {
-      if (!Object.prototype.hasOwnProperty.call(mem, k)) return d;
-      const v = mem[k];
-      return v === undefined ? d : v;
-    }
-    async function persistAppKvKey(k, v) {
-      mem[k] = v;
-      const { error } = await supabaseClient.from('app_kv').upsert({ id: k, value: v }, { onConflict: 'id' });
-      if (error) console.warn('app_kv upsert', k, error);
-    }
-    const readSessionId = () => sessionStorage.getItem(K.session) || roLocal(K.session, '');
-    const me = () => sessionUser;
-    async function loadSessionUser() {
-      const sid = readSessionId();
-      if (!sid) { sessionUser = null; return null; }
-      const { data, error } = await supabaseClient.from('users').select('*').eq('id', sid).maybeSingle();
-      if (error) { console.warn('champion user', error); sessionUser = null; return null; }
-      sessionUser = data;
-      return sessionUser;
-    }
-    const hasRole = (user, role)=>!!user && Array.isArray(user.roles) && user.roles.includes(role);
-    const isAdmin = (user)=>hasRole(user, 'admin') || hasRole(user, 'owner') || hasRole(user, 'co-owner') || hasRole(user, 'ceo') || hasRole(user, 'hr');
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsZHdkd2NwemN4Y3ZxcGNwaW9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMjE4NjAsImV4cCI6MjA5Mjg5Nzg2MH0.clwYiXpRG-2ZPC_WmGC56DdoVEiyVu2RgVe5yppxJ2E';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     async function guard() {
-      const user = me();
-      if (!(hasRole(user, 'champion') || isAdmin(user))) {
-        alert('Champion portal access denied.');
+      const sid = sessionStorage.getItem('crazyTown_session');
+      if (!sid) { location.href = 'index.html'; return; }
+
+      const { data: user, error } = await supabaseClient.from('users').select('*').eq('id', sid).maybeSingle();
+      
+      const roles = user?.roles || [];
+      const isPrivileged = roles.includes('admin') || roles.includes('owner') || roles.includes('ceo');
+      const isChamp = roles.includes('champion');
+
+      if (!user || !(isChamp || isPrivileged)) {
+        alert('CHAMPION STATUS REQUIRED. Redirection in progress.');
         location.href = 'index.html';
+        return;
       }
+
+      // Success
+      document.getElementById('loadingOverlay').classList.add('hidden');
+      document.body.style.opacity = '1';
+      render(user);
     }
-    async function ensureSeed(){
-      await loadAllAppKvIntoCache();
-      if (!Object.prototype.hasOwnProperty.call(mem, K.championTournaments)) await persistAppKvKey(K.championTournaments, DEFAULT_TOURS);
-      if (!Object.prototype.hasOwnProperty.call(mem, K.championRegs)) await persistAppKvKey(K.championRegs, []);
+
+    function render(user) {
+      document.getElementById('welcomeName').textContent = `WELCOME, ${user.name.toUpperCase()}`;
+      document.getElementById('userRankText').textContent = user.rank || 'ELITE';
+      document.getElementById('userPoints').textContent = user.points || '0';
+      document.getElementById('cardName').textContent = user.name;
+      document.getElementById('cardId').textContent = `CT-ELITE-${user.id.slice(-6).toUpperCase()}`;
     }
-    async function addActivity(action, actor='Champion'){
-      const arr = roLocal(K.activity,[]);
-      arr.unshift({ id:`act-${Date.now()}`, action, actor, at:new Date().toISOString() });
-      await persistAppKvKey(K.activity, arr.slice(0, 300));
-    }
-    function renderChampionCard(user){
-      const cardId = `CT-CH-${String(user.id).slice(-4).toUpperCase()}`;
-      document.getElementById('champCardName').textContent = user.name || 'Champion';
-      document.getElementById('champCardId').textContent = cardId;
-      document.getElementById('champCardCode').textContent = cardId;
-      document.getElementById('champUserRank').textContent = hasRole(user, 'champion') ? 'Champion' : 'Admin Access';
-    }
-    function renderTournaments(){
-      const tours = roLocal(K.championTournaments, []);
-      document.getElementById('champTourCount').textContent = tours.length;
-      document.getElementById('champTourSelect').innerHTML = `<option value="">Select tournament</option>${tours.filter((t)=>t.status !== 'Closed').map((t)=>`<option value="${t.id}">${t.name}</option>`).join('')}`;
-      document.getElementById('champTourTable').innerHTML = `
-        <thead><tr><th>Tournament</th><th>Prize</th><th>Status</th></tr></thead>
-        <tbody>${tours.map((t)=>`<tr><td>${t.name}</td><td>${t.prize}</td><td>${t.status}</td></tr>`).join('')}</tbody>`;
-    }
-    async function registerChampionTournament(e){
-      e.preventDefault();
-      const user = me();
-      if (!user) return;
-      const tournamentId = document.getElementById('champTourSelect').value;
-      const teamTag = document.getElementById('champTeamTag').value.trim();
-      const preferredDate = document.getElementById('champPreferredDate').value;
-      const notes = document.getElementById('champNotes').value.trim();
-      if (!tournamentId || !teamTag || !preferredDate) return;
-      const tours = roLocal(K.championTournaments, []);
-      const tour = tours.find((t)=>t.id === tournamentId);
-      if (!tour) return;
-      const regs = roLocal(K.championRegs, []);
-      regs.unshift({
-        id:`chr-${Date.now()}`,
-        tournamentId,
-        tournamentName: tour.name,
-        userId:user.id,
-        userName:user.name,
-        teamTag,
-        preferredDate,
-        notes,
-        status:'Pending',
-        createdAt:new Date().toISOString()
-      });
-      await persistAppKvKey(K.championRegs, regs);
-      await addActivity(`Champion registration: ${tour.name}`, user.name);
-      e.target.reset();
-      renderRegistrations();
-    }
-    function renderRegistrations(){
-      const user = me();
-      const regs = roLocal(K.championRegs, []).filter((r)=>String(r.userId)===String(user?.id));
-      document.getElementById('champRegTable').innerHTML = `
-        <thead><tr><th>Tournament</th><th>Team</th><th>Date</th><th>Status</th><th>Created</th></tr></thead>
-        <tbody>${regs.length ? regs.map((r)=>`<tr><td>${r.tournamentName}</td><td>${r.teamTag}</td><td>${r.preferredDate}</td><td>${r.status}</td><td>${new Date(r.createdAt).toLocaleString()}</td></tr>`).join('') : '<tr><td colspan="5">No registrations yet.</td></tr>'}</tbody>`;
-    }
-    function render(){
-      const user = me();
-      if (!user) return;
-      renderChampionCard(user);
-      renderTournaments();
-      renderRegistrations();
-    }
-    async function bootstrapSupabase() {
-      await loadSessionUser();
-      if (!me()) return (location.href = 'index.html');
-      await loadAllAppKvIntoCache();
-      await guard();
-      await ensureSeed();
-      render();
-      supabaseClient
-        .channel('champion-live-sync')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'app_kv' }, async () => {
-          await loadAllAppKvIntoCache();
-          render();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, async () => {
-          await loadSessionUser();
-          render();
-        })
-        .subscribe();
-    }
-    bootstrapSupabase();
+
+    function logout() { sessionStorage.removeItem('crazyTown_session'); location.href = 'index.html'; }
+
+    guard();
   </script>
 </body>
 </html>
