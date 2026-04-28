@@ -41,7 +41,7 @@
     button { cursor: pointer; border: none; font-family: inherit; transition: all 0.3s; }
     
     /* Utility Classes */
-    .container { max-width: 1000px; margin: 0 auto; padding: 0 20px; width: 100%; }
+    .container { max-width: 900px; margin: 0 auto; padding: 0 20px; width: 100%; }
     section { padding: 100px 0; }
     .grid { display: grid; gap: 32px; }
     .grid-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
@@ -3272,8 +3272,24 @@
     }
 
     async function ensureSeedData() {
+      const currentSessionId = sessionStorage.getItem(DB_KEYS.session) || localStorage.getItem(DB_KEYS.session);
+      
       const oldSingleUser = loadData('crazyTown_user', null);
       let users = loadData(DB_KEYS.users, []);
+      
+      // Merge with Supabase users to avoid losing data
+      const { data: supabaseUsers } = await supabaseClient.from('users').select('*');
+      if (supabaseUsers && Array.isArray(supabaseUsers)) {
+        supabaseUsers.forEach((su) => {
+          const existingIndex = users.findIndex((u) => u.id === su.id);
+          if (existingIndex >= 0) {
+            users[existingIndex] = su;
+          } else {
+            users.push(su);
+          }
+        });
+      }
+      
       if (!users.some((user) => user.id === DEFAULT_ADMIN.id)) {
         users.push(DEFAULT_ADMIN);
       }
@@ -3293,8 +3309,15 @@
         DATA_CACHE.crazyTown_user = null;
       }
       saveData(DB_KEYS.users, users);
-      // Sync root-admin to Supabase users table
       await supabaseClient.from('users').upsert([rootAdmin || DEFAULT_ADMIN], { onConflict: 'id' });
+      
+      // Restore session if it was lost
+      if (currentSessionId && !sessionStorage.getItem(DB_KEYS.session)) {
+        sessionStorage.setItem(DB_KEYS.session, currentSessionId);
+        localStorage.setItem(DB_KEYS.session, currentSessionId);
+      }
+      
+      // Initialize other data
       if (!Array.isArray(loadData(DB_KEYS.bookings, null))) saveData(DB_KEYS.bookings, []);
       if (!Array.isArray(loadData(DB_KEYS.activity, null))) saveData(DB_KEYS.activity, []);
       if (!Array.isArray(loadData(DB_KEYS.leaderboard, null))) {
@@ -3349,7 +3372,10 @@
       sessionStorage.setItem(DB_KEYS.session, id);
       localStorage.setItem(DB_KEYS.session, id);
     }
-    function clearCurrentUser() { sessionStorage.removeItem(DB_KEYS.session); localStorage.removeItem(DB_KEYS.session); }
+    function clearCurrentUser() { 
+      sessionStorage.removeItem(DB_KEYS.session); 
+      localStorage.removeItem(DB_KEYS.session); 
+    }
     function hasRole(user, role) { return !!user && Array.isArray(user.roles) && user.roles.includes(role); }
     function isAdmin(user) { return hasRole(user, 'admin') || hasRole(user, 'owner') || hasRole(user, 'co-owner') || hasRole(user, 'ceo'); }
 
@@ -3444,19 +3470,16 @@
       // First check local cache
       if (identifier === 'root') {
         user = users.find((u) => u.id === DEFAULT_ADMIN.id);
-        console.log('Login - found root in local cache:', user);
       } else {
         user = users.find((u) => (u.email === identifier || u.phone === identifier) && u.password === password);
       }
       
       // If not found locally, check Supabase
       if (!user) {
-        console.log('Login - user not in local cache, checking Supabase...');
         const { data: supabaseUsers } = await supabaseClient.from('users').select('*').eq('email', identifier).or(`phone.eq.${identifier}`);
         if (supabaseUsers && supabaseUsers.length > 0) {
           user = supabaseUsers.find((u) => u.password === password);
           if (user) {
-            console.log('Login - found user in Supabase:', user);
             // Add to local cache
             users.push(user);
             saveData(DB_KEYS.users, users);
@@ -3467,7 +3490,6 @@
       if (!user) return showToast('Invalid login credentials', 'error');
       if (user.isBanned) return showToast('Your account is banned. Contact admin.', 'error');
 
-      console.log('Login - syncing user to Supabase:', user);
       setCurrentUser(user.id);
       // Sync user to Supabase immediately
       await supabaseClient.from('users').upsert([user], { onConflict: 'id' });
