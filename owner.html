@@ -8,7 +8,7 @@
     :root { --bg:#f4f7fb; --card:#ffffff; --line:#dbe3ef; --text:#1f2937; --muted:#64748b; --accent:#2563eb; --ok:#16a34a; --danger:#dc2626; }
     * { box-sizing: border-box; }
     body { margin:0; font-family: Arial, sans-serif; background:var(--bg); color:var(--text); }
-    .wrap { width:min(1200px,96vw); margin:18px auto; max-width:100%; }
+    .wrap { width:min(1000px,96vw); margin:18px auto; max-width:100%; }
     .top { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; }
     .btn { border:1px solid var(--line); background:#fff; color:var(--text); padding:10px 12px; border-radius:10px; cursor:pointer; text-decoration:none; display:inline-block; transition:all .2s ease; }
     .btn:hover { border-color:#b9c9e2; transform:translateY(-1px); }
@@ -192,7 +192,24 @@
       if (k === K.supportTickets) pushRows('support_tickets', v);
       void persistAppKvKey(k, v);
     }
-    const me = ()=>ro(K.users,[]).find((u)=>String(u.id)===readSessionId());
+    const me = async ()=>{
+      const cached = ro(K.users,[]).find((u)=>String(u.id)===readSessionId());
+      if (cached) return cached;
+      // If not in cache, try to fetch from Supabase directly
+      const sid = readSessionId();
+      if (!sid) return null;
+      const { data, error } = await supabaseClient.from('users').select('*').eq('id', sid).maybeSingle();
+      if (error || !data) return null;
+      // Add to cache
+      CACHE[K.users] = ro(K.users, []);
+      const existingIndex = CACHE[K.users].findIndex((u) => String(u.id) === sid);
+      if (existingIndex >= 0) {
+        CACHE[K.users][existingIndex] = data;
+      } else {
+        CACHE[K.users].push(data);
+      }
+      return data;
+    };
     const hasRole = (user, role)=>!!user && Array.isArray(user.roles) && user.roles.includes(role);
     const canAccessOwnerControls = (user)=>hasRole(user, 'owner') || hasRole(user, 'co-owner') || hasRole(user, 'ceo');
     function getRolePolicy(){
@@ -200,8 +217,11 @@
       return { ...DEFAULT_ROLE_POLICY, ...current };
     }
 
-    function guard() {
-      const user = me();
+    async function guard() {
+      const user = await me();
+      console.log('Owner guard - user:', user);
+      console.log('Owner guard - roles:', user?.roles);
+      console.log('Owner guard - canAccessOwnerControls:', canAccessOwnerControls(user));
       if (!user) {
         alert('Please login first on the main page.');
         location.href = 'index.html';
@@ -381,7 +401,7 @@
       CACHE[K.supportTickets] = await fetchTable('support_tickets', []);
       await loadAllAppKvIntoCache();
       if (!Object.prototype.hasOwnProperty.call(CACHE, K.rolePolicy)) CACHE[K.rolePolicy] = DEFAULT_ROLE_POLICY;
-      guard();
+      await guard();
       tabs();
       render();
       supabaseClient
