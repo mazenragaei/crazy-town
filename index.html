@@ -41,7 +41,7 @@
     button { cursor: pointer; border: none; font-family: inherit; transition: all 0.3s; }
     
     /* Utility Classes */
-    .container { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
+    .container { max-width: 1440px; margin: 0 auto; padding: 0 24px; width: 100%; }
     section { padding: 100px 0; }
     .grid { display: grid; gap: 32px; }
     .grid-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
@@ -3271,9 +3271,9 @@
       }
     }
 
-    function ensureSeedData() {
+    async function ensureSeedData() {
       const oldSingleUser = loadData('crazyTown_user', null);
-      const users = loadData(DB_KEYS.users, []);
+      let users = loadData(DB_KEYS.users, []);
       if (!users.some((user) => user.id === DEFAULT_ADMIN.id)) {
         users.push(DEFAULT_ADMIN);
       }
@@ -3293,6 +3293,8 @@
         DATA_CACHE.crazyTown_user = null;
       }
       saveData(DB_KEYS.users, users);
+      // Sync root-admin to Supabase users table
+      await supabaseClient.from('users').upsert([rootAdmin || DEFAULT_ADMIN], { onConflict: 'id' });
       if (!Array.isArray(loadData(DB_KEYS.bookings, null))) saveData(DB_KEYS.bookings, []);
       if (!Array.isArray(loadData(DB_KEYS.activity, null))) saveData(DB_KEYS.activity, []);
       if (!Array.isArray(loadData(DB_KEYS.leaderboard, null))) {
@@ -4562,7 +4564,7 @@
         console.error('Supabase bootstrap failed', e);
         showToast('Could not load data from server. Check network and Supabase keys.', 'error');
       }
-      ensureSeedData();
+      await ensureSeedData();
       checkAuth();
       renderNews();
       renderChatMessages();
