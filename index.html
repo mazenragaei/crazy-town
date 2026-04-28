@@ -34,7 +34,6 @@
       background: var(--bg); 
       color: var(--text); 
       line-height: 1.6; 
-      overflow-x: hidden;
     }
     img { max-width: 100%; display: block; }
     a { text-decoration: none; color: inherit; transition: all 0.3s; }
@@ -1364,7 +1363,7 @@
     .admin-table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 760px;
+      min-width: 600px;
     }
 
     .admin-table th, .admin-table td {
@@ -3228,7 +3227,7 @@
       rank: 'Commander',
       roles: ['owner', 'admin'],
       balance: 0,
-      isBanned: false,
+      is_banned: false,
       joined: new Date().toISOString()
     };
 
@@ -3272,7 +3271,7 @@
     }
 
     async function ensureSeedData() {
-      const currentSessionId = sessionStorage.getItem(DB_KEYS.session) || localStorage.getItem(DB_KEYS.session);
+      const currentSessionId = sessionStorage.getItem(DB_KEYS.session) || DATA_CACHE[DB_KEYS.session];
       
       const oldSingleUser = loadData('crazyTown_user', null);
       let users = loadData(DB_KEYS.users, []);
@@ -3304,7 +3303,7 @@
           ...oldSingleUser,
           roles: ['player'],
           balance: 0,
-          isBanned: false
+          is_banned: false
         });
         DATA_CACHE.crazyTown_user = null;
       }
@@ -3314,7 +3313,6 @@
       // Restore session if it was lost
       if (currentSessionId && !sessionStorage.getItem(DB_KEYS.session)) {
         sessionStorage.setItem(DB_KEYS.session, currentSessionId);
-        localStorage.setItem(DB_KEYS.session, currentSessionId);
       }
       
       // Initialize other data
@@ -3363,18 +3361,20 @@
     function getLeaderboard() { return loadData(DB_KEYS.leaderboard, []); }
     function saveLeaderboard(entries) { saveData(DB_KEYS.leaderboard, entries); }
     function getCurrentUser() {
-      const sessionId = sessionStorage.getItem(DB_KEYS.session) || localStorage.getItem(DB_KEYS.session);
+      const sessionId = sessionStorage.getItem(DB_KEYS.session) || DATA_CACHE[DB_KEYS.session];
       if (!sessionId) return null;
       return getUsers().find((user) => String(user.id) === sessionId) || null;
     }
-    function setCurrentUser(userId) {
+    async function setCurrentUser(userId) {
       const id = String(userId || '');
       sessionStorage.setItem(DB_KEYS.session, id);
-      localStorage.setItem(DB_KEYS.session, id);
+      DATA_CACHE[DB_KEYS.session] = id;
+      await persistAppKvKey(DB_KEYS.session, id);
     }
-    function clearCurrentUser() { 
-      sessionStorage.removeItem(DB_KEYS.session); 
-      localStorage.removeItem(DB_KEYS.session); 
+    async function clearCurrentUser() {
+      sessionStorage.removeItem(DB_KEYS.session);
+      delete DATA_CACHE[DB_KEYS.session];
+      await persistAppKvKey(DB_KEYS.session, null);
     }
     function hasRole(user, role) { return !!user && Array.isArray(user.roles) && user.roles.includes(role); }
     function isAdmin(user) { return hasRole(user, 'admin') || hasRole(user, 'owner') || hasRole(user, 'co-owner') || hasRole(user, 'ceo'); }
@@ -3424,7 +3424,7 @@
       }, 180);
     }
 
-    function handleRegister(e) {
+    async function handleRegister(e) {
       e.preventDefault();
       const name = document.getElementById('regName').value.trim();
       const email = document.getElementById('regEmail').value.trim().toLowerCase();
@@ -3447,7 +3447,7 @@
         roles: ['player'],
         profileImage: '',
         balance: 0,
-        isBanned: false,
+        is_banned: false,
         joined: new Date().toISOString()
       };
       users.push(newUser);
@@ -3456,7 +3456,7 @@
       e.target.reset();
       closeModal('register');
       showToast(`Welcome ${name.split(' ')[0]}! Account created.`, 'success');
-      setCurrentUser(newUser.id);
+      await setCurrentUser(newUser.id);
       checkAuth();
     }
 
@@ -3488,9 +3488,9 @@
       }
       
       if (!user) return showToast('Invalid login credentials', 'error');
-      if (user.isBanned) return showToast('Your account is banned. Contact admin.', 'error');
+      if (user.is_banned) return showToast('Your account is banned. Contact admin.', 'error');
 
-      setCurrentUser(user.id);
+      await setCurrentUser(user.id);
       // Sync user to Supabase immediately
       await supabaseClient.from('users').upsert([user], { onConflict: 'id' });
       closeModal('login');
@@ -3848,11 +3848,11 @@
       document.getElementById('leaderboard').scrollIntoView({ behavior: 'smooth' });
     }
 
-    function logout() {
+    async function logout() {
       closeUserDropdown();
       const current = getCurrentUser();
       if (current) addActivity(`Logout: ${current.name}`, current.name);
-      clearCurrentUser();
+      await clearCurrentUser();
       checkAuth();
       showToast('Signed out successfully', 'info');
     }
@@ -4318,11 +4318,11 @@
             <tr>
               <td>${user.name}</td>
               <td>${user.email}</td>
-              <td>${isAdmin(user) ? 'Admin' : 'Player'}${user.isBanned ? ' (Banned)' : ''}</td>
+              <td>${isAdmin(user) ? 'Admin' : 'Player'}${user.is_banned ? ' (Banned)' : ''}</td>
               <td>${Number(user.balance || 0).toFixed(0)} EGP</td>
               <td>
                 ${user.id !== DEFAULT_ADMIN.id ? `<button class="btn btn-outline" onclick="toggleAdminRole('${user.id}')">${isAdmin(user) ? 'Remove Admin' : 'Make Admin'}</button>` : ''}
-                ${user.id !== DEFAULT_ADMIN.id ? `<button class="btn btn-outline" onclick="toggleBan('${user.id}')">${user.isBanned ? 'Unban' : 'Ban'}</button>` : ''}
+                ${user.id !== DEFAULT_ADMIN.id ? `<button class="btn btn-outline" onclick="toggleBan('${user.id}')">${user.is_banned ? 'Unban' : 'Ban'}</button>` : ''}
                 ${user.id !== DEFAULT_ADMIN.id ? `<button class="btn btn-outline" onclick="deleteUser('${user.id}')">Delete</button>` : ''}
                 <button class="btn btn-outline" onclick="adjustBalancePrompt('${user.id}')">Balance +/-</button>
               </td>
@@ -4396,9 +4396,9 @@
       const users = getUsers();
       const user = users.find((item) => item.id === userId);
       if (!user) return;
-      user.isBanned = !user.isBanned;
+      user.is_banned = !user.is_banned;
       saveUsers(users);
-      addActivity(`${user.name} ${user.isBanned ? 'banned' : 'unbanned'}`, 'Admin');
+      addActivity(`${user.name} ${user.is_banned ? 'banned' : 'unbanned'}`, 'Admin');
       renderAdminPanel();
     }
 
@@ -4479,7 +4479,7 @@
       await run(supabaseClient.from('support_tickets').delete().neq('id', ''));
       await run(supabaseClient.from('app_kv').delete().neq('id', ''));
       await run(supabaseClient.from('users').delete().neq('id', ''));
-      clearCurrentUser();
+      await clearCurrentUser();
       ensureSeedData();
       addActivity('All data cleared by admin', 'Admin');
       renderAdminPanel();

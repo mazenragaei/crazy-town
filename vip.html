@@ -185,12 +185,12 @@
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsZHdkd2NwemN4Y3ZxcGNwaW9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMjE4NjAsImV4cCI6MjA5Mjg5Nzg2MH0.clwYiXpRG-2ZPC_WmGC56DdoVEiyVu2RgVe5yppxJ2E';
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    function readSessionId() { return sessionStorage.getItem(K.session) || localStorage.getItem(K.session) || ''; }
+    function readSessionId() { return sessionStorage.getItem(K.session) || roLocal(K.session, ''); }
 
     let currentUser = null;
     let myVipRequests = [];
     const kvMem = {};
-    async function hydrateAppKv() {
+    async function loadAllAppKvIntoCache() {
       const { data, error } = await supabaseClient.from('app_kv').select('*');
       if (error) { console.warn('app_kv load', error); return; }
       (data || []).forEach((row) => { if (row && row.id != null) kvMem[row.id] = row.value; });
@@ -200,11 +200,24 @@
       const v = kvMem[k];
       return v === undefined ? d : v;
     }
-    function soLocal(k, v) {
+    async function persistAppKvKey(k, v) {
       kvMem[k] = v;
-      void supabaseClient.from('app_kv').upsert({ id: k, value: v }, { onConflict: 'id' }).then(({ error }) => {
-        if (error) console.warn('app_kv upsert', k, error);
-      });
+      const { error } = await supabaseClient.from('app_kv').upsert({ id: k, value: v }, { onConflict: 'id' });
+      if (error) console.warn('app_kv upsert', k, error);
+    }
+
+    async function bootstrapSupabase() {
+      await loadAllAppKvIntoCache();
+      await refreshUser();
+      await refreshVipRequests();
+      render();
+      
+      supabaseClient
+        .channel('vip-live-sync')
+        .on('postgres_changes', { event:'*', schema:'public', table:'users' }, async () => { await refreshUser(); render(); })
+        .on('postgres_changes', { event:'*', schema:'public', table:'vip_requests' }, async () => { await refreshVipRequests(); render(); })
+        .on('postgres_changes', { event:'*', schema:'public', table:'app_kv' }, async () => { await loadAllAppKvIntoCache(); render(); })
+        .subscribe();
     }
 
     async function refreshUser() {
@@ -230,7 +243,7 @@
     function addActivity(action, actor = 'System') {
       const arr = roLocal(K.activity, []);
       arr.unshift({ id: `act-${Date.now()}`, action, actor, at: new Date().toISOString() });
-      soLocal(K.activity, arr.slice(0, 300));
+      void persistAppKvKey(K.activity, arr.slice(0, 300));
     }
 
     function vipAction(message) {
@@ -324,7 +337,7 @@
       }
       currentUser = next;
       bonusMap[String(user.id)] = today;
-      soLocal(K.vipDailyBonus, bonusMap);
+      void persistAppKvKey(K.vipDailyBonus, bonusMap);
       addActivity(`VIP daily bonus +${amount} EGP`, user.name);
       alert(`Daily bonus claimed: +${amount} EGP`);
       render();
@@ -380,30 +393,7 @@
         : '<div>No requests yet.</div>';
     }
 
-    async function init() {
-      await refreshUser();
-      if (!getUser()) return (location.href = 'index.html');
-      await hydrateAppKv();
-      await refreshVipRequests();
-      render();
-      supabaseClient
-        .channel('vip-user-sync')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, async () => {
-          await refreshUser();
-          render();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'vip_requests' }, async () => {
-          await refreshVipRequests();
-          renderVipRequests();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'app_kv' }, async () => {
-          await hydrateAppKv();
-          renderRecentVipActivity();
-        })
-        .subscribe();
-    }
-
-    init();
+    bootstrapSupabase();
   </script>
 </body>
 </html>

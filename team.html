@@ -64,28 +64,30 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     const K = { session: 'crazyTown_session', tournamentRegs: 'crazyTown_tournament_regs' };
-    let tournamentRegsCache = [];
     const SUPABASE_URL = 'https://gldwdwcpzcxcvqpcpiol.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsZHdkd2NwemN4Y3ZxcGNwaW9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMjE4NjAsImV4cCI6MjA5Mjg5Nzg2MH0.clwYiXpRG-2ZPC_WmGC56DdoVEiyVu2RgVe5yppxJ2E';
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const kvMem = {};
 
-    function readSessionId() { return sessionStorage.getItem(K.session) || localStorage.getItem(K.session) || ''; }
+    function readSessionId() { return sessionStorage.getItem(K.session) || roLocal(K.session, ''); }
 
     let USERS = [];
     let TEAMS = [];
 
-    function loadRegs() {
-      return tournamentRegsCache;
+    async function loadAllAppKvIntoCache() {
+      const { data, error } = await supabaseClient.from('app_kv').select('*');
+      if (error) { console.warn('app_kv load', error); return; }
+      (data || []).forEach((row) => { if (row && row.id != null) kvMem[row.id] = row.value; });
     }
-    async function saveRegs(regs) {
-      tournamentRegsCache = Array.isArray(regs) ? regs : [];
-      const { error } = await supabaseClient.from('app_kv').upsert({ id: K.tournamentRegs, value: tournamentRegsCache }, { onConflict: 'id' });
-      if (error) console.warn('app_kv tournament regs', error);
+    function roLocal(k, d) {
+      if (!Object.prototype.hasOwnProperty.call(kvMem, k)) return d;
+      const v = kvMem[k];
+      return v === undefined ? d : v;
     }
-    async function fetchTournamentRegsFromKv() {
-      const { data, error } = await supabaseClient.from('app_kv').select('value').eq('id', K.tournamentRegs).maybeSingle();
-      if (error) { console.warn('app_kv load regs', error); tournamentRegsCache = []; return; }
-      tournamentRegsCache = Array.isArray(data?.value) ? data.value : [];
+    async function persistAppKvKey(k, v) {
+      kvMem[k] = v;
+      const { error } = await supabaseClient.from('app_kv').upsert({ id: k, value: v }, { onConflict: 'id' });
+      if (error) console.warn('app_kv upsert', k, error);
     }
 
     async function refreshData() {
@@ -95,6 +97,19 @@
       const { data: teamsData, error: tErr } = await supabaseClient.from('teams').select('*');
       if (tErr) console.warn('team teams', tErr);
       TEAMS = Array.isArray(teamsData) ? teamsData : [];
+    }
+
+    async function bootstrapSupabase() {
+      await refreshData();
+      await loadAllAppKvIntoCache();
+      if (!me()) return (location.href = 'index.html');
+      render();
+      supabaseClient
+        .channel('team-hub-live-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, async () => { await refreshData(); render(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, async () => { await refreshData(); render(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'app_kv' }, async () => { await loadAllAppKvIntoCache(); render(); })
+        .subscribe();
     }
 
     const me = () => USERS.find((u) => String(u.id) === readSessionId()) || null;
@@ -179,7 +194,7 @@
       if (!(team.captainId === user.id || isAdmin(user))) return alert('Only leader/admin can delete team.');
       const { error } = await supabaseClient.from('teams').delete().eq('id', team.id);
       if (error) console.error(error);
-      await saveRegs(loadRegs().filter((r) => r.teamId !== team.id));
+      await persistAppKvKey(K.tournamentRegs, roLocal(K.tournamentRegs, []).filter((r) => r.teamId !== team.id));
       await refreshData();
       render();
     }
@@ -235,7 +250,7 @@
         ` : (isAdmin(user) ? '<button class="btn" onclick="deleteMyTeam()">Delete Team</button>' : '<button class="btn" onclick="leaveTeam()">Leave Team</button>')}
       `;
 
-      const regs = loadRegs().filter((r) => r.teamId === team.id);
+      const regs = roLocal(K.tournamentRegs, []).filter((r) => r.teamId === team.id);
       document.getElementById('teamRegistrationsCount').textContent = regs.length;
 
       document.getElementById('membersList').innerHTML = (team.members || []).map((memberId) => {
@@ -275,29 +290,7 @@
       `;
     }
 
-    async function init() {
-      await refreshData();
-      await fetchTournamentRegsFromKv();
-      if (!me()) return (location.href = 'index.html');
-      render();
-      supabaseClient
-        .channel('team-hub-sync')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, async () => {
-          await refreshData();
-          render();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, async () => {
-          await refreshData();
-          render();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'app_kv' }, async () => {
-          await fetchTournamentRegsFromKv();
-          render();
-        })
-        .subscribe();
-    }
-
-    init();
+    bootstrapSupabase();
   </script>
 </body>
 </html>

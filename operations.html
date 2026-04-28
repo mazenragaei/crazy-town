@@ -19,7 +19,7 @@
     .pill.warn { border-color:rgba(245,158,11,0.6); color:#fcd34d; }
     .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin:10px 0; }
     input, select, textarea { width:100%; background:#121226; color:#fff; border:1px solid var(--line); border-radius:8px; padding:8px; }
-    table { width:100%; border-collapse:collapse; min-width:760px; }
+    table { width:100%; border-collapse:collapse; min-width:600px; }
     th, td { border-bottom:1px solid var(--line); padding:10px; text-align:left; font-size:14px; }
     .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:12px; }
     .timeline-item { padding:8px 0; border-bottom:1px solid var(--line); }
@@ -106,7 +106,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     const K = {
-      session:'crazyTown_session'
+      session: 'crazyTown_session',
+      activity: 'crazyTown_activity'
     };
     const SCENARIOS = [
       { id:'op-urban', name:'Urban Extraction', brief:'Escort target through contested urban lanes.', basePrice:950, type:'Team PvP' },
@@ -120,11 +121,37 @@
     let USERS = [];
     let OPS = [];
     const READY = {};
-    function readSessionId(){ return sessionStorage.getItem(K.session) || localStorage.getItem(K.session) || ''; }
+    function readSessionId(){ return sessionStorage.getItem(K.session) || roLocal(K.session, ''); }
     const me = ()=>USERS.find((u)=>String(u.id)===readSessionId()) || null;
 
-    function addActivity(action, actor='System') {
-      console.log('[activity]', action, actor);
+    const kvMem = {};
+    async function loadAllAppKvIntoCache() {
+      const { data, error } = await supabaseClient.from('app_kv').select('*');
+      if (error) { console.warn('app_kv load', error); return; }
+      (data || []).forEach((row) => { if (row && row.id != null) kvMem[row.id] = row.value; });
+    }
+    function roLocal(k, d) {
+      if (!Object.prototype.hasOwnProperty.call(kvMem, k)) return d;
+      const v = kvMem[k];
+      return v === undefined ? d : v;
+    }
+    async function persistAppKvKey(k, v) {
+      kvMem[k] = v;
+      const { error } = await supabaseClient.from('app_kv').upsert({ id: k, value: v }, { onConflict: 'id' });
+      if (error) console.warn('app_kv upsert', k, error);
+    }
+
+    async function refreshData() {
+      const usersRes = await supabaseClient.from('users').select('*');
+      USERS = Array.isArray(usersRes.data) ? usersRes.data : [];
+      const opsRes = await supabaseClient.from('orders').select('*').eq('kind', 'operation').order('createdAt', { ascending:false });
+      OPS = Array.isArray(opsRes.data) ? opsRes.data : [];
+    }
+
+    function addActivity(action, actor = 'System') {
+      const arr = roLocal(K.activity, []);
+      arr.unshift({ id: `act-${Date.now()}`, action, actor, at: new Date().toISOString() });
+      void persistAppKvKey(K.activity, arr.slice(0, 300));
     }
 
     function goBack() {
@@ -263,12 +290,17 @@
       renderTimeline();
     }
 
-    async function bootstrapSupabase(){
-      const usersRes = await supabaseClient.from('users').select('*');
-      USERS = Array.isArray(usersRes.data) ? usersRes.data : [];
-      const opsRes = await supabaseClient.from('orders').select('*').eq('kind', 'operation').order('createdAt', { ascending:false });
-      OPS = Array.isArray(opsRes.data) ? opsRes.data : [];
+    async function bootstrapSupabase() {
+      await refreshData();
+      await loadAllAppKvIntoCache();
+      if (!me()) return (location.href = 'index.html');
       render();
+      supabaseClient
+        .channel('operations-live-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, async () => { await refreshData(); render(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, async () => { await refreshData(); render(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'app_kv' }, async () => { await loadAllAppKvIntoCache(); render(); })
+        .subscribe();
     }
     bootstrapSupabase();
   </script>

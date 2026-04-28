@@ -21,7 +21,7 @@
     .badge { display:inline-block; padding:4px 10px; border-radius:999px; border:1px solid rgba(251,191,36,0.45); color:#fde68a; font-size:12px; }
     .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin:10px 0; }
     input, select, textarea { width:100%; background:#0b1328; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px; }
-    table { width:100%; border-collapse:collapse; min-width:760px; }
+    table { width:100%; border-collapse:collapse; min-width:600px; }
     th, td { border-bottom:1px solid var(--line); text-align:left; padding:10px; font-size:14px; }
     .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:12px; margin-top:8px; }
   </style>
@@ -100,23 +100,22 @@
       { id:'ch-3', name:'Final Circle Invitational', prize:'30,000 EGP + Hall of Fame', status:'Coming Soon' }
     ];
     const mem = {};
-    async function hydrateChampionKv() {
+    async function loadAllAppKvIntoCache() {
       const { data, error } = await supabaseClient.from('app_kv').select('*');
       if (error) { console.warn('app_kv load', error); return; }
       (data || []).forEach((row) => { if (row && row.id != null) mem[row.id] = row.value; });
     }
-    function ro(k, d) {
+    function roLocal(k, d) {
       if (!Object.prototype.hasOwnProperty.call(mem, k)) return d;
       const v = mem[k];
       return v === undefined ? d : v;
     }
-    function so(k, v) {
+    async function persistAppKvKey(k, v) {
       mem[k] = v;
-      void supabaseClient.from('app_kv').upsert({ id: k, value: v }, { onConflict: 'id' }).then(({ error }) => {
-        if (error) console.warn('app_kv upsert', k, error);
-      });
+      const { error } = await supabaseClient.from('app_kv').upsert({ id: k, value: v }, { onConflict: 'id' });
+      if (error) console.warn('app_kv upsert', k, error);
     }
-    const readSessionId = () => sessionStorage.getItem(K.session) || localStorage.getItem(K.session) || '';
+    const readSessionId = () => sessionStorage.getItem(K.session) || roLocal(K.session, '');
     const me = () => sessionUser;
     async function loadSessionUser() {
       const sid = readSessionId();
@@ -129,7 +128,7 @@
     const hasRole = (user, role)=>!!user && Array.isArray(user.roles) && user.roles.includes(role);
     const isAdmin = (user)=>hasRole(user, 'admin') || hasRole(user, 'owner') || hasRole(user, 'co-owner') || hasRole(user, 'ceo') || hasRole(user, 'hr');
 
-    function guard() {
+    async function guard() {
       const user = me();
       if (!(hasRole(user, 'champion') || isAdmin(user))) {
         alert('Champion portal access denied.');
@@ -137,14 +136,14 @@
       }
     }
     async function ensureSeed(){
-      await hydrateChampionKv();
-      if (!Object.prototype.hasOwnProperty.call(mem, K.championTournaments)) so(K.championTournaments, DEFAULT_TOURS);
-      if (!Object.prototype.hasOwnProperty.call(mem, K.championRegs)) so(K.championRegs, []);
+      await loadAllAppKvIntoCache();
+      if (!Object.prototype.hasOwnProperty.call(mem, K.championTournaments)) await persistAppKvKey(K.championTournaments, DEFAULT_TOURS);
+      if (!Object.prototype.hasOwnProperty.call(mem, K.championRegs)) await persistAppKvKey(K.championRegs, []);
     }
-    function addActivity(action, actor='Champion'){
-      const arr = ro(K.activity,[]);
+    async function addActivity(action, actor='Champion'){
+      const arr = roLocal(K.activity,[]);
       arr.unshift({ id:`act-${Date.now()}`, action, actor, at:new Date().toISOString() });
-      so(K.activity, arr.slice(0, 300));
+      await persistAppKvKey(K.activity, arr.slice(0, 300));
     }
     function renderChampionCard(user){
       const cardId = `CT-CH-${String(user.id).slice(-4).toUpperCase()}`;
@@ -154,14 +153,14 @@
       document.getElementById('champUserRank').textContent = hasRole(user, 'champion') ? 'Champion' : 'Admin Access';
     }
     function renderTournaments(){
-      const tours = ro(K.championTournaments, []);
+      const tours = roLocal(K.championTournaments, []);
       document.getElementById('champTourCount').textContent = tours.length;
       document.getElementById('champTourSelect').innerHTML = `<option value="">Select tournament</option>${tours.filter((t)=>t.status !== 'Closed').map((t)=>`<option value="${t.id}">${t.name}</option>`).join('')}`;
       document.getElementById('champTourTable').innerHTML = `
         <thead><tr><th>Tournament</th><th>Prize</th><th>Status</th></tr></thead>
         <tbody>${tours.map((t)=>`<tr><td>${t.name}</td><td>${t.prize}</td><td>${t.status}</td></tr>`).join('')}</tbody>`;
     }
-    function registerChampionTournament(e){
+    async function registerChampionTournament(e){
       e.preventDefault();
       const user = me();
       if (!user) return;
@@ -170,10 +169,10 @@
       const preferredDate = document.getElementById('champPreferredDate').value;
       const notes = document.getElementById('champNotes').value.trim();
       if (!tournamentId || !teamTag || !preferredDate) return;
-      const tours = ro(K.championTournaments, []);
+      const tours = roLocal(K.championTournaments, []);
       const tour = tours.find((t)=>t.id === tournamentId);
       if (!tour) return;
-      const regs = ro(K.championRegs, []);
+      const regs = roLocal(K.championRegs, []);
       regs.unshift({
         id:`chr-${Date.now()}`,
         tournamentId,
@@ -186,14 +185,14 @@
         status:'Pending',
         createdAt:new Date().toISOString()
       });
-      so(K.championRegs, regs);
-      addActivity(`Champion registration: ${tour.name}`, user.name);
+      await persistAppKvKey(K.championRegs, regs);
+      await addActivity(`Champion registration: ${tour.name}`, user.name);
       e.target.reset();
       renderRegistrations();
     }
     function renderRegistrations(){
       const user = me();
-      const regs = ro(K.championRegs, []).filter((r)=>String(r.userId)===String(user?.id));
+      const regs = roLocal(K.championRegs, []).filter((r)=>String(r.userId)===String(user?.id));
       document.getElementById('champRegTable').innerHTML = `
         <thead><tr><th>Tournament</th><th>Team</th><th>Date</th><th>Status</th><th>Created</th></tr></thead>
         <tbody>${regs.length ? regs.map((r)=>`<tr><td>${r.tournamentName}</td><td>${r.teamTag}</td><td>${r.preferredDate}</td><td>${r.status}</td><td>${new Date(r.createdAt).toLocaleString()}</td></tr>`).join('') : '<tr><td colspan="5">No registrations yet.</td></tr>'}</tbody>`;
@@ -205,21 +204,26 @@
       renderTournaments();
       renderRegistrations();
     }
-    async function init() {
+    async function bootstrapSupabase() {
       await loadSessionUser();
       if (!me()) return (location.href = 'index.html');
-      guard();
+      await loadAllAppKvIntoCache();
+      await guard();
       await ensureSeed();
       render();
       supabaseClient
-        .channel('champion-app-kv')
+        .channel('champion-live-sync')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'app_kv' }, async () => {
-          await hydrateChampionKv();
+          await loadAllAppKvIntoCache();
+          render();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, async () => {
+          await loadSessionUser();
           render();
         })
         .subscribe();
     }
-    init();
+    bootstrapSupabase();
   </script>
 </body>
 </html>

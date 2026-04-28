@@ -26,7 +26,7 @@
     .small { color:var(--muted); font-size:12px; }
     .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin:10px 0; }
     input, select, textarea { width:100%; border:1px solid var(--line); border-radius:8px; padding:8px; background:#fff; color:var(--text); }
-    table { width:100%; border-collapse:collapse; min-width:820px; }
+    table { width:100%; border-collapse:collapse; min-width:600px; }
     th, td { border-bottom:1px solid var(--line); text-align:left; padding:10px; font-size:14px; }
     .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:12px; margin-top:8px; }
     @media (max-width: 980px) { .layout { grid-template-columns:1fr; } .sidebar { position:relative; top:0; max-height:none; } }
@@ -159,8 +159,8 @@
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsZHdkd2NwemN4Y3ZxcGNwaW9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMjE4NjAsImV4cCI6MjA5Mjg5Nzg2MH0.clwYiXpRG-2ZPC_WmGC56DdoVEiyVu2RgVe5yppxJ2E';
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const CACHE = {};
-    function readSessionId(){ return sessionStorage.getItem(K.session) || localStorage.getItem(K.session) || ''; }
-    function clearSessionId(){ sessionStorage.removeItem(K.session); localStorage.removeItem(K.session); }
+    function readSessionId(){ return sessionStorage.getItem(K.session) || ro(K.session, ''); }
+    function clearSessionId(){ sessionStorage.removeItem(K.session); }
     async function fetchTable(table, fallback = []){
       const { data, error } = await supabaseClient.from(table).select('*');
       if (error) return fallback;
@@ -184,13 +184,13 @@
       if (error) console.warn('app_kv upsert', k, error);
     }
     const ro = (k,d)=>Object.prototype.hasOwnProperty.call(CACHE, k) ? CACHE[k] : d;
-    function so(k,v){
+    async function so(k,v){
       CACHE[k] = v;
-      if (k === K.users) pushRows('users', v);
-      if (k === K.bookings) pushRows('bookings', v);
-      if (k === K.orders) pushRows('orders', v);
-      if (k === K.supportTickets) pushRows('support_tickets', v);
-      void persistAppKvKey(k, v);
+      if (k === K.users) await pushRows('users', v);
+      else if (k === K.bookings) await pushRows('bookings', v);
+      else if (k === K.orders) await pushRows('orders', v);
+      else if (k === K.supportTickets) await pushRows('support_tickets', v);
+      else await persistAppKvKey(k, v);
     }
     const me = async ()=>{
       const cached = ro(K.users,[]).find((u)=>String(u.id)===readSessionId());
@@ -222,10 +222,12 @@
       if (!user) {
         alert('Please login first on the main page.');
         location.href = 'index.html';
+        return;
       }
       if (!canAccessOwnerControls(user)) {
         alert('Owner control access denied. Your current roles: ' + (user.roles || []).join(', '));
         location.href = 'index.html';
+        return;
       }
     }
     function tabs() {
@@ -236,12 +238,36 @@
       document.querySelectorAll('.pane').forEach((p)=>p.classList.toggle('active', p.dataset.pane === id));
       document.querySelectorAll('.tab').forEach((t)=>t.classList.toggle('active', t.dataset.id === id));
     }
-    function act(action, actor='Owner Control'){
+    async function act(action, actor='Owner Control'){
       const arr = ro(K.activity,[]);
       arr.unshift({ id:Date.now()+Math.random(), action, actor, at:new Date().toISOString() });
-      so(K.activity, arr.slice(0, 300));
+      await so(K.activity, arr.slice(0, 300));
     }
-    function exportAllBackup(){
+    const DEFAULT_ADMIN = {
+      id: 'root-admin',
+      name: 'Root Admin',
+      email: 'root@crazytown.local',
+      phone: '+201000000000',
+      password: '********',
+      rank: 'Commander',
+      roles: ['owner', 'admin'],
+      balance: 0,
+      is_banned: false,
+      joined: new Date().toISOString()
+    };
+    async function ensurePrivilegedSeed(){
+      const users = ro(K.users,[]);
+      let root = users.find((u)=>String(u.id) === 'root-admin');
+      if (!root) {
+        root = { ...DEFAULT_ADMIN };
+        users.push(root);
+      }
+      if (!Array.isArray(root.roles)) root.roles = ['admin'];
+      if (!root.roles.includes('owner')) root.roles.push('owner');
+      if (!root.roles.includes('admin')) root.roles.push('admin');
+      await so(K.users, users);
+    }
+    async function exportAllBackup(){
       const data = {};
       Object.values(K).forEach((k)=>{ if (k !== K.session) data[k] = ro(k, null); });
       const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
@@ -251,19 +277,19 @@
       a.download = 'crazy-town-owner-backup.json';
       a.click();
       URL.revokeObjectURL(url);
-      act('Full backup exported from Owner Control');
+      await act('Full backup exported from Owner Control');
     }
-    function clearRuntimeCaches(){
-      act('Runtime cache cleared by owner');
+    async function clearRuntimeCaches(){
+      await act('Runtime cache cleared by owner');
       alert('Runtime cache cleared.');
     }
-    function forceSignOutEveryone(){
+    async function forceSignOutEveryone(){
       clearSessionId();
-      act('Forced sign-out initiated for all sessions');
+      await act('Forced sign-out initiated for all sessions');
       alert('Session key cleared on this client. Other clients will require re-login on refresh.');
       location.href = 'index.html';
     }
-    function saveGlobalSettings(){
+    async function saveGlobalSettings(){
       const settings = ro(K.settings, { maintenance:false, notifications:[] });
       settings.maintenance = document.getElementById('cfgMaintenance').checked;
       settings.supportEnabled = document.getElementById('cfgSupport').checked;
@@ -273,8 +299,8 @@
         settings.notifications = settings.notifications || [];
         settings.notifications.unshift({ text, at:new Date().toISOString() });
       }
-      so(K.settings, settings);
-      act('Global settings updated from Owner Control');
+      await so(K.settings, settings);
+      await act('Global settings updated from Owner Control');
       render();
       alert('Settings saved.');
     }
@@ -288,18 +314,18 @@
           <td><select id="remove-role-${u.id}"><option>member</option><option>vip</option><option>champion</option><option>hr</option><option>admin</option><option>co-owner</option><option>ceo</option><option>owner</option></select> <button class="btn" onclick="removeRole('${u.id}')">Remove</button></td>
         </tr>`).join('')}</tbody>`;
     }
-    function addRole(id){
+    async function addRole(id){
       const users = ro(K.users,[]);
       const u = users.find((x)=>String(x.id)===String(id));
       if(!u) return;
       const role = document.getElementById(`add-role-${id}`).value;
       u.roles = Array.isArray(u.roles) ? u.roles : ['member'];
       if(!u.roles.includes(role)) u.roles.push(role);
-      so(K.users, users);
-      act(`Role ${role} granted to ${u.name}`, me()?.name || 'Owner');
+      await so(K.users, users);
+      await act(`Role ${role} granted to ${u.name}`, (await me())?.name || 'Owner');
       render();
     }
-    function removeRole(id){
+    async function removeRole(id){
       const users = ro(K.users,[]);
       const u = users.find((x)=>String(x.id)===String(id));
       if(!u) return;
@@ -307,11 +333,11 @@
       if (u.id === 'root-admin' && role === 'owner') return alert('Root Admin must keep owner role.');
       u.roles = (u.roles || ['member']).filter((r)=>r !== role);
       if (!u.roles.length) u.roles = ['member'];
-      so(K.users, users);
-      act(`Role ${role} removed from ${u.name}`, me()?.name || 'Owner');
+      await so(K.users, users);
+      await act(`Role ${role} removed from ${u.name}`, (await me())?.name || 'Owner');
       render();
     }
-    function createDiscount(){
+    async function createDiscount(){
       const code = document.getElementById('dcCode').value.trim().toUpperCase();
       const type = document.getElementById('dcType').value;
       const value = Number(document.getElementById('dcValue').value || 0);
@@ -321,8 +347,8 @@
       if (targetGroup === 'user' && !targetUserId) return alert('Select user for user-target discount.');
       const coupons = ro(K.coupons,[]);
       coupons.push({ code, type, value, active:true, targetGroup, targetUserId:targetGroup === 'user' ? targetUserId : '', createdByRole:'owner-control' });
-      so(K.coupons, coupons);
-      act(`Discount ${code} created for ${targetGroup}`, me()?.name || 'Owner');
+      await so(K.coupons, coupons);
+      await act(`Discount ${code} created for ${targetGroup}`, (await me())?.name || 'Owner');
       renderDiscounts();
     }
     function renderDiscounts(){
@@ -398,18 +424,19 @@
       CACHE[K.supportTickets] = await fetchTable('support_tickets', []);
       await loadAllAppKvIntoCache();
       if (!Object.prototype.hasOwnProperty.call(CACHE, K.rolePolicy)) CACHE[K.rolePolicy] = DEFAULT_ROLE_POLICY;
+      await ensurePrivilegedSeed();
       await guard();
       tabs();
       render();
       supabaseClient
-        .channel('owner-live-bookings-orders-users')
+        .channel('owner-live-sync')
+        .on('postgres_changes', { event:'*', schema:'public', table:'users' }, async ()=>{ CACHE[K.users] = await fetchTable('users', []); render(); })
         .on('postgres_changes', { event:'*', schema:'public', table:'bookings' }, async ()=>{ CACHE[K.bookings] = await fetchTable('bookings', []); render(); })
         .on('postgres_changes', { event:'*', schema:'public', table:'orders' }, async ()=>{ CACHE[K.orders] = await fetchTable('orders', []); render(); })
-        .on('postgres_changes', { event:'*', schema:'public', table:'users' }, async ()=>{ CACHE[K.users] = await fetchTable('users', []); render(); })
         .on('postgres_changes', { event:'*', schema:'public', table:'app_kv' }, async ()=>{ await loadAllAppKvIntoCache(); render(); })
         .subscribe();
     }
-    bootstrapSupabase();
+    window.onload = bootstrapSupabase;
   </script>
 </body>
 </html>

@@ -298,8 +298,12 @@
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsZHdkd2NwemN4Y3ZxcGNwaW9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMjE4NjAsImV4cCI6MjA5Mjg5Nzg2MH0.clwYiXpRG-2ZPC_WmGC56DdoVEiyVu2RgVe5yppxJ2E';
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const CACHE = {};
-    function readSessionId(){ return sessionStorage.getItem(K.session) || localStorage.getItem(K.session) || ''; }
-    function writeSessionId(v){ const id = String(v || ''); sessionStorage.setItem(K.session, id); localStorage.setItem(K.session, id); }
+    function readSessionId(){ return sessionStorage.getItem(K.session) || ro(K.session, ''); }
+    async function writeSessionId(v){
+      const id = String(v || '');
+      sessionStorage.setItem(K.session, id);
+      so(K.session, id);
+    }
     async function fetchTable(table, fallback = []){
       const { data, error } = await supabaseClient.from(table).select('*');
       if (error) return fallback;
@@ -318,7 +322,7 @@
       data.forEach((row)=>{ if (row && row.id != null && Object.prototype.hasOwnProperty.call(row, 'value')) CACHE[row.id] = row.value; });
     }
     async function persistAppKvKey(k, v){
-      if (k === K.session || DEDICATED_KEYS.has(k)) return;
+      if (DEDICATED_KEYS.has(k)) return;
       const { error } = await supabaseClient.from('app_kv').upsert({ id: k, value: v }, { onConflict: 'id' });
       if (error) console.warn('app_kv upsert', k, error);
     }
@@ -395,6 +399,7 @@
       document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('active', p.dataset.pane===id));
       document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.id===id));
       sessionStorage.setItem(K.adminLastPane, id);
+      so(K.adminLastPane, id);
       applyQuickFilter();
     }
     function prettyTabName(id){
@@ -415,7 +420,7 @@
       return map[id] || id;
     }
     function tabs(){
-      const lastPane = sessionStorage.getItem(K.adminLastPane);
+      const lastPane = sessionStorage.getItem(K.adminLastPane) || ro(K.adminLastPane, '');
       const activePane = TABS.includes(lastPane) ? lastPane : 'bookings';
       const box=document.getElementById('tabs');
       box.innerHTML=TABS.map(t=>`<button class="tab ${t===activePane?'active':''}" data-id="${t}" onclick="setPane('${t}')">${prettyTabName(t)}</button>`).join('');
@@ -506,7 +511,7 @@
           </td>
         </tr>`).join('') : '<tr><td colspan="8">No active shop orders.</td></tr>'}</tbody>`;
     }
-    function setOrderStatus(id,status){ if(!isAdmin(me())) return alert('Admin only'); const orders=ro(K.orders,[]); const o=orders.find(x=>x.id===id); if(!o)return; o.status=status; so(K.orders,orders); act(`Order ${id} -> ${status}`); refresh(); }
+    function setOrderStatus(id,status){ void me().then(u => { if(!isAdmin(u)) return alert('Admin only'); const orders=ro(K.orders,[]); const o=orders.find(x=>x.id===id); if(!o)return; o.status=status; so(K.orders,orders); act(`Order ${id} -> ${status}`); refresh(); }); }
     function deleteOrder(id){
       void supabaseClient.from('orders').delete().eq('id', id).then(({ error }) => {
         if (error) console.warn('delete order', error);
@@ -543,7 +548,7 @@
           <td><button class="btn" onclick="deleteOrder('${o.id}')">Delete</button></td>
         </tr>`).join('') : '<tr><td colspan="5">No shipped history.</td></tr>'}</tbody>`;
     }
-    function toggleBooking(id){ if(!isAdmin(me())) return alert('Admin only'); const arr=ro(K.bookings,[]); const x=arr.find(b=>b.id===id); if(!x) return; x.status=x.status==='Confirmed'?'Pending':'Confirmed'; so(K.bookings,arr); act(`Booking ${x.ticketId} -> ${x.status}`); refresh(); }
+    function toggleBooking(id){ void me().then(u => { if(!isAdmin(u)) return alert('Admin only'); const arr=ro(K.bookings,[]); const x=arr.find(b=>b.id===id); if(!x) return; x.status=x.status==='Confirmed'?'Pending':'Confirmed'; so(K.bookings,arr); act(`Booking ${x.ticketId} -> ${x.status}`); refresh(); }); }
     function removeBooking(id){
       void supabaseClient.from('bookings').delete().eq('id', id).then(({ error }) => {
         if (error) console.warn('delete booking', error);
@@ -567,7 +572,7 @@
             <button class="btn" onclick="addRole('${u.id}')" ${roleActionsLocked ? 'disabled' : ''}>Add Role</button>
             <button class="btn" onclick="removeRole('${u.id}')" ${roleActionsLocked ? 'disabled' : ''}>Remove Role</button>
             <button class="btn" onclick="balance('${u.id}')">Balance +/-</button>
-            <button class="btn" onclick="toggleBan('${u.id}')">${u.isBanned?'Unban':'Ban'}</button>
+            <button class="btn" onclick="toggleBan('${u.id}')">${u.is_banned?'Unban':'Ban'}</button>
           </td>
         </tr>`).join('')}</tbody>`;
     }
@@ -605,7 +610,7 @@
       refresh();
     }
     function balance(id){ if(!isAdmin(me())) return alert('Admin only'); const amount=Number(prompt('Amount (+/-)','100')); if(Number.isNaN(amount))return; const users=ro(K.users,[]); const u=users.find(x=>String(x.id)===String(id)); if(!u)return; u.balance=Number(u.balance||0)+amount; so(K.users,users); act(`Balance ${amount} for ${u.name}`); refresh(); }
-    function toggleBan(id){ const users=ro(K.users,[]); const u=users.find(x=>String(x.id)===String(id)); if(!u)return; u.isBanned=!u.isBanned; so(K.users,users); act(`${u.name} ${u.isBanned?'banned':'unbanned'}`); refresh(); }
+    function toggleBan(id){ const users=ro(K.users,[]); const u=users.find(x=>String(x.id)===String(id)); if(!u)return; u.is_banned=!u.is_banned; so(K.users,users); act(`${u.name} ${u.is_banned?'banned':'unbanned'}`); refresh(); }
 
     function renderLeaderboard(){
       const lb=ro(K.leaderboard,[]);
@@ -1013,8 +1018,8 @@
       window.location.href = 'owner.html';
     }
 
-    function refresh(){
-      const current = me();
+    async function refresh(){
+      const current = await me();
       const ownerBtn = document.getElementById('ownerOnlyBtn');
       if (ownerBtn) ownerBtn.style.display = (hasRole(current, 'owner') || hasRole(current, 'co-owner') || hasRole(current, 'ceo')) ? 'inline-block' : 'none';
       renderStats();

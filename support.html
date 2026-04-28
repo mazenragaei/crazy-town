@@ -16,7 +16,7 @@
     .small { color:var(--muted); font-size:12px; }
     .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin:10px 0; }
     input, select, textarea { width:100%; background:#121226; color:#fff; border:1px solid var(--line); border-radius:8px; padding:8px; }
-    table { width:100%; border-collapse:collapse; min-width:760px; }
+    table { width:100%; border-collapse:collapse; min-width:600px; }
     th, td { border-bottom:1px solid var(--line); text-align:left; padding:10px; font-size:14px; }
     .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:12px; margin-top:8px; }
   </style>
@@ -74,15 +74,35 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    const K = { session: 'crazyTown_session' };
+    const K = { session: 'crazyTown_session', activity: 'crazyTown_activity', appKv: 'app_kv' };
     const SUPABASE_URL = 'https://gldwdwcpzcxcvqpcpiol.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsZHdkd2NwemN4Y3ZxcGNwaW9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMjE4NjAsImV4cCI6MjA5Mjg5Nzg2MH0.clwYiXpRG-2ZPC_WmGC56DdoVEiyVu2RgVe5yppxJ2E';
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    function readSessionId() { return sessionStorage.getItem(K.session) || localStorage.getItem(K.session) || ''; }
+    const CACHE = {};
+    const readSessionId = () => sessionStorage.getItem(K.session) || ro(K.session, '');
+    const ro = (k, d) => CACHE[k] === undefined ? d : CACHE[k];
+
+    async function persistAppKvKey(k, v) {
+      CACHE[k] = v;
+      const { error } = await supabaseClient.from('app_kv').upsert({ id: k, value: v }, { onConflict: 'id' });
+      if (error) console.warn('app_kv upsert', k, error);
+    }
+
+    async function loadAllAppKvIntoCache() {
+      const { data, error } = await supabaseClient.from('app_kv').select('*');
+      if (error) return console.warn('load app_kv', error);
+      (data || []).forEach(row => { if (row && row.id) CACHE[row.id] = row.value; });
+    }
 
     let currentUser = null;
     let myTickets = [];
+
+    async function addActivity(action, actor = 'User') {
+      const arr = ro(K.activity, []);
+      arr.unshift({ id: `act-${Date.now()}`, action, actor, at: new Date().toISOString() });
+      await persistAppKvKey(K.activity, arr.slice(0, 300));
+    }
 
     async function loadUser() {
       const sid = readSessionId();
@@ -172,21 +192,26 @@
         }).join('') : '<tr><td colspan="6">No tickets yet.</td></tr>'}</tbody>`;
     }
 
-    async function init() {
+    async function bootstrapSupabase() {
+      await loadAllAppKvIntoCache();
       await loadUser();
       if (!currentUser) return (location.href = 'index.html');
       await loadTickets();
       render();
       supabaseClient
-        .channel('support-my-tickets')
+        .channel('support-live-sync')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, async () => {
           await loadTickets();
+          render();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'app_kv' }, async () => {
+          await loadAllAppKvIntoCache();
           render();
         })
         .subscribe();
     }
 
-    init();
+    bootstrapSupabase();
   </script>
 </body>
 </html>
