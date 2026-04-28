@@ -8,7 +8,7 @@
     :root { --bg:#0f0f23; --card:#1a1a2e; --text:#fff; --muted:#9ca3af; --line:#2a2a42; --accent:#00c2ff; --ok:#22c55e; --warn:#f59e0b; --danger:#ef4444; }
     * { box-sizing: border-box; }
     body { margin:0; font-family: Arial, sans-serif; background:linear-gradient(180deg,#0d1024,#0f0f23); color:var(--text); }
-    .wrap { width:min(1440px,96vw); margin:18px auto; max-width:100%; }
+    .wrap { width:min(1200px,96vw); margin:18px auto; max-width:100%; }
     .top { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center; position:sticky; top:10px; z-index:10; background:rgba(15,15,35,0.86); backdrop-filter:blur(8px); border:1px solid var(--line); border-radius:14px; padding:10px 12px; margin-bottom:12px; }
     .admin-main-layout { display:grid; grid-template-columns:280px 1fr; gap:14px; align-items:start; }
     .admin-sidebar { position:sticky; top:84px; max-height:calc(100vh - 98px); overflow:auto; padding-right:4px; }
@@ -370,7 +370,7 @@
       so(K.users, users);
     }
 
-    function guard(){ const u=me(); if(!u){ alert('Please login first. Use username "root" and password "mazenragaei" for admin access.'); location.href='index.html'; } if(!isAdmin(u)){ alert('Admin only. Your current roles: ' + (u.roles || []).join(', ')); location.href='index.html'; } }
+    function guard(){ const u=me(); if(!u){ alert('Please login first on the main page.'); location.href='index.html'; } if(!isAdmin(u)){ alert('Admin only. Your current roles: ' + (u.roles || []).join(', ')); location.href='index.html'; } }
     function goHome(){ location.href='index.html'; }
     function goBack(){
       if (window.history.length > 1) return window.history.back();

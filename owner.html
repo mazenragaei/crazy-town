@@ -8,7 +8,7 @@
     :root { --bg:#f4f7fb; --card:#ffffff; --line:#dbe3ef; --text:#1f2937; --muted:#64748b; --accent:#2563eb; --ok:#16a34a; --danger:#dc2626; }
     * { box-sizing: border-box; }
     body { margin:0; font-family: Arial, sans-serif; background:var(--bg); color:var(--text); }
-    .wrap { width:min(1440px,96vw); margin:18px auto; max-width:100%; }
+    .wrap { width:min(1200px,96vw); margin:18px auto; max-width:100%; }
     .top { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; }
     .btn { border:1px solid var(--line); background:#fff; color:var(--text); padding:10px 12px; border-radius:10px; cursor:pointer; text-decoration:none; display:inline-block; transition:all .2s ease; }
     .btn:hover { border-color:#b9c9e2; transform:translateY(-1px); }
@@ -203,7 +203,7 @@
     function guard() {
       const user = me();
       if (!user) {
-        alert('Please login first. Use username "root" and password "mazenragaei" for owner access.');
+        alert('Please login first on the main page.');
         location.href = 'index.html';
       }
       if (!canAccessOwnerControls(user)) {

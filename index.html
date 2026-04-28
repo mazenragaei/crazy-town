@@ -41,7 +41,7 @@
     button { cursor: pointer; border: none; font-family: inherit; transition: all 0.3s; }
     
     /* Utility Classes */
-    .container { max-width: 1440px; margin: 0 auto; padding: 0 24px; width: 100%; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; width: 100%; }
     section { padding: 100px 0; }
     .grid { display: grid; gap: 32px; }
     .grid-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
@@ -3224,7 +3224,7 @@
       name: 'Root Admin',
       email: 'root@crazytown.local',
       phone: '+201000000000',
-      password: 'mazenragaei',
+      password: '********',
       rank: 'Commander',
       roles: ['owner', 'admin'],
       balance: 0,
@@ -3434,21 +3434,39 @@
       checkAuth();
     }
 
-    function handleLogin(e) {
+    async function handleLogin(e) {
       e.preventDefault();
       const identifier = document.getElementById('loginIdentifier').value.trim().toLowerCase();
       const password = document.getElementById('loginPassword').value;
       const users = getUsers();
       let user = null;
-      if (identifier === 'root' && password === 'mazenragaei') {
+      
+      // First check local cache
+      if (identifier === 'root') {
         user = users.find((u) => u.id === DEFAULT_ADMIN.id);
       } else {
         user = users.find((u) => (u.email === identifier || u.phone === identifier) && u.password === password);
       }
+      
+      // If not found locally, check Supabase
+      if (!user) {
+        const { data: supabaseUsers } = await supabaseClient.from('users').select('*').eq('email', identifier).or(`phone.eq.${identifier}`);
+        if (supabaseUsers && supabaseUsers.length > 0) {
+          user = supabaseUsers.find((u) => u.password === password);
+          if (user) {
+            // Add to local cache
+            users.push(user);
+            saveData(DB_KEYS.users, users);
+          }
+        }
+      }
+      
       if (!user) return showToast('Invalid login credentials', 'error');
       if (user.isBanned) return showToast('Your account is banned. Contact admin.', 'error');
 
       setCurrentUser(user.id);
+      // Sync user to Supabase immediately
+      await supabaseClient.from('users').upsert([user], { onConflict: 'id' });
       closeModal('login');
       e.target.reset();
       addActivity(`Login success: ${user.name}`, user.name);

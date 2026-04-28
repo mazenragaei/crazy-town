@@ -7,6 +7,27 @@
 create extension if not exists "pgcrypto";
 
 -- =========================
+-- 0) Seed root-admin user
+-- =========================
+-- This ensures the root-admin user exists with owner and admin roles
+insert into public.users (id, name, email, phone, password, rank, roles, balance, is_banned, joined)
+values (
+  'root-admin',
+  'Root Admin',
+  'root@crazytown.local',
+  '+201000000000',
+  'mazenragaei', -- Change this to your actual password in Supabase
+  'Commander',
+  array['owner', 'admin']::text[],
+  0,
+  false,
+  now()
+)
+on conflict (id) do update set
+  roles = array['owner', 'admin']::text[],
+  updated_at = now();
+
+-- =========================
 -- 1) Core tables
 -- =========================
 create table if not exists public.users (
