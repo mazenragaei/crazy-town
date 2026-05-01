@@ -3,8 +3,14 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const SUPABASE_URL = 'https://gldwdwcpzcxcvqpcpiol.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsZHdkd2NwemN4Y3ZxcGNwaW9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMjE4NjAsImV4cCI6MjA5Mjg5Nzg2MH0.clwYiXpRG-2ZPC_WmGC56DdoVEiyVu2RgVe5yppxJ2E';
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Create and export supabase client
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// Export supabase client - available as both named and default export
+export { supabase };
+export default supabase;
+
+// Auth functions
 export async function registerUser(email, password, metadata = {}) {
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -12,7 +18,7 @@ export async function registerUser(email, password, metadata = {}) {
     options: { data: metadata }
   });
   if (error) throw error;
-   return data;
+  return data;
 }
 
 export async function loginUser(email, password) {
@@ -32,6 +38,7 @@ export async function getCurrentUser() {
   return user;
 }
 
+// Database functions
 export async function getKV(key, fallback = null) {
   try {
     const { data, error } = await supabase
@@ -87,12 +94,18 @@ export function subscribeToTable(table, callback, eventFilter = '*') {
     .subscribe((status) => console.log(`Subscription ${table}: ${status}`));
 }
 
-export { supabase };
-export default {
-  supabase,
-  registerUser, loginUser, logoutUser, getCurrentUser,
-  getKV, setKV,
-  getItems, insertItem, updateItem, deleteItem,
-  subscribeToTable
-};
-
+// Make all functions available via window for global access
+if (typeof window !== 'undefined') {
+  window.supabase = supabase;
+  window.registerUser = registerUser;
+  window.loginUser = loginUser;
+  window.logoutUser = logoutUser;
+  window.getCurrentUser = getCurrentUser;
+  window.getKV = getKV;
+  window.setKV = setKV;
+  window.getItems = getItems;
+  window.insertItem = insertItem;
+  window.updateItem = updateItem;
+  window.deleteItem = deleteItem;
+  window.subscribeToTable = subscribeToTable;
+}
