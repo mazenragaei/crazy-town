@@ -87,6 +87,7 @@ export function subscribeToTable(table, callback, eventFilter = '*') {
     .subscribe((status) => console.log(`Subscription ${table}: ${status}`));
 }
 
+export { supabase };
 export default {
   supabase,
   registerUser, loginUser, logoutUser, getCurrentUser,

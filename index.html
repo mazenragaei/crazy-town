@@ -3220,7 +3220,7 @@
   </footer>
 
   <script type="module">
-    import { registerUser, loginUser, logoutUser, getCurrentUser, getKV, setKV, getItems, insertItem, updateItem, deleteItem } from './db.js';
+import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, setKV, getItems, insertItem, updateItem, deleteItem } from './db.js';
     
     const DB_KEYS = {
       users: 'crazyTown_users',
