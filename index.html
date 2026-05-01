@@ -4735,28 +4735,7 @@ function switchLeaderboard(type) {
     window.renderChatMessages = renderChatMessages;
     window.renderAdminPanel = renderAdminPanel;
     
-    // Global functions for onclick handlers - DEFINED FIRST
-    window.openLogin = openLogin || (() => document.getElementById('loginModal')?.classList.remove('hidden'));
-    window.openRegister = openRegister || (() => document.getElementById('registerModal')?.classList.remove('hidden'));
-    window.closeModal = closeModal || ((type) => {
-      const modalId = type === 'userDashboard' ? 'userDashboardModal' :
-        type === 'adminPanel' ? 'adminPanelModal' :
-        type === 'ticket' ? 'ticketModal' :
-        type === 'profile' ? 'profileModal' :
-        type === 'checkout' ? 'checkoutModal' :
-        `${type}Modal`;
-      const modal = document.getElementById(modalId);
-      if (modal) modal.classList.add('hidden');
-      document.body.style.overflow = '';
-    });
-    window.openVipPortal = openVipPortal || (() => location.href = 'vip.html');
-    window.openElitePortal = openElitePortal || (() => location.href = 'elite.html');
-    window.openAdminPanel = openAdminPanel || (() => location.href = 'admin.html');
-    window.handleBooking = handleBooking;
-    window.showToast = showToast;
-    window.toggleMenu = toggleMenu || (() => document.getElementById('navLinks')?.classList.toggle('active'));
-    window.scrollToTopSmooth = scrollToTopSmooth || (() => window.scrollTo({top: 0, behavior: 'smooth'}));
-    window.calculatePrice = calculatePrice;
+
     
     document.addEventListener('DOMContentLoaded', () => {
       ensureSeedData();
