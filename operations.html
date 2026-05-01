@@ -3,76 +3,297 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Operations - Crazy Town</title>
+  <title>Operations Center - Crazy Town</title>
   <style>
-    :root { --bg:#0f0f23; --card:#1a1a2e; --line:#2a2a42; --text:#fff; --muted:#9ca3af; --accent:#00c2ff; }
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: 'Rajdhani', sans-serif; background: var(--bg); color: var(--text); }
-    .wrap { width: min(1200px, 95vw); margin: 30px auto; }
-    .nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
-    .btn { border: 1px solid var(--line); background: #151528; color: #fff; padding: 10px 20px; border-radius: 8px; cursor: pointer; text-decoration: none; }
-    .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 25px; margin-bottom: 20px; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+    :root { --bg:#0f0f23; --card:#1a1a2e; --line:#2a2a42; --text:#fff; --muted:#9ca3af; --accent:#00c2ff; --ok:#22c55e; --warn:#f59e0b; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Arial, sans-serif; background:var(--bg); color:var(--text); }
+    .wrap { width:min(1200px,95vw); margin:24px auto; }
+    .top { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
+    .btn { border:1px solid var(--line); background:#151528; color:#fff; padding:10px 12px; border-radius:10px; cursor:pointer; text-decoration:none; display:inline-block; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px; margin-top:14px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
+    .small { color:var(--muted); font-size:12px; }
+    .pill { display:inline-block; padding:3px 10px; border-radius:999px; border:1px solid var(--line); font-size:12px; }
+    .pill.ok { border-color:rgba(34,197,94,0.6); color:#86efac; }
+    .pill.warn { border-color:rgba(245,158,11,0.6); color:#fcd34d; }
+    .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin:10px 0; }
+    input, select, textarea { width:100%; background:#121226; color:#fff; border:1px solid var(--line); border-radius:8px; padding:8px; }
+    table { width:100%; border-collapse:collapse; min-width:760px; }
+    th, td { border-bottom:1px solid var(--line); padding:10px; text-align:left; font-size:14px; }
+    .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:12px; }
+    .timeline-item { padding:8px 0; border-bottom:1px solid var(--line); }
   </style>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
   <div class="wrap">
-    <div class="nav">
-      <h1>Operations Hub</h1>
-      <a href="index.html" class="btn">Back to City</a>
+    <div class="top">
+      <h1>Operations Center</h1>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn" onclick="goBack()">&larr; Back</button>
+        <a class="btn" href="index.html">Main Website</a>
+        <a class="btn" href="team.html">My Team Hub</a>
+        <a class="btn" href="vip.html">VIP Portal</a>
+        <a class="btn" href="elite.html">Elite Portal</a>
+        <a class="btn" href="support.html">Support</a>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card"><div class="small">Available Scenarios</div><h2 id="scenarioCount">0</h2></div>
+      <div class="card"><div class="small">My Operations</div><h2 id="myOpsCount">0</h2></div>
+      <div class="card"><div class="small">Ready Status</div><h2 id="readyStatus">Not Ready</h2></div>
+      <div class="card"><div class="small">Upcoming Window</div><h2 id="nextWindow">-</h2></div>
     </div>
 
     <div class="grid">
       <div class="card">
-        <h3><i class="fas fa-satellite mr-2"></i> Current Status</h3>
-        <p style="color: var(--muted); margin-top: 10px;">Tactical field connectivity is stable. All sensors active.</p>
+        <h3 style="margin-top:0;">Scenario Briefing</h3>
+        <div id="scenarioCards"></div>
       </div>
       <div class="card">
-        <h3><i class="fas fa-users mr-2"></i> Field Personnel</h3>
-        <p style="font-size: 2rem; color: var(--accent); margin: 10px 0;">ACTIVE</p>
-        <span style="font-size: 0.8rem; opacity: 0.6;">Dahshur Sector 1-4</span>
+        <h3 style="margin-top:0;">Reserve Operation Slot</h3>
+        <form onsubmit="reserveOperation(event)">
+          <div class="row">
+            <select id="opScenario" required></select>
+            <select id="opDifficulty" required>
+              <option value="">Difficulty</option>
+              <option>Recruit</option>
+              <option>Veteran</option>
+              <option>Hardcore</option>
+            </select>
+          </div>
+          <div class="row">
+            <input id="opDate" type="date" required>
+            <select id="opWindow" required>
+              <option value="">Time Window</option>
+              <option>10:00 - 12:00</option>
+              <option>12:30 - 14:30</option>
+              <option>15:00 - 17:00</option>
+              <option>18:00 - 20:00</option>
+              <option>20:30 - 22:30</option>
+            </select>
+          </div>
+          <div class="row">
+            <input id="opSquadSize" type="number" min="2" max="10" value="5" required>
+            <select id="opRole" required>
+              <option value="">Preferred Role</option>
+              <option>Assault</option>
+              <option>Scout</option>
+              <option>Support</option>
+              <option>Sniper</option>
+            </select>
+          </div>
+          <textarea id="opNotes" rows="3" placeholder="Mission notes (optional)"></textarea>
+          <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn" type="submit">Reserve Slot</button>
+            <button class="btn" type="button" onclick="toggleReadyStatus()">Toggle Ready</button>
+          </div>
+        </form>
       </div>
     </div>
 
-    <div class="card">
-      <h3>ACTIVE SCENARIOS</h3>
-      <p style="color: var(--muted); margin-bottom: 20px;">Operational mission data and field requirements.</p>
-      <div id="scenariosList">
-         <div style="padding: 15px; background: rgba(255,255,255,0.02); border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
-            <div>
-               <strong>Urban Extraction</strong><br>
-               <small style="opacity:0.5;">Difficulty: Veteran</small>
-            </div>
-            <span style="color: var(--accent);">READY</span>
-         </div>
-         <div style="padding: 15px; background: rgba(255,255,255,0.02); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
-            <div>
-               <strong>Night Ops - Stealth</strong><br>
-               <small style="opacity:0.5;">Difficulty: Hardcore</small>
-            </div>
-            <span style="color: var(--accent);">PENDING DUSK</span>
-         </div>
-      </div>
+    <div class="card" style="margin-top:12px;">
+      <h3>My Operations Queue</h3>
+      <div class="table-wrap"><table id="myOpsTable"></table></div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <h3>Operations Timeline</h3>
+      <div id="opsTimeline"></div>
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script>
-    const SUPABASE_URL = 'https://gldwdwcpzcxcvqpcpiol.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsZHdkd2NwemN4Y3ZxcGNwaW9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMjE4NjAsImV4cCI6MjA5Mjg5Nzg2MH0.clwYiXpRG-2ZPC_WmGC56DdoVEiyVu2RgVe5yppxJ2E';
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  <script type="module">
+    import { getCurrentUser, getKV, setKV } from './db.js';
 
-    async function checkAuth() {
-      const sid = sessionStorage.getItem('crazyTown_session');
-      if (!sid) { location.href = 'index.html'; return; }
-      const { data: user } = await supabaseClient.from('users').select('roles').eq('id', sid).maybeSingle();
-      if (!user || (!user.roles?.some(r => ['admin', 'owner', 'operations'].includes(r)))) {
-        alert('Unauthorized access to Operations Hub.');
-        location.href = 'index.html';
+    const K = {
+      users:'crazyTown_users',
+      session:'crazyTown_session',
+      ops:'crazyTown_operations',
+      activity:'crazyTown_activity'
+    };
+    const SCENARIOS = [
+      { id:'op-urban', name:'Urban Extraction', brief:'Escort target through contested urban lanes.', basePrice:950, type:'Team PvP' },
+      { id:'op-convoy', name:'Convoy Ambush', brief:'Intercept convoy and secure payload zone.', basePrice:1100, type:'Objective' },
+      { id:'op-night', name:'Night Strike', brief:'Low-light mission with stealth checkpoints.', basePrice:1300, type:'Night Ops' },
+      { id:'op-hq', name:'Headquarters Raid', brief:'Capture command room under heavy pressure.', basePrice:1250, type:'Hardcore' }
+    ];
+    
+    async function ro(k, d) { 
+      try { return await getKV(k, d); } catch { return d; } 
+    }
+    async function so(k, v) { 
+      try { await setKV(k, v); } catch (e) { console.error('Save error:', e); } 
+    }
+    
+    async function me() {
+      try {
+        const current = await getCurrentUser();
+        if (!current) return null;
+        const users = await ro(K.users, []);
+        return users.find((u) => String(u.email) === String(current.email)) || null;
+      } catch { return null; }
+    }
+
+    async function addActivity(action, actor='System') {
+      try {
+        const arr = await ro(K.activity, []);
+        arr.unshift({ id:`act-${Date.now()}`, action, actor, at:new Date().toISOString() });
+        await so(K.activity, arr.slice(0,300));
+      } catch (e) { console.error('Activity error:', e); }
+    }
+
+    function goBack() {
+      if (window.history.length > 1) return window.history.back();
+      location.href = 'index.html';
+    }
+
+    function renderScenarioCards() {
+      const box = document.getElementById('scenarioCards');
+      box.innerHTML = SCENARIOS.map((item)=>`
+        <div class="timeline-item">
+          <strong>${item.name}</strong> <span class="pill">${item.type}</span>
+          <div class="small">${item.brief}</div>
+          <div class="small">Base Price: ${item.basePrice} EGP</div>
+        </div>
+      `).join('');
+      document.getElementById('scenarioCount').textContent = SCENARIOS.length;
+      document.getElementById('opScenario').innerHTML = `<option value="">Choose Scenario</option>${SCENARIOS.map((item)=>`<option value="${item.id}">${item.name}</option>`).join('')}`;
+    }
+
+    function getDifficultyMultiplier(level) {
+      if (level === 'Veteran') return 1.2;
+      if (level === 'Hardcore') return 1.35;
+      return 1;
+    }
+
+    async function reserveOperation(event) {
+      event.preventDefault();
+      const user = await me();
+      if (!user) return location.href = 'index.html';
+      const scenarioId = document.getElementById('opScenario').value;
+      const difficulty = document.getElementById('opDifficulty').value;
+      const date = document.getElementById('opDate').value;
+      const windowSlot = document.getElementById('opWindow').value;
+      const squadSize = Number(document.getElementById('opSquadSize').value || 0);
+      const role = document.getElementById('opRole').value;
+      const notes = document.getElementById('opNotes').value.trim();
+      const scenario = SCENARIOS.find((item)=>item.id === scenarioId);
+      if (!scenario) return;
+      try {
+        const totalPrice = Math.round((scenario.basePrice * getDifficultyMultiplier(difficulty)) + (Math.max(0, squadSize - 5) * 85));
+        const ops = await ro(K.ops, []);
+        const op = {
+          id:`ops-${Date.now()}`,
+          userId:user.id,
+          userName:user.name,
+          scenarioId:scenario.id,
+          scenarioName:scenario.name,
+          difficulty,
+          date,
+          window:windowSlot,
+          squadSize,
+          role,
+          notes,
+          totalPrice,
+          status:'Pending',
+          createdAt:new Date().toISOString()
+        };
+        ops.unshift(op);
+        await so(K.ops, ops);
+        await addActivity(`Operation reserved: ${scenario.name} (${difficulty})`, user.name);
+        event.target.reset();
+        document.getElementById('opSquadSize').value = 5;
+        await render();
+      } catch (err) {
+        console.error('Reserve operation error:', err);
+        alert('Failed to reserve operation');
       }
     }
-    checkAuth();
+
+    async function toggleReadyStatus() {
+      const user = await me();
+      if (!user) return;
+      const key = `ready-${user.id}`;
+      const current = localStorage.getItem(key) === '1';
+      localStorage.setItem(key, current ? '0' : '1');
+      await renderReadyStatus();
+    }
+
+    async function renderReadyStatus() {
+      const user = await me();
+      const el = document.getElementById('readyStatus');
+      if (!user || !el) return;
+      const ready = localStorage.getItem(`ready-${user.id}`) === '1';
+      el.textContent = ready ? 'Ready' : 'Not Ready';
+      el.style.color = ready ? '#86efac' : '#fca5a5';
+    }
+
+    async function cancelOperation(id) {
+      const user = await me();
+      if (!user) return;
+      try {
+        const ops = await ro(K.ops, []);
+        const next = ops.filter((item)=>!(item.id === id && String(item.userId) === String(user.id)));
+        await so(K.ops, next);
+        await addActivity(`Operation cancelled: ${id}`, user.name);
+        await render();
+      } catch (err) {
+        console.error('Cancel operation error:', err);
+      }
+    }
+
+    async function renderMyQueue() {
+      const user = await me();
+      const ops = await ro(K.ops, []);
+      const mine = user ? ops.filter((item)=>String(item.userId) === String(user.id)) : [];
+      document.getElementById('myOpsCount').textContent = mine.length;
+      document.getElementById('myOpsTable').innerHTML = `
+        <thead><tr><th>Scenario</th><th>Date</th><th>Window</th><th>Difficulty</th><th>Squad</th><th>Price</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody>${mine.length ? mine.map((item)=>`
+          <tr>
+            <td>${item.scenarioName}<br><span class="small">${item.role}</span></td>
+            <td>${item.date}</td>
+            <td>${item.window}</td>
+            <td>${item.difficulty}</td>
+            <td>${item.squadSize}</td>
+            <td>${item.totalPrice} EGP</td>
+            <td><span class="pill ${item.status === 'Confirmed' ? 'ok' : 'warn'}">${item.status}</span></td>
+            <td><button class="btn" onclick="cancelOperation('${item.id}')">Cancel</button></td>
+          </tr>
+        `).join('') : '<tr><td colspan="8">No operation reservations yet.</td></tr>'}</tbody>
+      `;
+      const next = mine.find((item)=>item.status !== 'Cancelled');
+      document.getElementById('nextWindow').textContent = next ? `${next.date} | ${next.window}` : '-';
+    }
+
+    async function renderTimeline() {
+      const ops = (await ro(K.ops, [])).slice(0, 15);
+      const box = document.getElementById('opsTimeline');
+      box.innerHTML = ops.length ? ops.map((item)=>`
+        <div class="timeline-item">
+          <strong>${item.userName}</strong> reserved <strong>${item.scenarioName}</strong> (${item.difficulty})
+          <div class="small">${new Date(item.createdAt).toLocaleString()} | ${item.date} ${item.window}</div>
+        </div>
+      `).join('') : '<div class="small">Timeline is empty.</div>';
+    }
+
+    async function render() {
+      const user = await me();
+      if (!user) return location.href = 'index.html';
+      const dateInput = document.getElementById('opDate');
+      if (dateInput) dateInput.min = new Date().toISOString().split('T')[0];
+      renderScenarioCards();
+      await renderReadyStatus();
+      await renderMyQueue();
+      await renderTimeline();
+    }
+
+    window.cancelOperation = cancelOperation;
+    window.goBack = goBack;
+    window.toggleReadyStatus = toggleReadyStatus;
+    render();
   </script>
 </body>
 </html>
