@@ -299,6 +299,45 @@ export async function addActivityEntry(action, actor = 'System') {
 }
 
 // ============================================
+// SESSION SYNC FUNCTIONS
+// ============================================
+
+/**
+ * Force sync session from Supabase Auth with app state
+ * Use this when login appears to fail but getUser() works in console
+ */
+export async function forceSyncSession() {
+  const { data, error } = await supabase.auth.getUser();
+  if (data && data.user) {
+    localStorage.setItem('crazyTown_session', data.user.id);
+    console.log("✅ تم ربط الجلسة بنجاح! جاري تحديث الموقع...");
+    location.reload();
+  } else {
+    console.error("❌ مفيش يوزر نشط في سوبابيز حالياً.");
+    return { success: false, error: 'No active session' };
+  }
+}
+
+/**
+ * Try to refresh and sync Supabase session
+ * Call this on app init or when login seems stuck
+ */
+export async function trySyncSession() {
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (data && data.user) {
+      localStorage.setItem('crazyTown_session', data.user.id);
+      console.log("✅ Session synced:", data.user.email);
+      return { success: true, user: data.user };
+    }
+    return { success: false, user: null };
+  } catch (e) {
+    console.error("❌ Session sync failed:", e);
+    return { success: false, error: e.message };
+  }
+}
+
+// ============================================
 // LOGIN & REGISTER WRAPPERS (for HTML onclick events)
 // ============================================
 // These wrapper functions use Supabase Auth and sync with crazyTown_users array
@@ -312,6 +351,16 @@ export async function addActivityEntry(action, actor = 'System') {
  */
 export async function handleLogin(email, password) {
   try {
+    // First check if there's already an active session
+    const { data: existingUser } = await supabase.auth.getUser();
+    if (existingUser?.user?.email === email) {
+      // Already logged in, just sync and return success
+      localStorage.setItem('crazyTown_session', existingUser.user.id);
+      const users = await getUsers();
+      const user = users.find(u => u.email === email);
+      return { success: true, user: user || existingUser.user, error: null };
+    }
+
     // Authenticate with Supabase
     const { data, error } = await loginUser(email, password);
     if (error) {
@@ -444,6 +493,10 @@ if (typeof window !== 'undefined') {
 
   // Activity logging
   window.addActivityEntry = addActivityEntry;
+
+  // Session sync functions
+  window.forceSyncSession = forceSyncSession;
+  window.trySyncSession = trySyncSession;
 
   // Login & Register wrappers (with try/catch and Supabase Auth integration)
   window.handleLogin = handleLogin;
