@@ -3418,49 +3418,26 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
     // ============================================
     async function addActivity(action, actor = 'System') {
       try {
-        // Get data with defensive fallback to empty array
-        const activity = await loadData(DB_KEYS.activity, []);
+        // 1. جلب البيانات مع وضع مصفوفة فارغة كاحتياط
+        let arr = await loadData(DB_KEYS.activity, []);
 
-        // Debug logging to track what's being returned
-        console.log('addActivity - activity type:', typeof activity, Array.isArray(activity));
-
-        // Build a guaranteed array from whatever we received
-        let activityArray = [];
-        if (Array.isArray(activity)) {
-          activityArray = activity;
-        } else {
-          console.warn('addActivity - activity was not an array, type:', typeof activity, activity);
+        // 2. التأكد الصارم إنها Array (هنا سر الحل)
+        if (!Array.isArray(arr)) {
+          arr = [];
         }
 
-        // Add new activity entry - wrapped in try/catch for safety
-        try {
-          if (typeof activityArray.unshift !== 'function') {
-            console.warn('addActivity - unshift is not a function, activityArray:', activityArray);
-            activityArray = [];
-          }
-          activityArray.unshift({
-            id: `act-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`,
-            action,
-            actor,
-            at: new Date().toISOString()
-          });
-        } catch (unshiftError) {
-          console.warn('addActivity unshift failed, creating new array:', unshiftError);
-          activityArray = [{
-            id: `act-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`,
-            action,
-            actor,
-            at: new Date().toISOString()
-          }];
-        }
+        // 3. الآن يمكنك استخدام unshift بأمان
+        arr.unshift({
+          id: Date.now(),
+          action,
+          actor,
+          at: new Date().toISOString()
+        });
 
-        // Save with defensive handling
-        await saveData(DB_KEYS.activity, activityArray.slice(0, 200));
-
+        // 4. حفظ البيانات المحدثة
+        await saveData(DB_KEYS.activity, arr.slice(0, 200));
       } catch (error) {
-        // Error handling prevents UI crash if database call fails
-        console.error('addActivity error:', error);
-        // Silently fail to prevent crashing the UI
+        console.error('Activity error:', error);
       }
     }
 

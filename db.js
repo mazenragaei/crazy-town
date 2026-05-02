@@ -241,11 +241,15 @@ export async function findUserByEmail(email) {
  */
 export async function addUserToKV(user) {
   try {
-    const users = await getUsers();
+    const users = await getKV('crazyTown_users', [], true);
+
+    // 2. التأكد الصارم إنها Array
     if (!Array.isArray(users)) {
       console.warn('addUserToKV: users was not an array, initializing empty array');
     }
     const safeUsers = Array.isArray(users) ? users : [];
+
+    // 3. الآن يمكنك استخدام push بأمان
     safeUsers.push(user);
     await setKV('crazyTown_users', safeUsers);
     return true;
@@ -265,23 +269,27 @@ export async function addUserToKV(user) {
  */
 export async function addActivityEntry(action, actor = 'System') {
   try {
-    const activity = await getKV('crazyTown_activity', [], true);
-    const safeActivity = Array.isArray(activity) ? activity : [];
+    // 1. جلب البيانات مع وضع مصفوفة فارغة كاحتياط
+    let arr = await getKV('crazyTown_activity', [], true);
 
-    // FINAL VALIDATION: If somehow still not an array, create new array
-    const activityArray = Array.isArray(safeActivity) ? safeActivity : [];
+    // 2. التأكد الصارم إنها Array (هنا سر الحل)
+    if (!Array.isArray(arr)) {
+      arr = [];
+    }
 
-    activityArray.unshift({
-      id: `act-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`,
+    // 3. الآن يمكنك استخدام unshift بأمان
+    arr.unshift({
+      id: Date.now(),
       action,
       actor,
       at: new Date().toISOString()
     });
 
-    await setKV('crazyTown_activity', activityArray.slice(0, 200));
+    // 4. حفظ البيانات المحدثة
+    await setKV('crazyTown_activity', arr.slice(0, 200));
     return true;
   } catch (error) {
-    console.error('addActivityEntry error:', error);
+    console.error('Activity error:', error);
     return false;
   }
 }
