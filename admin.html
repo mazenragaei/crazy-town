@@ -7,128 +7,426 @@
   <style>
     :root { --bg:#0f0f23; --card:#1a1a2e; --text:#fff; --muted:#9ca3af; --line:#2a2a42; --accent:#00c2ff; --ok:#22c55e; --warn:#f59e0b; --danger:#ef4444; }
     * { box-sizing: border-box; }
-    body { margin:0; font-family: Arial, sans-serif; background:linear-gradient(180deg,#0d1024,#0f0f23); color:var(--text); }
-    .wrap { width:min(1380px,96vw); margin:18px auto; }
+    body { margin:0; font-family: Arial, sans-serif; background:linear-gradient(180deg,#0d1024,#0f0f23); color:var(--text); min-height:100vh; }
+    .wrap { width:min(1400px,96vw); margin:18px auto; }
     .top { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center; position:sticky; top:10px; z-index:10; background:rgba(15,15,35,0.86); backdrop-filter:blur(8px); border:1px solid var(--line); border-radius:14px; padding:10px 12px; margin-bottom:12px; }
-    .admin-main-layout { display:grid; grid-template-columns:280px 1fr; gap:14px; align-items:start; }
-    .admin-sidebar { position:sticky; top:84px; max-height:calc(100vh - 98px); overflow:auto; padding-right:4px; }
+    .admin-main-layout { display:grid; grid-template-columns:260px 1fr; gap:16px; align-items:start; }
+    .admin-sidebar { position:sticky; top:84px; max-height:calc(100vh - 98px); overflow:auto; }
     .admin-content { min-width:0; }
-    .tabs { display:flex; gap:8px; flex-wrap:nowrap; flex-direction:column; margin:10px 0; }
-    .tab, .btn { border:1px solid var(--line); background:#151528; color:var(--text); padding:10px 12px; border-radius:10px; cursor:pointer; transition:all .22s ease; }
+    .tabs { display:flex; gap:6px; flex-direction:column; margin:10px 0; }
+    .tab, .btn { border:1px solid var(--line); background:#151528; color:var(--text); padding:10px 14px; border-radius:10px; cursor:pointer; transition:all .22s; font-size:14px; }
     .tab:hover, .btn:hover { transform:translateY(-1px); border-color:#3c4568; background:#1b1b34; }
     .tab { text-align:left; width:100%; }
     .tab.active { border-color:var(--accent); color:var(--accent); background:rgba(0,194,255,0.12); }
-    .grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
-    .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
+    .grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; }
     .pane { display:none; }
-    .pane.active { display:block; animation:fadePane .22s ease; }
-    @keyframes fadePane { from{opacity:.5; transform:translateY(3px);} to{opacity:1; transform:translateY(0);} }
-    table { width:100%; border-collapse: collapse; min-width:860px; }
-    th, td { border-bottom:1px solid var(--line); padding:10px; text-align:left; font-size:14px; }
-    th { position:sticky; top:0; background:#16162d; z-index:1; }
-    tr:nth-child(even) td { background:rgba(255,255,255,0.01); }
+    .pane.active { display:block; }
+    table { width:100%; border-collapse: collapse; min-width:800px; }
+    th, td { border-bottom:1px solid var(--line); padding:10px 8px; text-align:left; font-size:13px; }
+    th { background:#16162d; position:sticky; top:0; }
+    tr:nth-child(even) td { background:rgba(255,255,255,0.015); }
     .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:12px; margin-top:10px; }
-    input, select, textarea { width:100%; background:#121226; color:#fff; border:1px solid var(--line); border-radius:8px; padding:8px; }
+    input, select, textarea { width:100%; background:#121226; color:#fff; border:1px solid var(--line); border-radius:8px; padding:10px; margin:4px 0; font-size:14px; }
     .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin:10px 0; }
-    .badge { padding:2px 8px; border-radius:999px; border:1px solid var(--line); font-size:12px; margin-right:4px; display:inline-block; }
+    .badge { padding:2px 8px; border-radius:999px; border:1px solid var(--line); font-size:11px; }
     .ok { color:var(--ok); } .warn { color:var(--warn); } .danger { color:var(--danger); }
     .small { color:var(--muted); font-size:12px; }
-    .log { max-height:280px; overflow:auto; }
-    .search-wrap { position:relative; width:min(860px,100%); }
-    .search-card { margin-top:0; padding:12px; background:linear-gradient(135deg,rgba(0,194,255,0.08),rgba(26,26,46,0.9)); }
-    .prod-card { margin-top:10px; background:linear-gradient(135deg,rgba(34,197,94,0.08),rgba(26,26,46,0.9)); }
-    @media (max-width: 980px) {
-      .admin-main-layout { grid-template-columns:1fr; }
-      .admin-sidebar { position:relative; top:0; max-height:none; overflow:visible; }
-    }
-    #adminSearchResults {
-      position:absolute;
-      top: calc(100% + 6px);
-      left:0;
-      right:0;
-      background:#121226;
-      border:1px solid var(--line);
-      border-radius:12px;
-      max-height:280px;
-      overflow:auto;
-      z-index:20;
-      display:none;
-    }
-    .search-item {
-      padding:10px;
-      border-bottom:1px solid var(--line);
-      cursor:pointer;
-    }
+    .log { max-height:300px; overflow:auto; border:1px solid var(--line); border-radius:8px; padding:10px; background:#0f0f1a; }
+    .search-wrap { position:relative; }
+    #adminSearchResults { position:absolute; top:calc(100% + 6px); left:0; right:0; background:#121226; border:1px solid var(--line); border-radius:12px; max-height:280px; overflow:auto; z-index:20; display:none; }
+    .search-item { padding:10px 12px; border-bottom:1px solid var(--line); cursor:pointer; font-size:14px; }
     .search-item:last-child { border-bottom:none; }
-    .search-item:hover, .search-item.active { background:#1b1b33; }
-    .search-item .small { display:block; margin-top:4px; }
+    .search-item:hover { background:#1b1b33; }
+    .search-item .small { display:block; margin-top:2px; }
+    .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:100; display:none; align-items:center; justify-content:center; }
+    .modal-overlay.show { display:flex; }
+    .modal { background:#1a1a2e; border:1px solid var(--line); border-radius:16px; padding:24px; width:min(500px,90vw); }
+    .modal h3 { margin:0 0 16px; color:var(--accent); }
+    .modal-actions { display:flex; gap:10px; margin-top:16px; justify-content:flex-end; }
+    @media (max-width: 980px) { .admin-main-layout { grid-template-columns:1fr; } .admin-sidebar { position:relative; top:0; } }
+    .toast { position:fixed; top:20px; right:20px; padding:12px 20px; background:#1a1a2e; border:1px solid var(--accent); border-radius:10px; color:#fff; z-index:9999; animation:slideIn .3s; }
+    @keyframes slideIn { from{transform:translateX(100%);} to{transform:translateX(0);} }
+    .form-section { background:#121226; border:1px solid var(--line); border-radius:10px; padding:16px; margin:10px 0; }
+    .form-section h4 { margin:0 0 12px; color:var(--accent); }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="top">
-      <h1>Admin Control Center</h1>
+      <h1 style="margin:0;font-size:1.4rem;">Admin Control Center</h1>
       <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-        <button class="btn" onclick="goBack()">&larr; Back</button>
-        <button class="btn" onclick="goHome()">Main Website</button>
-        <button class="btn" onclick="exportAllBackup()">Backup JSON</button>
-        <button class="btn" onclick="startProductionMode()">Production Mode</button>
-        <button class="btn" id="ownerOnlyBtn" style="display:none;" onclick="openOwnerControls()">Owner Controls</button>
-        <input id="quickFilter" type="search" placeholder="Quick filter in current tab..." oninput="applyQuickFilter()" style="min-width:220px;">
+        <button class="btn" onclick="goBack()">&#8592; Back</button>
+        <button class="btn" onclick="goHome()">Main Site</button>
+        <button class="btn" onclick="exportBackup()">Export Backup</button>
       </div>
     </div>
     <div class="admin-main-layout">
       <aside class="admin-sidebar">
-        <div class="card search-card">
-          <div class="search-wrap">
-            <input id="adminGlobalSearch" type="search" placeholder="Search users, orders, coupons, tools..." oninput="handleAdminSearchInput()" onfocus="handleAdminSearchInput()">
-            <div id="adminSearchResults"></div>
-          </div>
-          <div class="small" style="margin-top:8px;">Type any name, order id, feature, or section then choose from results.</div>
+        <div class="card" style="padding:12px;">
+          <input id="adminGlobalSearch" type="search" placeholder="Search..." oninput="handleSearch()" style="margin:0;">
+          <div id="adminSearchResults"></div>
         </div>
         <div class="tabs" id="tabs"></div>
-        <div class="card prod-card">
-          <h4 style="margin-top:0;">Launch Workflow</h4>
-          <div class="small">One click to export backup, clean demo records, and set production-safe settings.</div>
-          <button class="btn" style="margin-top:8px; width:100%;" onclick="startProductionMode()">Run Production Mode</button>
-        </div>
       </aside>
       <div class="admin-content">
-        <div class="grid">
-          <div class="card"><div class="small">Total Revenue</div><h2 id="statRevenue">0</h2></div>
-          <div class="card"><div class="small">Total Bookings</div><h2 id="statBookings">0</h2></div>
-          <div class="card"><div class="small">Total Users</div><h2 id="statUsers">0</h2></div>
-          <div class="card"><div class="small">Total Shop Orders</div><h2 id="statOrders">0</h2></div>
-        </div>
-
-        <section class="pane" data-pane="insights">
-          <h3>Smart Insights & Alerts</h3>
-          <div class="grid">
-            <div class="card"><div class="small">Pending Bookings</div><h2 id="pendingBookingsStat">0</h2></div>
-            <div class="card"><div class="small">Pending Shop Orders</div><h2 id="pendingOrdersStat">0</h2></div>
-            <div class="card"><div class="small">Low Stock Items</div><h2 id="lowStockStat">0</h2></div>
-            <div class="card"><div class="small">VIP Users</div><h2 id="vipUsersStat">0</h2></div>
-          </div>
-          <div class="row">
-            <button class="btn" onclick="setPane('bookings')">Open Bookings</button>
-
+        <div class="grid" id="statsGrid"></div>
+        <div id="paneContent"></div>
+      </div>
+    </div>
+  </div>
+  <div id="toastContainer"></div>
+  <div id="modalContainer"></div>
   <script type="module">
-    import { getCurrentUser, getKV } from "./db.js";
+    import { supabase, getCurrentUser, getKV, setKV, getUsers, saveUsers, loginUser, registerUser } from './db.js';
+
+    const DB_KEYS = {
+      users: 'crazyTown_users', bookings: 'crazyTown_bookings', orders: 'crazyTown_orders',
+      leaderboard: 'crazyTown_leaderboard', activity: 'crazyTown_activity', coupons: 'crazyTown_coupons',
+      inventory: 'crazyTown_inventory', news: 'crazyTown_news', teams: 'crazyTown_teams',
+      tournaments: 'crazyTown_tournaments', settings: 'crazyTown_settings', cart: 'crazyTown_cart'
+    };
+
     function hasRole(u, r) { return u && Array.isArray(u.roles) && u.roles.includes(r); }
-    function isAdmin(u) { return hasRole(u,"admin") || hasRole(u,"owner"); }
-    function goBack() { window.history.back(); }
-    function goHome() { window.location.href = "index.html"; }
-    function setPane(id) { document.querySelectorAll(".pane").forEach(p => p.classList.remove("active")); document.querySelectorAll(".tab").forEach(t => t.classList.remove("active")); const p = document.querySelector("[data-pane="+id+"]"); if(p) p.classList.add("active"); }
-    async function initAdmin() {
-      const user = await getCurrentUser();
-      const allUsers = await getKV("crazyTown_users", []);
-      const localUser = allUsers.find(u => u.email === user?.email);
-      if (!localUser || !isAdmin(localUser)) { document.body.innerHTML = "<div style=padding:40px><h2>Access Denied</h2></div>"; return; }
-      document.getElementById("statUsers").textContent = allUsers.length;
-      const tabs = ["insights","bookings","users","orders","inventory","coupons"];
-      document.getElementById("tabs").innerHTML = tabs.map(t => "<button class=tab onclick=setPane('"+t+"')>"+t+"</button>").join("");
-      setPane("insights");
+    function isAdmin(u) { return hasRole(u,'admin') || hasRole(u,'owner') || hasRole(u,'co-owner') || hasRole(u,'ceo'); }
+    function showToast(msg, type='info') {
+      const el = document.createElement('div');
+      el.className = 'toast';
+      el.style.borderColor = type === 'success' ? '#22c55e' : type === 'error' ? '#ef4444' : '#00c2ff';
+      el.textContent = msg;
+      document.getElementById('toastContainer').appendChild(el);
+      setTimeout(() => el.remove(), 3000);
     }
-    window.goBack = goBack; window.goHome = goHome; window.setPane = setPane; window.initAdmin = initAdmin;
-    initAdmin();
+    function goBack() { window.history.back(); }
+    function goHome() { window.location.href = 'index.html'; }
+
+    async function loadAllData() {
+      const keys = Object.values(DB_KEYS);
+      const data = {};
+      for (const k of keys) { data[k] = await getKV(k, k.includes('Town') ? [] : null); }
+      return data;
+    }
+
+    function renderStats(data) {
+      const users = Array.isArray(data[DB_KEYS.users]) ? data[DB_KEYS.users] : [];
+      const bookings = Array.isArray(data[DB_KEYS.bookings]) ? data[DB_KEYS.bookings] : [];
+      const orders = Array.isArray(data[DB_KEYS.orders]) ? data[DB_KEYS.orders] : [];
+      const revenue = [...bookings, ...orders].reduce((s, b) => s + Number(b.price || 0), 0);
+      const vipCount = users.filter(u => hasRole(u,'vip') || hasRole(u,'elite') || hasRole(u,'champion')).length;
+      document.getElementById('statsGrid').innerHTML = `
+        <div class="card"><div class="small">Total Revenue</div><h2 style="margin:8px 0 0">${revenue.toFixed(0)} EGP</h2></div>
+        <div class="card"><div class="small">Total Users</div><h2 style="margin:8px 0 0">${users.length}</h2></div>
+        <div class="card"><div class="small">Bookings</div><h2 style="margin:8px 0 0">${bookings.length}</h2></div>
+        <div class="card"><div class="small">Shop Orders</div><h2 style="margin:8px 0 0">${orders.length}</h2></div>
+        <div class="card"><div class="small">VIP Users</div><h2 style="margin:8px 0 0">${vipCount}</h2></div>
+        <div class="card"><div class="small">Admins</div><h2 style="margin:8px 0 0">${users.filter(u => isAdmin(u)).length}</h2></div>
+      `;
+    }
+
+    function renderPanes(data) {
+      const tabs = [
+        {id:'insights', label:'Insights', icon:'&#128200;'},
+        {id:'bookings', label:'Bookings', icon:'&#128197;'},
+        {id:'orders', label:'Order History', icon:'&#128722;'},
+        {id:'users', label:'Users', icon:'&#128101;'},
+        {id:'team', label:'Team Control', icon:'&#129309;'},
+        {id:'leaderboard', label:'Leaderboard', icon:'&#127941;'},
+        {id:'commerce', label:'Commerce', icon:'&#128188;'},
+        {id:'operations', label:'Operations', icon:'&#9881;'},
+        {id:'customers', label:'Customers', icon:'&#128079;'},
+        {id:'news', label:'News', icon:'&#128240;'},
+        {id:'support', label:'Support', icon:'&#128172;'},
+        {id:'activity', label:'Activity', icon:'&#128221;'}
+      ];
+
+      document.getElementById('tabs').innerHTML = tabs.map(t =>
+        `<button class="tab" onclick="switchPane('${t.id}')" data-tab="${t.id}">${t.icon} ${t.label}</button>`
+      ).join('');
+
+      window.allData = data;
+      switchPane('insights');
+    }
+
+    function switchPane(id) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelector(`[data-tab="${id}"]`)?.classList.add('active');
+      const data = window.allData;
+      const d = {
+        users: Array.isArray(data[DB_KEYS.users]) ? data[DB_KEYS.users] : [],
+        bookings: Array.isArray(data[DB_KEYS.bookings]) ? data[DB_KEYS.bookings] : [],
+        orders: Array.isArray(data[DB_KEYS.orders]) ? data[DB_KEYS.orders] : [],
+        leaderboard: Array.isArray(data[DB_KEYS.leaderboard]) ? data[DB_KEYS.leaderboard] : [],
+        activity: Array.isArray(data[DB_KEYS.activity]) ? data[DB_KEYS.activity] : [],
+        coupons: Array.isArray(data[DB_KEYS.coupons]) ? data[DB_KEYS.coupons] : [],
+        inventory: Array.isArray(data[DB_KEYS.inventory]) ? data[DB_KEYS.inventory] : [],
+        news: Array.isArray(data[DB_KEYS.news]) ? data[DB_KEYS.news] : [],
+        teams: Array.isArray(data[DB_KEYS.teams]) ? data[DB_KEYS.teams] : [],
+        tournaments: Array.isArray(data[DB_KEYS.tournaments]) ? data[DB_KEYS.tournaments] : []
+      };
+
+      let html = '';
+      switch(id) {
+        case 'insights':
+          const pendingBookings = d.bookings.filter(b => b.status === 'Pending').length;
+          const pendingOrders = d.orders.filter(o => o.status === 'Pending Confirmation').length;
+          const lowStock = d.inventory.filter(i => (i.qty || 0) < 5).length;
+          html = `<div class="card"><h3>Quick Stats</h3><div class="grid">
+            <div><div class="small">Pending Bookings</div><h2>${pendingBookings}</h2></div>
+            <div><div class="small">Pending Orders</div><h2>${pendingOrders}</h2></div>
+            <div><div class="small">Low Stock</div><h2>${lowStock}</h2></div>
+            <div><div class="small">Active Teams</div><h2>${d.teams.length}</h2></div>
+          </div></div>`;
+          break;
+        case 'bookings':
+          html = `<div class="card"><h3>Bookings</h3>
+            <div class="table-wrap"><table><thead><tr><th>Ticket</th><th>Name</th><th>Date</th><th>Status</th><th>Price</th><th>Actions</th></tr></thead><tbody>
+            ${d.bookings.length ? d.bookings.map(b => `<tr><td>${b.ticketId || '-'}</td><td>${b.name || '-'}</td><td>${b.date || '-'} ${b.time || ''}</td><td><span class="badge ${b.status==='Confirmed'?'ok':'warn'}">${b.status || '-'}</span></td><td>${Number(b.price||0).toFixed(0)} EGP</td><td><button class="btn" onclick="toggleBooking('${b.id}')">${b.status==='Confirmed'?'Pending':'Confirm'}</button> <button class="btn" onclick="deleteBooking('${b.id}')">Delete</button></td></tr>`).join('') : '<tr><td colspan="6">No bookings</td></tr>'}
+            </tbody></table></div></div>`;
+          break;
+        case 'orders':
+          html = `<div class="card"><h3>Order History</h3>
+            <div class="table-wrap"><table><thead><tr><th>Order ID</th><th>Items</th><th>Total</th><th>Status</th><th>Date</th></tr></thead><tbody>
+            ${d.orders.length ? d.orders.map(o => `<tr><td>${o.id || '-'}</td><td>${o.items?.length || 0}</td><td>${Number(o.total||0).toFixed(0)} EGP</td><td><span class="badge warn">${o.status || '-'}</span></td><td>${new Date(o.created_at).toLocaleDateString()}</td></tr>`).join('') : '<tr><td colspan="5">No orders</td></tr>'}
+            </tbody></table></div></div>`;
+          break;
+        case 'users':
+          html = `<div class="card"><h3>Users <button class="btn" onclick="openAddUserModal()" style="float:right;margin-top:-8px;">+ Add User</button></h3>
+            <div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Rank</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+            ${d.users.map(u => `<tr><td>${u.name || '-'}</td><td>${u.email || '-'}</td><td>${u.rank || 'Recruit'}</td><td>${Number(u.balance||0).toFixed(0)}</td><td>${u.isBanned?'<span class="danger">Banned</span>':'<span class="ok">Active</span>'}</td><td>
+              <button class="btn" onclick="toggleAdmin('${u.id}')">${isAdmin(u)?'RemoveAdmin':'MakeAdmin'}</button>
+              <button class="btn" onclick="toggleBan('${u.id}')">${u.isBanned?'Unban':'Ban'}</button>
+              <button class="btn" onclick="adjustBalance('${u.id}')">Balance</button>
+              <button class="btn" onclick="deleteUser('${u.id}')" style="color:#ef4444;">Delete</button>
+            </td></tr>`).join('')}
+            </tbody></table></div></div>`;
+          break;
+        case 'team':
+          html = `<div class="card"><h3>Teams</h3>
+            <div class="table-wrap"><table><thead><tr><th>Name</th><th>Leader</th><th>Members</th><th>Status</th></tr></thead><tbody>
+            ${d.teams.length ? d.teams.map(t => `<tr><td>${t.name||'-'}</td><td>${t.leader||'-'}</td><td>${t.members?.length||0}</td><td><span class="badge ok">Active</span></td></tr>`).join('') : '<tr><td colspan="4">No teams</td></tr>'}
+            </tbody></table></div></div>`;
+          break;
+        case 'leaderboard':
+          html = `<div class="card"><h3>Leaderboard</h3>
+            <div class="table-wrap"><table><thead><tr><th>Rank</th><th>Name</th><th>Points</th><th>Kills</th><th>Wins</th></tr></thead><tbody>
+            ${d.leaderboard.map((e,i) => `<tr><td>#${i+1}</td><td>${e.name||'-'}</td><td>${e.points||0}</td><td>${e.kills||0}</td><td>${e.wins||0}</td></tr>`).join('')}
+            </tbody></table></div></div>`;
+          break;
+        case 'commerce':
+          html = `<div class="card"><h3>Inventory & Coupons</h3>
+            <h4>Inventory</h4>
+            <div class="table-wrap"><table><thead><tr><th>Item</th><th>Category</th><th>Price</th><th>Qty</th></tr></thead><tbody>
+            ${d.inventory.map(i => `<tr><td>${i.name||'-'}</td><td>${i.category||'-'}</td><td>${i.price||0} EGP</td><td class="${(i.qty||0)<5?'warn':''}">${i.qty||0}</td></tr>`).join('')}
+            </tbody></table></div>
+            <h4 style="margin-top:20px;">Coupons</h4>
+            <div class="table-wrap"><table><thead><tr><th>Code</th><th>Type</th><th>Value</th><th>Active</th></tr></thead><tbody>
+            ${d.coupons.map(c => `<tr><td>${c.code||'-'}</td><td>${c.type||'-'}</td><td>${c.value||0}</td><td>${c.active?'<span class="ok">Yes</span>':'<span class="danger">No</span>'}</td></tr>`).join('')}
+            </tbody></table></div></div>`;
+          break;
+        case 'news':
+          html = `<div class="card"><h3>News</h3>
+            <div class="table-wrap"><table><thead><tr><th>Title</th><th>Body</th><th>Date</th></tr></thead><tbody>
+            ${d.news.map(n => `<tr><td>${n.title||'-'}</td><td>${(n.body||'-').substring(0,50)}...</td><td>${new Date(n.date).toLocaleDateString()}</td></tr>`).join('')}
+            </tbody></table></div></div>`;
+          break;
+        case 'activity':
+          html = `<div class="card"><h3>Activity Log</h3><div class="log">
+            ${d.activity.slice(0,50).map(a => `<div style="margin-bottom:8px;border-bottom:1px solid #2a2a42;padding-bottom:8px;"><small style="color:#9ca3af;">${new Date(a.at).toLocaleString()}</small><br>${a.actor}: ${a.action}</div>`).join('') || '<div>No activity</div>'}
+          </div></div>`;
+          break;
+        default:
+          html = `<div class="card"><h3>${id.charAt(0).toUpperCase()+id.slice(1)}</h3><p>Coming soon...</p></div>`;
+      }
+      document.getElementById('paneContent').innerHTML = html;
+    }
+
+    async function toggleBooking(id) {
+      const bookings = await getKV(DB_KEYS.bookings, []);
+      const idx = bookings.findIndex(b => b.id === id);
+      if (idx >= 0) {
+        bookings[idx].status = bookings[idx].status === 'Confirmed' ? 'Pending' : 'Confirmed';
+        await setKV(DB_KEYS.bookings, bookings);
+        showToast('Booking updated', 'success');
+        window.allData[DB_KEYS.bookings] = bookings;
+        switchPane('bookings');
+      }
+    }
+
+    async function deleteBooking(id) {
+      if (!confirm('Delete this booking?')) return;
+      let bookings = await getKV(DB_KEYS.bookings, []);
+      bookings = bookings.filter(b => b.id !== id);
+      await setKV(DB_KEYS.bookings, bookings);
+      window.allData[DB_KEYS.bookings] = bookings;
+      showToast('Booking deleted', 'success');
+      switchPane('bookings');
+    }
+
+    async function toggleAdmin(id) {
+      let users = await getKV(DB_KEYS.users, []);
+      const u = users.find(x => x.id === id);
+      if (u) {
+        if (!Array.isArray(u.roles)) u.roles = ['player'];
+        if (u.roles.includes('admin')) u.roles = u.roles.filter(r => r !== 'admin');
+        else u.roles.push('admin');
+        await setKV(DB_KEYS.users, users);
+        window.allData[DB_KEYS.users] = users;
+        showToast('User role updated', 'success');
+        switchPane('users');
+      }
+    }
+
+    async function toggleBan(id) {
+      let users = await getKV(DB_KEYS.users, []);
+      const u = users.find(x => x.id === id);
+      if (u) {
+        u.isBanned = !u.isBanned;
+        await setKV(DB_KEYS.users, users);
+        window.allData[DB_KEYS.users] = users;
+        showToast(u.isBanned ? 'User banned' : 'User unbanned', 'success');
+        switchPane('users');
+      }
+    }
+
+    async function deleteUser(id) {
+      if (!confirm('Delete this user?')) return;
+      let users = await getKV(DB_KEYS.users, []);
+      users = users.filter(u => u.id !== id);
+      await setKV(DB_KEYS.users, users);
+      window.allData[DB_KEYS.users] = users;
+      showToast('User deleted', 'success');
+      switchPane('users');
+    }
+
+    async function adjustBalance(id) {
+      const amount = prompt('Enter balance adjustment (positive or negative):');
+      if (amount === null) return;
+      let users = await getKV(DB_KEYS.users, []);
+      const u = users.find(x => x.id === id);
+      if (u) {
+        u.balance = Number(u.balance || 0) + Number(amount);
+        await setKV(DB_KEYS.users, users);
+        window.allData[DB_KEYS.users] = users;
+        showToast(`Balance updated: ${amount > 0 ? '+' : ''}${amount} EGP`, 'success');
+        switchPane('users');
+      }
+    }
+
+    function openAddUserModal() {
+      const modal = document.getElementById('modalContainer');
+      modal.innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+          <h3>+ Add New User</h3>
+          <div class="form-section">
+            <h4>Account Type</h4>
+            <select id="newUserType"><option value="player">Normal Player</option><option value="vip">VIP</option><option value="elite">Elite</option><option value="champion">Champion</option><option value="admin">Admin</option></select>
+          </div>
+          <div class="form-section">
+            <h4>Credentials</h4>
+            <input type="email" id="newUserEmail" placeholder="Email address">
+            <input type="password" id="newUserPass" placeholder="Password">
+            <input type="text" id="newUserName" placeholder="Full name">
+            <input type="text" id="newUserPhone" placeholder="Phone (optional)">
+          </div>
+          <div class="modal-actions">
+            <button class="btn" onclick="closeModal()">Cancel</button>
+            <button class="btn" style="background:var(--accent);color:#000;" onclick="addNewUser()">Create User</button>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    function closeModal() { document.getElementById('modalContainer').innerHTML = ''; }
+
+    async function addNewUser() {
+      const email = document.getElementById('newUserEmail').value.trim();
+      const pass = document.getElementById('newUserPass').value;
+      const name = document.getElementById('newUserName').value.trim();
+      const phone = document.getElementById('newUserPhone').value.trim();
+      const type = document.getElementById('newUserType').value;
+
+      if (!email || !pass || !name) { showToast('Fill all required fields', 'error'); return; }
+
+      try {
+        const { data, error } = await registerUser(email, pass, { name, phone });
+        if (error) throw error;
+
+        let users = await getKV(DB_KEYS.users, []);
+        const newUser = {
+          id: data.user?.id || `u-${Date.now()}`,
+          name, email, phone,
+          rank: type === 'player' ? 'Recruit' : type.toUpperCase(),
+          roles: [type],
+          balance: 0, isBanned: false,
+          joined: new Date().toISOString()
+        };
+        users.push(newUser);
+        await setKV(DB_KEYS.users, users);
+
+        showToast('User created successfully!', 'success');
+        closeModal();
+        window.allData[DB_KEYS.users] = users;
+        switchPane('users');
+      } catch(e) {
+        showToast('Error: ' + e.message, 'error');
+      }
+    }
+
+    function handleSearch() {
+      const q = document.getElementById('adminGlobalSearch').value.toLowerCase();
+      const results = document.getElementById('adminSearchResults');
+      if (!q) { results.style.display = 'none'; return; }
+      const tabs = ['insights','bookings','orders','users','team','leaderboard','commerce','news','support','activity'];
+      const matches = tabs.filter(t => t.includes(q));
+      results.innerHTML = matches.map(t => `<div class="search-item" onclick="switchPane('${t}');document.getElementById('adminGlobalSearch').value='';results.style.display='none';">${t.charAt(0).toUpperCase()+t.slice(1)}</div>`).join('');
+      results.style.display = matches.length ? 'block' : 'none';
+    }
+
+    async function exportBackup() {
+      const data = await loadAllData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'crazytown-backup-' + new Date().toISOString().slice(0,10) + '.json';
+      a.click();
+      showToast('Backup exported!', 'success');
+    }
+
+    window.switchPane = switchPane;
+    window.toggleBooking = toggleBooking;
+    window.deleteBooking = deleteBooking;
+    window.toggleAdmin = toggleAdmin;
+    window.toggleBan = toggleBan;
+    window.deleteUser = deleteUser;
+    window.adjustBalance = adjustBalance;
+    window.openAddUserModal = openAddUserModal;
+    window.closeModal = closeModal;
+    window.addNewUser = addNewUser;
+    window.handleSearch = handleSearch;
+    window.exportBackup = exportBackup;
+
+    async function init() {
+      try {
+        const user = await getCurrentUser();
+        const allUsers = await getKV(DB_KEYS.users, []);
+        const localUser = allUsers.find(u => u.email === user?.email);
+
+        if (!localUser || !isAdmin(localUser)) {
+          document.body.innerHTML = '<div style="padding:60px;text-align:center;"><h2>Access Denied</h2><p>Admin access required.</p><button class="btn" onclick="window.location.href=\'index.html\'">Go to Main Site</button></div>';
+          return;
+        }
+
+        const data = await loadAllData();
+        renderStats(data);
+        renderPanes(data);
+      } catch(e) {
+        console.error('Admin init error:', e);
+        showToast('Error loading admin panel', 'error');
+      }
+    }
+
+    init();
   </script>
+</body>
+</html>

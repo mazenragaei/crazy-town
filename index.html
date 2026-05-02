@@ -3633,24 +3633,24 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
       const quickSwitch = document.getElementById('quickSwitch');
       const adminQuickLink = document.getElementById('adminQuickLink');
       const ownerQuickLink = document.getElementById('ownerQuickLink');
-      if (user) {
+
+      if (user && typeof user === 'object' && user.id) {
         authButtons.style.display = 'none';
         userMenuContainer.style.display = 'block';
-        const userName = user && user.name ? user.name : 'User';
+        const userName = user?.name || 'Operative';
         document.getElementById('navUserName').textContent = userName.split(' ')[0];
         document.getElementById('navUserAvatar').textContent = userName.charAt(0).toUpperCase();
         document.getElementById('dropdownName').textContent = userName;
-        document.getElementById('dropdownAvatar').textContent = user.name.charAt(0).toUpperCase();
-        const rolesText = Array.isArray(user.roles) && user.roles.length ? user.roles.join(' / ') : (user.rank || 'member');
+        document.getElementById('dropdownAvatar').textContent = userName.charAt(0).toUpperCase();
+        const rolesText = Array.isArray(user?.roles) && user.roles.length ? user.roles.join(' / ') : (user?.rank || 'member');
         document.getElementById('dropdownRank').textContent = rolesText;
-        document.getElementById('dropdownBalance').textContent = Number(user.balance || 0).toFixed(0);
+        document.getElementById('dropdownBalance').textContent = Number(user?.balance || 0).toFixed(0);
         adminMenuItem.style.display = isAdmin(user) ? 'block' : 'none';
         eliteMenuItem.style.display = hasRole(user, 'elite') ? 'block' : 'none';
         ownerMenuItem.style.display = (hasRole(user, 'owner') || hasRole(user, 'co-owner') || hasRole(user, 'ceo')) ? 'block' : 'none';
         applyUserAvatar(user);
         autoFillBookingForm(user);
-        
-        // Role-based quick switch visibility
+
         if (quickSwitch) quickSwitch.style.display = 'flex';
         if (adminQuickLink) adminQuickLink.style.display = isAdmin(user) ? 'inline' : 'none';
         if (ownerQuickLink) ownerQuickLink.style.display = (hasRole(user, 'owner') || hasRole(user, 'co-owner') || hasRole(user, 'ceo')) ? 'inline' : 'none';
