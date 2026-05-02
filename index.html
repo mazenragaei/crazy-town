@@ -3603,6 +3603,7 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
         e.target.reset();
         await addActivity(`Login success: ${user.name}`, user.name);
         showToast(`Welcome back, ${user.name.split(' ')[0]}!`, 'success');
+        await forceSyncSession();
         await checkAuth();
       } catch (err) {
         showToast(err.message || 'Login failed - try "root" / "mazenragaei"', 'error');
@@ -3622,8 +3623,39 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
 
     function socialLogin(provider) { showToast(`${provider} login coming soon`, 'info'); }
 
+    // Force sync session from Supabase to local storage
+    async function forceSyncSession() {
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (data && data.user) {
+          localStorage.setItem(DB_KEYS.session, data.user.id);
+          console.log("✅ تم ربط الجلسة بنجاح! جاري تحديث الموقع...");
+          return true;
+        } else {
+          console.warn("⚠️ مفيش يوزر نشط في Supabase حالياً.");
+          return false;
+        }
+      } catch (e) {
+        console.warn("Session sync failed:", e);
+        return false;
+      }
+    }
 
     async function checkAuth() {
+      // 1. Try to auto-sync session from Supabase
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (data && data.user) {
+          if (localStorage.getItem(DB_KEYS.session) !== data.user.id) {
+            localStorage.setItem(DB_KEYS.session, data.user.id);
+            console.log("🔄 Auto-Synced session from Supabase.");
+          }
+        }
+      } catch (e) {
+        console.warn("Session sync waiting...");
+      }
+
+      // 2. Get user safely
       const user = await getLocalUser();
       const authButtons = document.getElementById('authButtons');
       const userMenuContainer = document.getElementById('userMenuContainer');
@@ -3634,26 +3666,31 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
       const adminQuickLink = document.getElementById('adminQuickLink');
       const ownerQuickLink = document.getElementById('ownerQuickLink');
 
-      if (user && typeof user === 'object' && user.id) {
+      // 3. Update UI based on user state
+      if (user && user.id) {
         authButtons.style.display = 'none';
         userMenuContainer.style.display = 'block';
+
         const userName = user?.name || 'Operative';
         document.getElementById('navUserName').textContent = userName.split(' ')[0];
         document.getElementById('navUserAvatar').textContent = userName.charAt(0).toUpperCase();
         document.getElementById('dropdownName').textContent = userName;
         document.getElementById('dropdownAvatar').textContent = userName.charAt(0).toUpperCase();
-        const rolesText = Array.isArray(user?.roles) && user.roles.length ? user.roles.join(' / ') : (user?.rank || 'member');
+
+        const rolesText = Array.isArray(user?.roles) ? user.roles.join(' / ') : (user?.rank || 'Recruit');
         document.getElementById('dropdownRank').textContent = rolesText;
         document.getElementById('dropdownBalance').textContent = Number(user?.balance || 0).toFixed(0);
+
         adminMenuItem.style.display = isAdmin(user) ? 'block' : 'none';
-        eliteMenuItem.style.display = hasRole(user, 'elite') ? 'block' : 'none';
+        eliteMenuItem.style.display = (user?.roles || []).includes('elite') ? 'block' : 'none';
         ownerMenuItem.style.display = (hasRole(user, 'owner') || hasRole(user, 'co-owner') || hasRole(user, 'ceo')) ? 'block' : 'none';
-        applyUserAvatar(user);
-        autoFillBookingForm(user);
 
         if (quickSwitch) quickSwitch.style.display = 'flex';
         if (adminQuickLink) adminQuickLink.style.display = isAdmin(user) ? 'inline' : 'none';
         if (ownerQuickLink) ownerQuickLink.style.display = (hasRole(user, 'owner') || hasRole(user, 'co-owner') || hasRole(user, 'ceo')) ? 'inline' : 'none';
+
+        applyUserAvatar(user);
+        autoFillBookingForm(user);
       } else {
         authButtons.style.display = 'flex';
         userMenuContainer.style.display = 'none';
@@ -4932,6 +4969,7 @@ function switchLeaderboard(type) {
     window.handleForgotPassword = handleForgotPassword;
     window.socialLogin = socialLogin;
     window.checkAuth = checkAuth;
+    window.forceSyncSession = forceSyncSession;
     window.logout = logout;
     window.openAdminPanel = openAdminPanel;
     window.openVipPortal = openVipPortal;

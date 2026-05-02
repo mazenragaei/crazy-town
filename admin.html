@@ -195,6 +195,7 @@
             ${d.users.map(u => `<tr><td>${u.name || '-'}</td><td>${u.email || '-'}</td><td>${u.rank || 'Recruit'}</td><td>${Number(u.balance||0).toFixed(0)}</td><td>${u.isBanned?'<span class="danger">Banned</span>':'<span class="ok">Active</span>'}</td><td>
               <button class="btn" onclick="toggleAdmin('${u.id}')">${isAdmin(u)?'RemoveAdmin':'MakeAdmin'}</button>
               <button class="btn" onclick="toggleBan('${u.id}')">${u.isBanned?'Unban':'Ban'}</button>
+              <button class="btn" onclick="openEditUserModal('${u.id}')">Edit</button>
               <button class="btn" onclick="adjustBalance('${u.id}')">Balance</button>
               <button class="btn" onclick="deleteUser('${u.id}')" style="color:#ef4444;">Delete</button>
             </td></tr>`).join('')}
@@ -208,8 +209,11 @@
           break;
         case 'leaderboard':
           html = `<div class="card"><h3>Leaderboard</h3>
-            <div class="table-wrap"><table><thead><tr><th>Rank</th><th>Name</th><th>Points</th><th>Kills</th><th>Wins</th></tr></thead><tbody>
-            ${d.leaderboard.map((e,i) => `<tr><td>#${i+1}</td><td>${e.name||'-'}</td><td>${e.points||0}</td><td>${e.kills||0}</td><td>${e.wins||0}</td></tr>`).join('')}
+            <div class="table-wrap"><table><thead><tr><th>Rank</th><th>Name</th><th>Points</th><th>Kills</th><th>Wins</th><th>Actions</th></tr></thead><tbody>
+            ${d.leaderboard.map((e,i) => `<tr><td>#${i+1}</td><td>${e.name||'-'}</td><td>${e.points||0}</td><td>${e.kills||0}</td><td>${e.wins||0}</td><td>
+              <button class="btn" onclick="editLeaderboardEntry('${e.id}')">Edit</button>
+              <button class="btn" onclick="deleteLeaderboardEntry('${e.id}')">Delete</button>
+            </td></tr>`).join('')}
             </tbody></table></div></div>`;
           break;
         case 'commerce':
@@ -312,6 +316,75 @@
       }
     }
 
+    function openEditUserModal(id) {
+      const users = window.allData[DB_KEYS.users] || [];
+      const u = users.find(x => x.id === id);
+      if (!u) return;
+      document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+          <h3>Edit User</h3>
+          <div class="form-section">
+            <input type="text" id="editUserName" value="${u.name || ''}" placeholder="Name">
+            <input type="email" id="editUserEmail" value="${u.email || ''}" placeholder="Email">
+            <input type="text" id="editUserPhone" value="${u.phone || ''}" placeholder="Phone">
+            <input type="text" id="editUserRank" value="${u.rank || ''}" placeholder="Rank">
+          </div>
+          <div class="modal-actions">
+            <button class="btn" onclick="closeModal()">Cancel</button>
+            <button class="btn" style="background:var(--accent);color:#000;" onclick="saveEditUser('${id}')">Save</button>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    async function saveEditUser(id) {
+      const name = document.getElementById('editUserName').value.trim();
+      const email = document.getElementById('editUserEmail').value.trim();
+      const phone = document.getElementById('editUserPhone').value.trim();
+      const rank = document.getElementById('editUserRank').value.trim();
+      if (!name || !email) { showToast('Name and email required', 'error'); return; }
+      let users = await getKV(DB_KEYS.users, []);
+      const idx = users.findIndex(x => x.id === id);
+      if (idx >= 0) {
+        users[idx] = { ...users[idx], name, email, phone, rank };
+        await setKV(DB_KEYS.users, users);
+        window.allData[DB_KEYS.users] = users;
+        showToast('User updated', 'success');
+        closeModal();
+        switchPane('users');
+      }
+    }
+
+    async function editLeaderboardEntry(id) {
+      const lb = window.allData[DB_KEYS.leaderboard] || [];
+      const entry = lb.find(x => x.id === id);
+      if (!entry) return;
+      const points = prompt('Points:', entry.points || 0);
+      if (points === null) return;
+      const kills = prompt('Kills:', entry.kills || 0);
+      if (kills === null) return;
+      const wins = prompt('Wins:', entry.wins || 0);
+      if (wins === null) return;
+      const idx = lb.findIndex(x => x.id === id);
+      if (idx >= 0) {
+        lb[idx] = { ...lb[idx], points: Number(points), kills: Number(kills), wins: Number(wins) };
+        await setKV(DB_KEYS.leaderboard, lb);
+        window.allData[DB_KEYS.leaderboard] = lb;
+        showToast('Leaderboard entry updated', 'success');
+        switchPane('leaderboard');
+      }
+    }
+
+    async function deleteLeaderboardEntry(id) {
+      if (!confirm('Delete this leaderboard entry?')) return;
+      let lb = await getKV(DB_KEYS.leaderboard, []);
+      lb = lb.filter(x => x.id !== id);
+      await setKV(DB_KEYS.leaderboard, lb);
+      window.allData[DB_KEYS.leaderboard] = lb;
+      showToast('Entry deleted', 'success');
+      switchPane('leaderboard');
+    }
+
     function openAddUserModal() {
       const modal = document.getElementById('modalContainer');
       modal.innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
@@ -393,6 +466,8 @@
       showToast('Backup exported!', 'success');
     }
 
+    window.goBack = goBack;
+    window.goHome = goHome;
     window.switchPane = switchPane;
     window.toggleBooking = toggleBooking;
     window.deleteBooking = deleteBooking;
@@ -405,6 +480,20 @@
     window.addNewUser = addNewUser;
     window.handleSearch = handleSearch;
     window.exportBackup = exportBackup;
+    window.openEditUserModal = openEditUserModal;
+    window.saveEditUser = saveEditUser;
+    window.editLeaderboardEntry = editLeaderboardEntry;
+    window.deleteLeaderboardEntry = deleteLeaderboardEntry;
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === 'Escape') closeModal();
+      if (e.key === 'Backspace' && !e.target.matches('input,textarea')) goBack();
+      if (e.ctrlKey && e.key === 'a') { e.preventDefault(); switchPane('users'); }
+      if (e.ctrlKey && e.key === 'e') { e.preventDefault(); switchPane('insights'); }
+      if (e.ctrlKey && e.key === 'r') exportBackup();
+    });
 
     async function init() {
       try {
