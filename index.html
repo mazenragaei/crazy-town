@@ -3269,15 +3269,20 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
       try {
         // Check if this key should be an array
         const shouldBeArray = ARRAY_DATA_KEYS.includes(key);
-        
+
         // Get from database with forceArray=true for array keys
         const data = await getKV(key, fallback, shouldBeArray);
-        
+
         // Additional defensive check: ensure array keys always return arrays
         if (shouldBeArray) {
-          return Array.isArray(data) ? data : [];
+          // Double-check: if data is not an array for some reason (corruption, etc), return empty array
+          if (Array.isArray(data)) {
+            return data;
+          }
+          console.warn(`loadData: key ${key} returned non-array, returning empty array`);
+          return [];
         }
-        
+
         return data !== null && data !== undefined ? data : fallback;
       } catch (error) {
         console.error('Load data error:', error);
@@ -3415,22 +3420,43 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
       try {
         // Get data with defensive fallback to empty array
         const activity = await loadData(DB_KEYS.activity, []);
-        
-        // VALIDATE: Ensure we have an array before using unshift
-        // This is the critical fix for "n.unshift is not a function" error
-        const safeActivity = Array.isArray(activity) ? activity : [];
-        
-        // Add new activity entry with error handling
-        safeActivity.unshift({
-          id: `act-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`,
-          action,
-          actor,
-          at: new Date().toISOString()
-        });
-        
+
+        // Debug logging to track what's being returned
+        console.log('addActivity - activity type:', typeof activity, Array.isArray(activity));
+
+        // Build a guaranteed array from whatever we received
+        let activityArray = [];
+        if (Array.isArray(activity)) {
+          activityArray = activity;
+        } else {
+          console.warn('addActivity - activity was not an array, type:', typeof activity, activity);
+        }
+
+        // Add new activity entry - wrapped in try/catch for safety
+        try {
+          if (typeof activityArray.unshift !== 'function') {
+            console.warn('addActivity - unshift is not a function, activityArray:', activityArray);
+            activityArray = [];
+          }
+          activityArray.unshift({
+            id: `act-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`,
+            action,
+            actor,
+            at: new Date().toISOString()
+          });
+        } catch (unshiftError) {
+          console.warn('addActivity unshift failed, creating new array:', unshiftError);
+          activityArray = [{
+            id: `act-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`,
+            action,
+            actor,
+            at: new Date().toISOString()
+          }];
+        }
+
         // Save with defensive handling
-        await saveData(DB_KEYS.activity, safeActivity.slice(0, 200));
-        
+        await saveData(DB_KEYS.activity, activityArray.slice(0, 200));
+
       } catch (error) {
         // Error handling prevents UI crash if database call fails
         console.error('addActivity error:', error);
@@ -3536,15 +3562,16 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
           if (data?.user) {
             // Get/ensure local admin profile with roles
             const users = await getUsers();
-            let adminUser = users.find(u => u.id === DEFAULT_ADMIN.id);
+            const safeUsers = Array.isArray(users) ? users : [];
+            let adminUser = safeUsers.find(u => u.id === DEFAULT_ADMIN.id);
             if (!adminUser) {
               adminUser = DEFAULT_ADMIN;
-              users.push(adminUser);
+              safeUsers.push(adminUser);
             }
             if (!Array.isArray(adminUser.roles)) adminUser.roles = [];
             if (!adminUser.roles.includes('owner')) adminUser.roles.push('owner');
             if (!adminUser.roles.includes('admin')) adminUser.roles.push('admin');
-            await saveUsers(users);
+            await saveUsers(safeUsers);
             
             setCurrentUser(adminUser.id);
             closeModal('login');
@@ -3755,12 +3782,14 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
 
       try {
         const bookings = await getBookings();
+        // DEFENSIVE: Ensure bookings is always an array
+        const safeBookings = Array.isArray(bookings) ? bookings : [];
         const ticketId = generateTicketId();
         const booking = {
           id: `b-${Date.now()}`,
           ticketId,
           userId: currentUser.id,
-          playerNo: 1000 + bookings.length + 1,
+          playerNo: 1000 + safeBookings.length + 1,
           name: document.getElementById('bookingName').value.trim(),
           phone: document.getElementById('bookingPhone').value.trim(),
           date: document.getElementById('bookingDate').value,
@@ -3775,8 +3804,8 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
           status: 'Pending',
           createdAt: new Date().toISOString()
         };
-        bookings.push(booking);
-        await saveBookings(bookings);
+        safeBookings.push(booking);
+        await saveBookings(safeBookings);
 
         const users = await getUsers();
         const userIndex = users.findIndex((u) => u.id === currentUser.id);
@@ -4009,13 +4038,18 @@ async function showDashboard() {
       document.getElementById('calcResult').textContent = `${total.toFixed(0)} EGP`;
     }
 
-    function renderNews() {
-      const news = loadData(DB_KEYS.news, []);
-      const grid = document.getElementById('newsGrid');
-      if (!grid) return;
-      grid.innerHTML = news.map((item) => `
-        <div class="card"><h4>${item.title}</h4><p>${item.body}</p><small>${new Date(item.date).toLocaleDateString()}</small></div>
-      `).join('');
+    async function renderNews() {
+      try {
+        const news = await loadData(DB_KEYS.news, []);
+        const safeNews = Array.isArray(news) ? news : [];
+        const grid = document.getElementById('newsGrid');
+        if (!grid) return;
+        grid.innerHTML = safeNews.map((item) => `
+          <div class="card"><h4>${item.title}</h4><p>${item.body}</p><small>${new Date(item.date).toLocaleDateString()}</small></div>
+        `).join('');
+      } catch (e) {
+        console.error('renderNews error:', e);
+      }
     }
 
 // Fixed async sendChatMessage with defensive array handling

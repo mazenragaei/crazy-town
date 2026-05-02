@@ -268,14 +268,17 @@ export async function addActivityEntry(action, actor = 'System') {
     const activity = await getKV('crazyTown_activity', [], true);
     const safeActivity = Array.isArray(activity) ? activity : [];
 
-    safeActivity.unshift({
+    // FINAL VALIDATION: If somehow still not an array, create new array
+    const activityArray = Array.isArray(safeActivity) ? safeActivity : [];
+
+    activityArray.unshift({
       id: `act-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`,
       action,
       actor,
       at: new Date().toISOString()
     });
 
-    await setKV('crazyTown_activity', safeActivity.slice(0, 200));
+    await setKV('crazyTown_activity', activityArray.slice(0, 200));
     return true;
   } catch (error) {
     console.error('addActivityEntry error:', error);

@@ -104,10 +104,21 @@ UPDATE app_kv SET value = '[
 WHERE id = 'crazyTown_coupons';
 
 -- 7. INSERT DEFAULT NEWS (as objects in array)
-UPDATE app_kv SET value = '[
-  {"id": "n-1", "title": "Spring Tactical Cup", "body": "Registration is now open for the Spring Tactical Cup! Join us for epic battles.", "date": "' || NOW()::date || '"},
-  {"id": "n-2", "title": "New Pharaoh Arena", "body": "Season 2 map improvements are live. Experience the new Abu Simbel Fortress zone.", "date": "' || NOW()::date || '"}
-]'::jsonb, updated_at = NOW()
+-- Using jsonb_build_array to safely construct the JSON array
+UPDATE app_kv SET value = jsonb_build_array(
+  jsonb_build_object(
+    'id', 'n-1',
+    'title', 'Spring Tactical Cup',
+    'body', 'Registration is now open for the Spring Tactical Cup! Join us for epic battles.',
+    'date', CURRENT_DATE::text
+  ),
+  jsonb_build_object(
+    'id', 'n-2',
+    'title', 'New Pharaoh Arena',
+    'body', 'Season 2 map improvements are live. Experience the new Abu Simbel Fortress zone.',
+    'date', CURRENT_DATE::text
+  )
+), updated_at = NOW()
 WHERE id = 'crazyTown_news';
 
 -- 8. INSERT DEFAULT INVENTORY (as objects in array)
@@ -122,10 +133,25 @@ UPDATE app_kv SET value = '[
 WHERE id = 'crazyTown_inventory';
 
 -- 9. INSERT DEFAULT TOURNAMENTS (as objects in array)
-UPDATE app_kv SET value = '[
-  {"id": "t-1", "name": "Crazy Weekly Cup", "date": "' || (NOW() + INTERVAL '7 days')::date || '", "description": "Weekly championship tournament", "prize_pool": 5000, "status": "Upcoming"},
-  {"id": "t-2", "name": "Pharaoh Clash Finals", "date": "' || (NOW() + INTERVAL '14 days')::date || '", "description": "Season 2 grand finals", "prize_pool": 15000, "status": "Upcoming"}
-]'::jsonb, updated_at = NOW()
+-- Using jsonb_build_array to safely construct the JSON array with dynamic dates
+UPDATE app_kv SET value = jsonb_build_array(
+  jsonb_build_object(
+    'id', 't-1',
+    'name', 'Crazy Weekly Cup',
+    'date', (CURRENT_DATE + INTERVAL '7 days')::text,
+    'description', 'Weekly championship tournament',
+    'prize_pool', 5000,
+    'status', 'Upcoming'
+  ),
+  jsonb_build_object(
+    'id', 't-2',
+    'name', 'Pharaoh Clash Finals',
+    'date', (CURRENT_DATE + INTERVAL '14 days')::text,
+    'description', 'Season 2 grand finals',
+    'prize_pool', 15000,
+    'status', 'Upcoming'
+  )
+), updated_at = NOW()
 WHERE id = 'crazyTown_tournaments';
 
 -- 10. CREATE ROOT ADMIN USER (for development/owner access)
@@ -135,7 +161,7 @@ ON CONFLICT (id) DO NOTHING;
 
 -- Final verification - all keys should show type=array and count=0 (empty) or their defaults
 SELECT id,
-       CASE WHEN jsonb_typeof(value) = 'array' THEN jsonb_array_length(value) ELSE 'object' END as count,
+       CASE WHEN jsonb_typeof(value) = 'array' THEN jsonb_array_length(value) ELSE -1 END as count,
        LEFT(value::text, 100) as preview
 FROM app_kv
 WHERE id LIKE 'crazyTown_%'
