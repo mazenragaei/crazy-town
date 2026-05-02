@@ -3958,6 +3958,15 @@ async function showDashboard() {
       return hasRole(user, 'champion') ? 0.35 : 0;
     }
 
+    function eliteDiscountRate(user) {
+      return hasRole(user, 'elite') ? 0.20 : 0;
+    }
+
+    function applyEliteDiscount(amount, user) {
+      const rate = eliteDiscountRate(user);
+      return Math.max(0, Number(amount || 0) * (1 - rate));
+    }
+
     function applyChampionDiscount(amount, user) {
       const rate = championDiscountRate(user);
       return Math.max(0, Number(amount || 0) * (1 - rate));
