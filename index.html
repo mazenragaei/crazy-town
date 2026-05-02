@@ -4015,18 +4015,15 @@ async function showDashboard() {
       document.getElementById('calcResult').textContent = `${total.toFixed(0)} EGP`;
     }
 
-    async function renderNews() {
-      try {
-        const news = await loadData(DB_KEYS.news, []);
+    function renderNews() {
+      loadData(DB_KEYS.news, []).then(news => {
         const safeNews = Array.isArray(news) ? news : [];
         const grid = document.getElementById('newsGrid');
         if (!grid) return;
         grid.innerHTML = safeNews.map((item) => `
           <div class="card"><h4>${item.title}</h4><p>${item.body}</p><small>${new Date(item.date).toLocaleDateString()}</small></div>
         `).join('');
-      } catch (e) {
-        console.error('renderNews error:', e);
-      }
+      }).catch(e => console.error('renderNews error:', e));
     }
 
 // Fixed async sendChatMessage with defensive array handling
@@ -4958,6 +4955,20 @@ function switchLeaderboard(type) {
     window.renderNews = renderNews;
     window.renderChatMessages = renderChatMessages;
     window.renderAdminPanel = renderAdminPanel;
+
+    // Attach core data functions to window for HTML onclick access
+    window.getUsers = getUsers;
+    window.saveUsers = saveUsers;
+    window.getBookings = getBookings;
+    window.saveBookings = saveBookings;
+    window.getLeaderboard = getLeaderboard;
+    window.saveLeaderboard = saveLeaderboard;
+    window.getLocalUser = getLocalUser;
+    window.addActivity = addActivity;
+    window.loadData = loadData;
+    window.saveData = saveData;
+    window.ensureSeedData = ensureSeedData;
+    window.applySettingsSync = applySettingsSync;
     
 
     
