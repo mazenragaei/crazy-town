@@ -3220,6 +3220,14 @@
   </footer>
 
   <script type="module">
+// Global error handler to ensure page renders even if JS fails
+window.addEventListener('error', (e) => {
+  if (e.message.includes('import') || e.message.includes('db.js')) {
+    console.error('Module load error:', e.message);
+    document.body.innerHTML += '<div style="padding:20px;background:#ff6b35;color:#fff;text-align:center;">Loading database module...</div>';
+  }
+});
+
 import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, setKV, getItems, insertItem, updateItem, deleteItem } from './db.js';
     
     const DB_KEYS = {
@@ -3308,8 +3316,9 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
         // Sync with Supabase first - ensure app_kv arrays are initialized
         // This prevents null/undefined errors when arrays don't exist yet
         for (const key of ARRAY_DATA_KEYS) {
-          const existing = await loadData(key, null, false);
-          if (existing === null || existing === undefined) {
+          // Just load to check if it exists and is valid - don't re-initialize if it has data
+          const existing = await loadData(key, []);
+          if (!Array.isArray(existing) || existing === null) {
             console.log(`Initializing empty array for key: ${key}`);
             await saveData(key, []);
           }
@@ -4522,19 +4531,23 @@ async function showDashboard() {
       showToast('Team registered successfully', 'success');
     }
 
-    function applySettingsSync() {
-      const settings = loadData('crazyTown_settings', { maintenance: false, notifications: [] });
-      const user = getCurrentUser();
-      if (settings.maintenance && !isAdmin(user)) {
-        const bookingForm = document.getElementById('bookingForm');
-        if (bookingForm) {
-          bookingForm.querySelectorAll('input,select,textarea,button').forEach((el) => { el.disabled = true; });
+    async function applySettingsSync() {
+      try {
+        const settings = await loadData('crazyTown_settings', { maintenance: false, notifications: [] });
+        const user = await getCurrentUser();
+        if (settings?.maintenance && !isAdmin(user)) {
+          const bookingForm = document.getElementById('bookingForm');
+          if (bookingForm) {
+            bookingForm.querySelectorAll('input,select,textarea,button').forEach((el) => { el.disabled = true; });
+          }
+          showToast('Maintenance mode is active. Booking temporarily disabled.', 'warning');
         }
-        showToast('Maintenance mode is active. Booking temporarily disabled.', 'warning');
-      }
-      const lastNotification = (settings.notifications || [])[0];
-      if (lastNotification) {
-        showToast(`Admin Notice: ${lastNotification.text}`, 'info');
+        const lastNotification = (settings?.notifications || [])[0];
+        if (lastNotification) {
+          showToast(`Admin Notice: ${lastNotification.text}`, 'info');
+        }
+      } catch (e) {
+        console.warn('applySettingsSync error:', e);
       }
     }
 
