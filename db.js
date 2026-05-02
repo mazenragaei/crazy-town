@@ -326,10 +326,10 @@ export async function handleLogin(email, password) {
     if (!user) {
       // User exists in Supabase Auth but not in crazyTown_users - create profile
       const newUser = {
-        id: data.user.id,
-        name: data.user.user_metadata?.name || email.split('@')[0],
-        email: data.user.email,
-        phone: data.user.user_metadata?.phone || '',
+        id: data.user?.id || `u-${Date.now()}`,
+        name: data.user?.user_metadata?.name || email.split('@')[0],
+        email: data.user?.email || email,
+        phone: data.user?.user_metadata?.phone || '',
         rank: 'Recruit',
         roles: ['player'],
         profileImage: '',

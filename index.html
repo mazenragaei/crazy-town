@@ -3579,10 +3579,10 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
           // If user exists in Supabase Auth but NOT in crazyTown_users, create their profile
           if (!user && data.user) {
             user = {
-              id: data.user.id,
-              name: data.user.user_metadata?.name || identifier.split('@')[0],
-              email: data.user.email,
-              phone: data.user.user_metadata?.phone || '',
+              id: data.user?.id || `u-${Date.now()}`,
+              name: data.user?.user_metadata?.name || identifier.split('@')[0],
+              email: data.user?.email || identifier,
+              phone: data.user?.user_metadata?.phone || '',
               rank: 'Recruit',
               roles: ['player'],
               profileImage: '',
