@@ -4096,7 +4096,7 @@ async function showDashboard() {
         if (!user) return openLogin();
         const email = document.getElementById('friendEmail').value.trim().toLowerCase();
         if (!email) return;
-        const target = getUsers().find((item) => item.email === email);
+        const target = (await getUsers()).find((item) => item.email === email);
         if (!target) return showToast('User not found', 'error');
         if (target.id === user.id) return showToast('Cannot add yourself', 'warning');
         const friends = await loadData(DB_KEYS.friends, []);
@@ -4152,7 +4152,7 @@ async function showDashboard() {
           box.innerHTML = 'Login to manage friends.';
           return;
         }
-        const usersMap = new Map(getUsers().map((u) => [u.id, u.name]));
+        const usersMap = new Map((await getUsers()).map((u) => [u.id, u.name]));
         const friends = await loadData(DB_KEYS.friends, []);
         const safeFriends = Array.isArray(friends) ? friends : [];
         const related = safeFriends.filter((item) => item.from === user.id || item.to === user.id);
@@ -4421,7 +4421,7 @@ async function showDashboard() {
         const team = await getMyTeam();
         if (!team || team.captainId !== user.id) return showToast('Only captain can invite', 'warning');
         const email = document.getElementById('teamInviteEmail').value.trim().toLowerCase();
-        const target = getUsers().find((entry) => entry.email === email);
+        const target = (await getUsers()).find((entry) => entry.email === email);
         if (!target) return showToast('User not found', 'error');
         if (team.members.includes(target.id)) return showToast('Already in team', 'warning');
         if (!team.invitedIds.includes(target.id)) team.invitedIds.push(target.id);
@@ -4469,7 +4469,7 @@ async function showDashboard() {
         }
         const teams = await loadData(DB_KEYS.teams, []);
         const safeTeams = Array.isArray(teams) ? teams : [];
-        const usersMap = new Map(getUsers().map((u) => [u.id, u.name]));
+        const usersMap = new Map((await getUsers()).map((u) => [u.id, u.name]));
         const myTeam = safeTeams.find((team) => team.members.includes(user.id));
         const pendingInvite = safeTeams.find((team) => team.invitedIds.includes(user.id));
         if (myTeam) {
