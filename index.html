@@ -3253,11 +3253,38 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
       joined: new Date().toISOString()
     };
 
+// ============================================
+    // DEFENSIVE loadData - Safely loads data with array validation
+    // ============================================
+    // List of keys that should always be arrays
+    const ARRAY_DATA_KEYS = [
+      'crazyTown_users', 'crazyTown_activity', 'crazyTown_orders',
+      'crazyTown_cart', 'crazyTown_coupons', 'crazyTown_inventory',
+      'crazyTown_news', 'crazyTown_friends', 'crazyTown_chat',
+      'crazyTown_teams', 'crazyTown_tournaments', 'crazyTown_tournament_regs',
+      'crazyTown_leaderboard', 'crazyTown_bookings'
+    ];
+    
     async function loadData(key, fallback) {
       try {
-        return await getKV(key, fallback);
+        // Check if this key should be an array
+        const shouldBeArray = ARRAY_DATA_KEYS.includes(key);
+        
+        // Get from database with forceArray=true for array keys
+        const data = await getKV(key, fallback, shouldBeArray);
+        
+        // Additional defensive check: ensure array keys always return arrays
+        if (shouldBeArray) {
+          return Array.isArray(data) ? data : [];
+        }
+        
+        return data !== null && data !== undefined ? data : fallback;
       } catch (error) {
         console.error('Load data error:', error);
+        // For array keys, return empty array on error
+        if (ARRAY_DATA_KEYS.includes(key)) {
+          return [];
+        }
         return fallback;
       }
     }
@@ -3271,63 +3298,92 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
       }
     }
 
-    function ensureSeedData() {
-      const oldSingleUser = loadData('crazyTown_user', null);
-      const users = loadData(DB_KEYS.users, []);
-      if (!users.some((user) => user.id === DEFAULT_ADMIN.id)) {
-        users.push(DEFAULT_ADMIN);
-      }
-      const rootAdmin = users.find((user) => user.id === DEFAULT_ADMIN.id);
-      if (rootAdmin) {
-        if (!Array.isArray(rootAdmin.roles)) rootAdmin.roles = ['admin'];
-        if (!rootAdmin.roles.includes('owner')) rootAdmin.roles.push('owner');
-        if (!rootAdmin.roles.includes('admin')) rootAdmin.roles.push('admin');
-      }
-      if (oldSingleUser && !users.some((user) => user.email === oldSingleUser.email)) {
-        users.push({
-          ...oldSingleUser,
-          roles: ['player'],
-          balance: 0,
-          isBanned: false
-        });
-        localStorage.removeItem('crazyTown_user');
-      }
-      saveData(DB_KEYS.users, users);
-      if (!localStorage.getItem(DB_KEYS.bookings)) saveData(DB_KEYS.bookings, []);
-      if (!localStorage.getItem(DB_KEYS.activity)) saveData(DB_KEYS.activity, []);
-      if (!localStorage.getItem(DB_KEYS.leaderboard)) {
-        saveData(DB_KEYS.leaderboard, [
-          { id: 'lb-1', name: 'Mazen Ragaei', points: 12500 },
-          { id: 'lb-2', name: 'Abdallah Essam', points: 11300 },
-          { id: 'lb-3', name: 'Shahd Yasser', points: 10850 }
-        ]);
-      }
-      if (!localStorage.getItem(DB_KEYS.coupons)) {
-        saveData(DB_KEYS.coupons, [{ code: 'CRAZY10', type: 'percent', value: 10, active: true }]);
-      }
-      if (!localStorage.getItem(DB_KEYS.inventory)) {
-        saveData(DB_KEYS.inventory, [
-          { id: 'inv-1', name: 'Urban Camouflage Shirt', qty: 20, price: 699 },
-          { id: 'inv-2', name: 'Night Ops Black Hoodie', qty: 16, price: 899 }
-        ]);
-      }
-      if (!localStorage.getItem(DB_KEYS.news)) {
-        saveData(DB_KEYS.news, [
-          { id: 'n-1', title: 'Spring Tactical Cup', body: 'Registration is now open.', date: new Date().toISOString() },
-          { id: 'n-2', title: 'New Pharaoh Arena Update', body: 'Season 2 map improvements live.', date: new Date().toISOString() }
-        ]);
-      }
-      if (!localStorage.getItem(DB_KEYS.friends)) saveData(DB_KEYS.friends, []);
-      if (!localStorage.getItem(DB_KEYS.chat)) saveData(DB_KEYS.chat, []);
-      if (!localStorage.getItem(DB_KEYS.cart)) saveData(DB_KEYS.cart, []);
-      if (!localStorage.getItem(DB_KEYS.orders)) saveData(DB_KEYS.orders, []);
-      if (!localStorage.getItem(DB_KEYS.teams)) saveData(DB_KEYS.teams, []);
-      if (!localStorage.getItem(DB_KEYS.tournamentRegs)) saveData(DB_KEYS.tournamentRegs, []);
-      if (!localStorage.getItem(DB_KEYS.tournaments)) {
-        saveData(DB_KEYS.tournaments, [
-          { id: 't-1', name: 'Crazy Weekly Cup', date: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().slice(0, 10) },
-          { id: 't-2', name: 'Pharaoh Clash Finals', date: new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString().slice(0, 10) }
-        ]);
+    async function ensureSeedData() {
+      try {
+        // Sync with Supabase first - ensure app_kv arrays are initialized
+        // This prevents null/undefined errors when arrays don't exist yet
+        for (const key of ARRAY_DATA_KEYS) {
+          const existing = await loadData(key, null, false);
+          if (existing === null || existing === undefined) {
+            console.log(`Initializing empty array for key: ${key}`);
+            await saveData(key, []);
+          }
+        }
+
+        const oldSingleUser = await loadData('crazyTown_user', null);
+        const users = await loadData(DB_KEYS.users, []);
+        const safeUsers = Array.isArray(users) ? users : [];
+
+        if (!safeUsers.some((user) => user.id === DEFAULT_ADMIN.id)) {
+          safeUsers.push(DEFAULT_ADMIN);
+        }
+        const rootAdmin = safeUsers.find((user) => user.id === DEFAULT_ADMIN.id);
+        if (rootAdmin) {
+          if (!Array.isArray(rootAdmin.roles)) rootAdmin.roles = ['admin'];
+          if (!rootAdmin.roles.includes('owner')) rootAdmin.roles.push('owner');
+          if (!rootAdmin.roles.includes('admin')) rootAdmin.roles.push('admin');
+        }
+        if (oldSingleUser && !safeUsers.some((user) => user.email === oldSingleUser.email)) {
+          safeUsers.push({
+            ...oldSingleUser,
+            roles: ['player'],
+            balance: 0,
+            isBanned: false
+          });
+          localStorage.removeItem('crazyTown_user');
+        }
+        await saveData(DB_KEYS.users, safeUsers);
+
+        // Seed other arrays if they don't have data
+        for (const key of ARRAY_DATA_KEYS) {
+          if (key === DB_KEYS.users) continue; // Already handled
+          const data = await loadData(key, []);
+          const safeData = Array.isArray(data) ? data : [];
+          if (safeData.length === 0) {
+            // Initialize with empty array for this key
+            await saveData(key, []);
+          }
+        }
+
+        // Only use localStorage for non-array data
+        if (!localStorage.getItem(DB_KEYS.bookings)) await saveData(DB_KEYS.bookings, []);
+        if (!localStorage.getItem(DB_KEYS.activity)) await saveData(DB_KEYS.activity, []);
+        if (!localStorage.getItem(DB_KEYS.leaderboard)) {
+          await saveData(DB_KEYS.leaderboard, [
+            { id: 'lb-1', name: 'Mazen Ragaei', points: 12500 },
+            { id: 'lb-2', name: 'Abdallah Essam', points: 11300 },
+            { id: 'lb-3', name: 'Shahd Yasser', points: 10850 }
+          ]);
+        }
+        if (!localStorage.getItem(DB_KEYS.coupons)) {
+          await saveData(DB_KEYS.coupons, [{ code: 'CRAZY10', type: 'percent', value: 10, active: true }]);
+        }
+        if (!localStorage.getItem(DB_KEYS.inventory)) {
+          await saveData(DB_KEYS.inventory, [
+            { id: 'inv-1', name: 'Urban Camouflage Shirt', qty: 20, price: 699 },
+            { id: 'inv-2', name: 'Night Ops Black Hoodie', qty: 16, price: 899 }
+          ]);
+        }
+        if (!localStorage.getItem(DB_KEYS.news)) {
+          await saveData(DB_KEYS.news, [
+            { id: 'n-1', title: 'Spring Tactical Cup', body: 'Registration is now open.', date: new Date().toISOString() },
+            { id: 'n-2', title: 'New Pharaoh Arena Update', body: 'Season 2 map improvements live.', date: new Date().toISOString() }
+          ]);
+        }
+        if (!localStorage.getItem(DB_KEYS.friends)) await saveData(DB_KEYS.friends, []);
+        if (!localStorage.getItem(DB_KEYS.chat)) await saveData(DB_KEYS.chat, []);
+        if (!localStorage.getItem(DB_KEYS.cart)) await saveData(DB_KEYS.cart, []);
+        if (!localStorage.getItem(DB_KEYS.orders)) await saveData(DB_KEYS.orders, []);
+        if (!localStorage.getItem(DB_KEYS.teams)) await saveData(DB_KEYS.teams, []);
+        if (!localStorage.getItem(DB_KEYS.tournamentRegs)) await saveData(DB_KEYS.tournamentRegs, []);
+        if (!localStorage.getItem(DB_KEYS.tournaments)) {
+          await saveData(DB_KEYS.tournaments, [
+            { id: 't-1', name: 'Crazy Weekly Cup', date: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().slice(0, 10) },
+            { id: 't-2', name: 'Pharaoh Clash Finals', date: new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString().slice(0, 10) }
+          ]);
+        }
+      } catch (e) {
+        console.error('ensureSeedData error:', e);
       }
     }
 
@@ -3352,15 +3408,34 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
     function hasRole(user, role) { return !!user && Array.isArray(user.roles) && user.roles.includes(role); }
     function isAdmin(user) { return hasRole(user, 'admin') || hasRole(user, 'owner') || hasRole(user, 'co-owner') || hasRole(user, 'ceo'); }
 
-    function addActivity(action, actor = 'System') {
-      const activity = loadData(DB_KEYS.activity, []);
-      activity.unshift({
-        id: `act-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`,
-        action,
-        actor,
-        at: new Date().toISOString()
-      });
-      saveData(DB_KEYS.activity, activity.slice(0, 200));
+// ============================================
+    // DEFENSIVE addActivity - Prevents "n.unshift is not a function" error
+    // ============================================
+    async function addActivity(action, actor = 'System') {
+      try {
+        // Get data with defensive fallback to empty array
+        const activity = await loadData(DB_KEYS.activity, []);
+        
+        // VALIDATE: Ensure we have an array before using unshift
+        // This is the critical fix for "n.unshift is not a function" error
+        const safeActivity = Array.isArray(activity) ? activity : [];
+        
+        // Add new activity entry with error handling
+        safeActivity.unshift({
+          id: `act-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`,
+          action,
+          actor,
+          at: new Date().toISOString()
+        });
+        
+        // Save with defensive handling
+        await saveData(DB_KEYS.activity, safeActivity.slice(0, 200));
+        
+      } catch (error) {
+        // Error handling prevents UI crash if database call fails
+        console.error('addActivity error:', error);
+        // Silently fail to prevent crashing the UI
+      }
     }
 
     function showToast(message, type = 'info') {
@@ -3410,13 +3485,19 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
 
       try {
         const users = await getUsers();
-        if (users.some((u) => u.email === email || u.phone === phone)) {
+        const safeUsers = Array.isArray(users) ? users : [];
+        if (safeUsers.some((u) => u.email === email || u.phone === phone)) {
           return showToast('Email or phone already registered', 'error');
         }
 
-        await registerUser(email, password, { name, phone });
+        // Create user in Supabase Auth
+        const { data: authData, error: authError } = await registerUser(email, password, { name, phone });
+        if (authError) {
+          return showToast(authError.message || 'Registration failed', 'error');
+        }
+
         const newUser = {
-          id: `u-${Date.now()}`,
+          id: authData.user?.id || `u-${Date.now()}`,
           name, email, phone, password,
           rank: 'Recruit',
           roles: ['player'],
@@ -3425,8 +3506,8 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
           isBanned: false,
           joined: new Date().toISOString()
         };
-        users.push(newUser);
-        await saveUsers(users);
+        safeUsers.push(newUser);
+        await saveUsers(safeUsers);
         await addActivity(`New account registered: ${name}`, 'System');
         e.target.reset();
         closeModal('register');
@@ -3479,7 +3560,26 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
         const { data } = await loginUser(identifier, password);
         if (data?.user) {
           const users = await getUsers();
-          user = users.find((u) => u.email === identifier);
+          const safeUsers = Array.isArray(users) ? users : [];
+          user = safeUsers.find((u) => u.email === identifier);
+
+          // If user exists in Supabase Auth but NOT in crazyTown_users, create their profile
+          if (!user && data.user) {
+            user = {
+              id: data.user.id,
+              name: data.user.user_metadata?.name || identifier.split('@')[0],
+              email: data.user.email,
+              phone: data.user.user_metadata?.phone || '',
+              rank: 'Recruit',
+              roles: ['player'],
+              profileImage: '',
+              balance: 0,
+              isBanned: false,
+              joined: new Date().toISOString()
+            };
+            safeUsers.push(user);
+            await saveUsers(safeUsers);
+          }
         }
 
         if (!user) throw new Error('Invalid credentials');
@@ -3496,10 +3596,11 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
       }
     }
 
-    function handleForgotPassword(e) {
+    async function handleForgotPassword(e) {
       e.preventDefault();
       const identifier = document.getElementById('forgotIdentifier').value.trim().toLowerCase();
-      const user = getUsers().find((u) => u.email === identifier || u.phone === identifier);
+      const users = await getUsers();
+      const user = users.find((u) => u.email === identifier || u.phone === identifier);
       if (!user) return showToast('No account found', 'error');
       closeModal('forgot');
       e.target.reset();
@@ -3782,17 +3883,18 @@ async function showDashboard() {
         reader.onload = async () => {
           users[index].profileImage = String(reader.result);
           await saveUsers(users);
-          await addActivity(`Profile updated for ${users[index].name}`, users[index].name);
-          closeModal('profile');
-          fileInput.value = '';
-          await checkAuth();
-          showToast('Profile updated successfully', 'success');
+        await addActivity(`Profile updated for ${users[index].name}`, users[index].name);
+        closeModal('profile');
+        fileInput.value = '';
+        await checkAuth();
+        showToast('Profile updated successfully', 'success');
         };
         reader.readAsDataURL(file);
         return;
       }
       await saveUsers(users);
       await addActivity(`Profile updated for ${users[index].name}`, users[index].name);
+
       closeModal('profile');
       await checkAuth();
       showToast('Profile updated successfully', 'success');
@@ -3916,7 +4018,7 @@ async function showDashboard() {
       `).join('');
     }
 
-// Fixed async sendChatMessage
+// Fixed async sendChatMessage with defensive array handling
     async function sendChatMessage() {
       try {
         const user = await getCurrentUser();
@@ -3924,9 +4026,10 @@ async function showDashboard() {
         const input = document.getElementById('chatInput');
         const text = input.value.trim();
         if (!text) return;
-        const chat = loadData(DB_KEYS.chat, []);
-        chat.push({ id: `c-${Date.now()}`, sender: user.name, text, type: 'user', at: new Date().toISOString() });
-        saveData(DB_KEYS.chat, chat.slice(-50));
+        const chat = await loadData(DB_KEYS.chat, []);
+        const safeChat = Array.isArray(chat) ? chat : [];
+        safeChat.push({ id: `c-${Date.now()}`, sender: user.name, text, type: 'user', at: new Date().toISOString() });
+        await saveData(DB_KEYS.chat, safeChat.slice(-50));
         input.value = '';
         await renderChatMessages();
         setTimeout(async () => {
@@ -3936,15 +4039,16 @@ async function showDashboard() {
             'We can help with booking, payment, teams, and tournaments.',
             'A support agent will follow up with you shortly.'
           ];
-          const refreshed = loadData(DB_KEYS.chat, []);
-          refreshed.push({
+          const refreshed = await loadData(DB_KEYS.chat, []);
+          const safeRefreshed = Array.isArray(refreshed) ? refreshed : [];
+          safeRefreshed.push({
             id: `c-${Date.now()}-support`,
             sender: 'CrazyTown Support',
             text: replyList[Math.floor(Math.random() * replyList.length)],
             type: 'support',
             at: new Date().toISOString()
           });
-          saveData(DB_KEYS.chat, refreshed.slice(-50));
+          await saveData(DB_KEYS.chat, safeRefreshed.slice(-50));
           await renderChatMessages();
         }, 550);
       } catch (e) {
@@ -3956,8 +4060,9 @@ async function showDashboard() {
       try {
         const wrapper = document.getElementById('chatMessages');
         if (!wrapper) return;
-        const chat = loadData(DB_KEYS.chat, []);
-        wrapper.innerHTML = chat.slice(-30).map((msg) => `
+        const chat = await loadData(DB_KEYS.chat, []);
+        const safeChat = Array.isArray(chat) ? chat : [];
+        wrapper.innerHTML = safeChat.slice(-30).map((msg) => `
           <div class="chat-message" style="${msg.type === 'support' ? 'border-left:3px solid #22c55e;' : 'border-left:3px solid #3b82f6;'}">
             <strong>${msg.sender}:</strong> ${msg.text}
           </div>
@@ -3973,7 +4078,7 @@ async function showDashboard() {
       renderChatMessages();
     }
 
-// Fixed async sendFriendRequest
+// Fixed async sendFriendRequest with defensive array handling
     async function sendFriendRequest() {
       try {
         const user = await getCurrentUser();
@@ -3983,12 +4088,13 @@ async function showDashboard() {
         const target = getUsers().find((item) => item.email === email);
         if (!target) return showToast('User not found', 'error');
         if (target.id === user.id) return showToast('Cannot add yourself', 'warning');
-        const friends = loadData(DB_KEYS.friends, []);
-        if (friends.some((item) => item.from === user.id && item.to === target.id && item.status === 'pending')) {
+        const friends = await loadData(DB_KEYS.friends, []);
+        const safeFriends = Array.isArray(friends) ? friends : [];
+        if (safeFriends.some((item) => item.from === user.id && item.to === target.id && item.status === 'pending')) {
           return showToast('Request already sent', 'warning');
         }
-        friends.push({ id: `f-${Date.now()}`, from: user.id, to: target.id, status: 'pending' });
-        saveData(DB_KEYS.friends, friends);
+        safeFriends.push({ id: `f-${Date.now()}`, from: user.id, to: target.id, status: 'pending' });
+        await saveData(DB_KEYS.friends, safeFriends);
         document.getElementById('friendEmail').value = '';
         await renderFriendList();
         showToast('Friend request sent', 'success');
@@ -4000,11 +4106,12 @@ async function showDashboard() {
     async function updateFriendRequest(requestId, status) {
       try {
         const user = await getCurrentUser();
-        const friends = loadData(DB_KEYS.friends, []);
-        const request = friends.find((item) => item.id === requestId);
+        const friends = await loadData(DB_KEYS.friends, []);
+        const safeFriends = Array.isArray(friends) ? friends : [];
+        const request = safeFriends.find((item) => item.id === requestId);
         if (!user || !request || request.to !== user.id) return;
         request.status = status;
-        saveData(DB_KEYS.friends, friends);
+        await saveData(DB_KEYS.friends, safeFriends);
         await renderFriendList();
       } catch (e) {
         console.error('updateFriendRequest error:', e);
@@ -4015,8 +4122,10 @@ async function showDashboard() {
       try {
         const user = await getCurrentUser();
         if (!user) return;
-        const friends = loadData(DB_KEYS.friends, []).filter((item) => !(item.id === requestId && (item.from === user.id || item.to === user.id)));
-        saveData(DB_KEYS.friends, friends);
+        const friends = await loadData(DB_KEYS.friends, []);
+        const safeFriends = Array.isArray(friends) ? friends : [];
+        const filtered = safeFriends.filter((item) => !(item.id === requestId && (item.from === user.id || item.to === user.id)));
+        await saveData(DB_KEYS.friends, filtered);
         await renderFriendList();
       } catch (e) {
         console.error('cancelFriendRequest error:', e);
@@ -4033,8 +4142,9 @@ async function showDashboard() {
           return;
         }
         const usersMap = new Map(getUsers().map((u) => [u.id, u.name]));
-        const friends = loadData(DB_KEYS.friends, []);
-        const related = friends.filter((item) => item.from === user.id || item.to === user.id);
+        const friends = await loadData(DB_KEYS.friends, []);
+        const safeFriends = Array.isArray(friends) ? friends : [];
+        const related = safeFriends.filter((item) => item.from === user.id || item.to === user.id);
         box.innerHTML = related.length ? related.map((item) => {
           const peer = usersMap.get(item.from === user.id ? item.to : item.from);
           const controls = item.to === user.id && item.status === 'pending'
@@ -4048,13 +4158,14 @@ async function showDashboard() {
       }
     }
 
-// Fixed async versions of cart functions
+// Fixed async versions of cart functions with defensive array handling
     async function getCart() {
       try {
         const user = await getCurrentUser();
         if (!user) return [];
-        const all = loadData(DB_KEYS.cart, []);
-        return all.filter((item) => item.userId === user.id);
+        const all = await loadData(DB_KEYS.cart, []);
+        const safeAll = Array.isArray(all) ? all : [];
+        return safeAll.filter((item) => item.userId === user.id);
       } catch (e) {
         console.error('getCart error:', e);
         return [];
@@ -4068,8 +4179,11 @@ async function showDashboard() {
           showToast('Please login first', 'warning');
           return;
         }
-        const all = loadData(DB_KEYS.cart, []).filter((item) => item.userId !== user.id);
-        saveData(DB_KEYS.cart, [...all, ...items]);
+        const all = await loadData(DB_KEYS.cart, []);
+        const safeAll = Array.isArray(all) ? all : [];
+        const filtered = safeAll.filter((item) => item.userId !== user.id);
+        const safeItems = Array.isArray(items) ? items : [];
+        await saveData(DB_KEYS.cart, [...filtered, ...safeItems]);
       } catch (e) {
         console.error('saveCartItems error:', e);
       }
@@ -4096,8 +4210,9 @@ async function showDashboard() {
           return openLogin();
         }
         const cart = await getCart();
-        const inventory = loadData(DB_KEYS.inventory, []);
-        const stockItem = inventory.find((inv) => name.toLowerCase().includes(inv.name.toLowerCase().split(' ')[0]));
+        const inventory = await loadData(DB_KEYS.inventory, []);
+        const safeInventory = Array.isArray(inventory) ? inventory : [];
+        const stockItem = safeInventory.find((inv) => name.toLowerCase().includes(inv.name.toLowerCase().split(' ')[0]));
         const alreadyInCart = cart.find((item) => item.name === name)?.qty || 0;
         if (stockItem && alreadyInCart >= Number(stockItem.qty || 0)) {
           return showToast(`Out of stock for ${name}`, 'error');
@@ -4121,8 +4236,9 @@ async function showDashboard() {
         const item = cart.find((entry) => entry.id === cartItemId);
         if (!item) return;
         if (delta > 0) {
-          const inventory = loadData(DB_KEYS.inventory, []);
-          const stockItem = inventory.find((inv) => item.name.toLowerCase().includes(inv.name.toLowerCase().split(' ')[0]));
+          const inventory = await loadData(DB_KEYS.inventory, []);
+          const safeInventory = Array.isArray(inventory) ? inventory : [];
+          const stockItem = safeInventory.find((inv) => item.name.toLowerCase().includes(inv.name.toLowerCase().split(' ')[0]));
           if (stockItem && item.qty >= Number(stockItem.qty || 0)) {
             return showToast(`No more stock for ${item.name}`, 'warning');
           }
@@ -4209,8 +4325,9 @@ async function showDashboard() {
         if (idx === -1) return;
         users[idx].balance = Number(users[idx].balance || 0) - total;
         await saveUsers(users);
-        const orders = loadData(DB_KEYS.orders, []);
-        orders.push({
+        const orders = await loadData(DB_KEYS.orders, []);
+        const safeOrders = Array.isArray(orders) ? orders : [];
+        safeOrders.push({
           id: `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
           userId: user.id,
           items: cart,
@@ -4226,7 +4343,7 @@ async function showDashboard() {
           status: 'Pending Confirmation',
           createdAt: new Date().toISOString()
         });
-        saveData(DB_KEYS.orders, orders);
+        await saveData(DB_KEYS.orders, safeOrders);
         await saveCartItems([]);
         updateInventoryFromOrder(cart);
         addActivity(`Shop order placed (${cart.length} items)`, user.name);
@@ -4240,118 +4357,158 @@ async function showDashboard() {
       }
     }
 
-    function updateInventoryFromOrder(orderItems) {
-      const inventory = loadData(DB_KEYS.inventory, []);
-      orderItems.forEach((cartItem) => {
-        const match = inventory.find((inv) => cartItem.name.toLowerCase().includes(inv.name.toLowerCase().split(' ')[0]));
-        if (match) match.qty = Math.max(0, Number(match.qty || 0) - cartItem.qty);
-      });
-      saveData(DB_KEYS.inventory, inventory);
-    }
-
-    function createTeam() {
-      const user = getCurrentUser();
-      if (!user) return openLogin();
-      const teamName = document.getElementById('teamName').value.trim();
-      if (!teamName) return showToast('Write team name first', 'error');
-      const teams = loadData(DB_KEYS.teams, []);
-      if (teams.some((team) => team.name.toLowerCase() === teamName.toLowerCase())) return showToast('Team name already exists', 'warning');
-      teams.push({ id: `team-${Date.now()}`, name: teamName, captainId: user.id, members: [user.id], invitedIds: [] });
-      saveData(DB_KEYS.teams, teams);
-      document.getElementById('teamName').value = '';
-      addActivity(`Team created: ${teamName}`, user.name);
-      renderTeamPanel();
-    }
-
-    function getMyTeam() {
-      const user = getCurrentUser();
-      if (!user) return null;
-      const teams = loadData(DB_KEYS.teams, []);
-      return teams.find((team) => team.members.includes(user.id) || team.invitedIds.includes(user.id)) || null;
-    }
-
-    function inviteToTeam() {
-      const user = getCurrentUser();
-      if (!user) return openLogin();
-      const team = getMyTeam();
-      if (!team || team.captainId !== user.id) return showToast('Only captain can invite', 'warning');
-      const email = document.getElementById('teamInviteEmail').value.trim().toLowerCase();
-      const target = getUsers().find((entry) => entry.email === email);
-      if (!target) return showToast('User not found', 'error');
-      if (team.members.includes(target.id)) return showToast('Already in team', 'warning');
-      if (!team.invitedIds.includes(target.id)) team.invitedIds.push(target.id);
-      const teams = loadData(DB_KEYS.teams, []).map((entry) => (entry.id === team.id ? team : entry));
-      saveData(DB_KEYS.teams, teams);
-      document.getElementById('teamInviteEmail').value = '';
-      showToast(`Invitation sent to ${target.name}`, 'success');
-      renderTeamPanel();
-    }
-
-    function acceptTeamInvite(teamId) {
-      const user = getCurrentUser();
-      if (!user) return;
-      const teams = loadData(DB_KEYS.teams, []);
-      const team = teams.find((entry) => entry.id === teamId);
-      if (!team) return;
-      team.invitedIds = team.invitedIds.filter((id) => id !== user.id);
-      if (!team.members.includes(user.id)) team.members.push(user.id);
-      saveData(DB_KEYS.teams, teams);
-      addActivity(`${user.name} joined team ${team.name}`, user.name);
-      renderTeamPanel();
-    }
-
-    function renderTeamPanel() {
-      const panel = document.getElementById('teamPanel');
-      const tournamentPanel = document.getElementById('tournamentPanel');
-      const select = document.getElementById('tournamentSelect');
-      const user = getCurrentUser();
-      if (!panel || !select || !tournamentPanel) return;
-      if (!user) {
-        panel.innerHTML = 'Login to manage teams.';
-        return;
+    async function updateInventoryFromOrder(orderItems) {
+      try {
+        const inventory = await loadData(DB_KEYS.inventory, []);
+        const safeInventory = Array.isArray(inventory) ? inventory : [];
+        orderItems.forEach((cartItem) => {
+          const match = safeInventory.find((inv) => cartItem.name.toLowerCase().includes(inv.name.toLowerCase().split(' ')[0]));
+          if (match) match.qty = Math.max(0, Number(match.qty || 0) - cartItem.qty);
+        });
+        await saveData(DB_KEYS.inventory, safeInventory);
+      } catch (e) {
+        console.error('updateInventoryFromOrder error:', e);
       }
-      const teams = loadData(DB_KEYS.teams, []);
-      const usersMap = new Map(getUsers().map((u) => [u.id, u.name]));
-      const myTeam = teams.find((team) => team.members.includes(user.id));
-      const pendingInvite = teams.find((team) => team.invitedIds.includes(user.id));
-      if (myTeam) {
-        panel.innerHTML = `<strong>Team:</strong> ${myTeam.name}<br><small>Captain: ${usersMap.get(myTeam.captainId) || 'Unknown'}</small><br><small>Members: ${myTeam.members.map((id) => usersMap.get(id) || id).join(', ')}</small>`;
-      } else if (pendingInvite) {
-        panel.innerHTML = `Invitation from <strong>${pendingInvite.name}</strong> <button class="btn btn-outline" onclick="acceptTeamInvite('${pendingInvite.id}')">Accept Invite</button>`;
-      } else {
-        panel.innerHTML = 'You are not in a team yet.';
-      }
-
-      const tournaments = loadData(DB_KEYS.tournaments, []);
-      select.innerHTML = tournaments.map((tournament) => `<option value="${tournament.id}">${tournament.name} - ${tournament.date}</option>`).join('');
-      const regs = loadData(DB_KEYS.tournamentRegs, []).filter((reg) => reg.captainId === user.id || (myTeam && reg.teamId === myTeam.id));
-      tournamentPanel.innerHTML = regs.length
-        ? regs.map((reg) => `<div style="margin-bottom:6px;"><strong>${reg.tournamentName}</strong> - ${reg.teamName} (${reg.status})</div>`).join('')
-        : 'No tournament registrations yet.';
     }
 
-    function registerTeamInTournament() {
-      const user = getCurrentUser();
-      if (!user) return openLogin();
-      const myTeam = getMyTeam();
-      if (!myTeam) return showToast('Create or join a team first', 'warning');
-      if (myTeam.captainId !== user.id) return showToast('Only captain can register team', 'warning');
-      const tournamentId = document.getElementById('tournamentSelect').value;
-      const tournament = loadData(DB_KEYS.tournaments, []).find((entry) => entry.id === tournamentId);
-      if (!tournament) return;
-      const regs = loadData(DB_KEYS.tournamentRegs, []);
-      if (regs.some((reg) => reg.tournamentId === tournamentId && reg.teamId === myTeam.id)) return showToast('Already registered', 'warning');
-      regs.push({
-        id: `reg-${Date.now()}`,
-        tournamentId,
-        tournamentName: tournament.name,
-        teamId: myTeam.id,
-        teamName: myTeam.name,
-        captainId: user.id,
-        status: 'registered',
-        createdAt: new Date().toISOString()
-      });
-      saveData(DB_KEYS.tournamentRegs, regs);
+    async function createTeam() {
+      try {
+        const user = await getCurrentUser();
+        if (!user) return openLogin();
+        const teamName = document.getElementById('teamName').value.trim();
+        if (!teamName) return showToast('Write team name first', 'error');
+        const teams = await loadData(DB_KEYS.teams, []);
+        const safeTeams = Array.isArray(teams) ? teams : [];
+        if (safeTeams.some((team) => team.name.toLowerCase() === teamName.toLowerCase())) return showToast('Team name already exists', 'warning');
+        safeTeams.push({ id: `team-${Date.now()}`, name: teamName, captainId: user.id, members: [user.id], invitedIds: [] });
+        await saveData(DB_KEYS.teams, safeTeams);
+        document.getElementById('teamName').value = '';
+        addActivity(`Team created: ${teamName}`, user.name);
+        renderTeamPanel();
+      } catch (e) {
+        console.error('createTeam error:', e);
+      }
+    }
+
+    async function getMyTeam() {
+      try {
+        const user = await getCurrentUser();
+        if (!user) return null;
+        const teams = await loadData(DB_KEYS.teams, []);
+        const safeTeams = Array.isArray(teams) ? teams : [];
+        return safeTeams.find((team) => team.members.includes(user.id) || team.invitedIds.includes(user.id)) || null;
+      } catch (e) {
+        console.error('getMyTeam error:', e);
+        return null;
+      }
+    }
+
+    async function inviteToTeam() {
+      try {
+        const user = await getCurrentUser();
+        if (!user) return openLogin();
+        const team = await getMyTeam();
+        if (!team || team.captainId !== user.id) return showToast('Only captain can invite', 'warning');
+        const email = document.getElementById('teamInviteEmail').value.trim().toLowerCase();
+        const target = getUsers().find((entry) => entry.email === email);
+        if (!target) return showToast('User not found', 'error');
+        if (team.members.includes(target.id)) return showToast('Already in team', 'warning');
+        if (!team.invitedIds.includes(target.id)) team.invitedIds.push(target.id);
+        const teams = await loadData(DB_KEYS.teams, []);
+        const safeTeams = Array.isArray(teams) ? teams : [];
+        const updatedTeams = safeTeams.map((entry) => (entry.id === team.id ? team : entry));
+        await saveData(DB_KEYS.teams, updatedTeams);
+        document.getElementById('teamInviteEmail').value = '';
+        showToast(`Invitation sent to ${target.name}`, 'success');
+        renderTeamPanel();
+      } catch (e) {
+        console.error('inviteToTeam error:', e);
+      }
+    }
+
+    async function acceptTeamInvite(teamId) {
+      try {
+        const user = await getCurrentUser();
+        if (!user) return;
+        const teams = await loadData(DB_KEYS.teams, []);
+        const safeTeams = Array.isArray(teams) ? teams : [];
+        const team = safeTeams.find((entry) => entry.id === teamId);
+        if (!team) return;
+        team.invitedIds = team.invitedIds.filter((id) => id !== user.id);
+        if (!team.members.includes(user.id)) team.members.push(user.id);
+        const updatedTeams = safeTeams.map((entry) => (entry.id === team.id ? team : entry));
+        await saveData(DB_KEYS.teams, updatedTeams);
+        addActivity(`${user.name} joined team ${team.name}`, user.name);
+        renderTeamPanel();
+      } catch (e) {
+        console.error('acceptTeamInvite error:', e);
+      }
+    }
+
+    async function renderTeamPanel() {
+      try {
+        const panel = document.getElementById('teamPanel');
+        const tournamentPanel = document.getElementById('tournamentPanel');
+        const select = document.getElementById('tournamentSelect');
+        const user = await getCurrentUser();
+        if (!panel || !select || !tournamentPanel) return;
+        if (!user) {
+          panel.innerHTML = 'Login to manage teams.';
+          return;
+        }
+        const teams = await loadData(DB_KEYS.teams, []);
+        const safeTeams = Array.isArray(teams) ? teams : [];
+        const usersMap = new Map(getUsers().map((u) => [u.id, u.name]));
+        const myTeam = safeTeams.find((team) => team.members.includes(user.id));
+        const pendingInvite = safeTeams.find((team) => team.invitedIds.includes(user.id));
+        if (myTeam) {
+          panel.innerHTML = `<strong>Team:</strong> ${myTeam.name}<br><small>Captain: ${usersMap.get(myTeam.captainId) || 'Unknown'}</small><br><small>Members: ${myTeam.members.map((id) => usersMap.get(id) || id).join(', ')}</small>`;
+        } else if (pendingInvite) {
+          panel.innerHTML = `Invitation from <strong>${pendingInvite.name}</strong> <button class="btn btn-outline" onclick="acceptTeamInvite('${pendingInvite.id}')">Accept Invite</button>`;
+        } else {
+          panel.innerHTML = 'You are not in a team yet.';
+        }
+
+        const tournaments = await loadData(DB_KEYS.tournaments, []);
+        const safeTournaments = Array.isArray(tournaments) ? tournaments : [];
+        select.innerHTML = safeTournaments.map((tournament) => `<option value="${tournament.id}">${tournament.name} - ${tournament.date}</option>`).join('');
+        const regs = await loadData(DB_KEYS.tournamentRegs, []);
+        const safeRegs = Array.isArray(regs) ? regs : [];
+        const myRegs = safeRegs.filter((reg) => reg.captainId === user.id || (myTeam && reg.teamId === myTeam.id));
+        tournamentPanel.innerHTML = myRegs.length
+          ? myRegs.map((reg) => `<div style="margin-bottom:6px;"><strong>${reg.tournamentName}</strong> - ${reg.teamName} (${reg.status})</div>`).join('')
+          : 'No tournament registrations yet.';
+      } catch (e) {
+        console.error('renderTeamPanel error:', e);
+      }
+    }
+
+    async function registerTeamInTournament() {
+      try {
+        const user = await getCurrentUser();
+        if (!user) return openLogin();
+        const myTeam = await getMyTeam();
+        if (!myTeam) return showToast('Create or join a team first', 'warning');
+        if (myTeam.captainId !== user.id) return showToast('Only captain can register team', 'warning');
+        const tournamentId = document.getElementById('tournamentSelect').value;
+        const tournaments = await loadData(DB_KEYS.tournaments, []);
+        const safeTournaments = Array.isArray(tournaments) ? tournaments : [];
+        const tournament = safeTournaments.find((entry) => entry.id === tournamentId);
+        if (!tournament) return;
+        const regs = await loadData(DB_KEYS.tournamentRegs, []);
+        const safeRegs = Array.isArray(regs) ? regs : [];
+        if (safeRegs.some((reg) => reg.tournamentId === tournamentId && reg.teamId === myTeam.id)) return showToast('Already registered', 'warning');
+        safeRegs.push({
+          id: `reg-${Date.now()}`,
+          tournamentId,
+          tournamentName: tournament.name,
+          teamId: myTeam.id,
+          teamName: myTeam.name,
+          captainId: user.id,
+          status: 'registered',
+          createdAt: new Date().toISOString()
+        });
+        await saveData(DB_KEYS.tournamentRegs, safeRegs);
       addActivity(`Team ${myTeam.name} registered in ${tournament.name}`, user.name);
       renderTeamPanel();
       showToast('Team registered successfully', 'success');
@@ -4373,188 +4530,244 @@ async function showDashboard() {
       }
     }
 
-    function renderAdminPanel() {
-      const users = getUsers();
-      const bookings = getBookings();
-      const leaderboard = getLeaderboard();
-      const revenue = bookings.reduce((sum, booking) => sum + Number(booking.price || 0), 0);
-      document.getElementById('adminRevenue').textContent = `${revenue.toFixed(0)} EGP`;
-      document.getElementById('adminBookings').textContent = bookings.length;
-      document.getElementById('adminUsers').textContent = users.length;
+    async function renderAdminPanel() {
+      try {
+        const users = await getUsers();
+        const bookings = await getBookings();
+        const leaderboard = await getLeaderboard();
+        const safeUsers = Array.isArray(users) ? users : [];
+        const safeBookings = Array.isArray(bookings) ? bookings : [];
+        const safeLeaderboard = Array.isArray(leaderboard) ? leaderboard : [];
+        const revenue = safeBookings.reduce((sum, booking) => sum + Number(booking.price || 0), 0);
+        document.getElementById('adminRevenue').textContent = `${revenue.toFixed(0)} EGP`;
+        document.getElementById('adminBookings').textContent = safeBookings.length;
+        document.getElementById('adminUsers').textContent = safeUsers.length;
 
-      document.getElementById('adminBookingsTable').innerHTML = `
-        <thead><tr><th>Ticket</th><th>User</th><th>Date</th><th>Status</th><th>Price</th><th>Actions</th></tr></thead>
-        <tbody>
-          ${bookings.length ? bookings.map((booking) => `
-            <tr>
-              <td>${booking.ticketId}</td>
-              <td>${booking.name}</td>
-              <td>${booking.date} ${booking.time}</td>
-              <td><span class="status-pill ${booking.status === 'Confirmed' ? 'status-confirmed' : 'status-pending'}">${booking.status}</span></td>
-              <td>${Number(booking.price || 0).toFixed(0)} EGP</td>
-              <td>
-                <button class="btn btn-outline" onclick="toggleBookingStatus('${booking.id}')">${booking.status === 'Confirmed' ? 'Set Pending' : 'Confirm'}</button>
-                <button class="btn btn-outline" onclick="deleteBooking('${booking.id}')">Delete</button>
-              </td>
-            </tr>
-          `).join('') : '<tr><td colspan="6">No bookings</td></tr>'}
-        </tbody>
-      `;
+        document.getElementById('adminBookingsTable').innerHTML = `
+          <thead><tr><th>Ticket</th><th>User</th><th>Date</th><th>Status</th><th>Price</th><th>Actions</th></tr></thead>
+          <tbody>
+            ${safeBookings.length ? safeBookings.map((booking) => `
+              <tr>
+                <td>${booking.ticketId}</td>
+                <td>${booking.name}</td>
+                <td>${booking.date} ${booking.time}</td>
+                <td><span class="status-pill ${booking.status === 'Confirmed' ? 'status-confirmed' : 'status-pending'}">${booking.status}</span></td>
+                <td>${Number(booking.price || 0).toFixed(0)} EGP</td>
+                <td>
+                  <button class="btn btn-outline" onclick="toggleBookingStatus('${booking.id}')">${booking.status === 'Confirmed' ? 'Set Pending' : 'Confirm'}</button>
+                  <button class="btn btn-outline" onclick="deleteBooking('${booking.id}')">Delete</button>
+                </td>
+              </tr>
+            `).join('') : '<tr><td colspan="6">No bookings</td></tr>'}
+          </tbody>
+        `;
 
-      document.getElementById('adminUsersTable').innerHTML = `
-        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Balance</th><th>Actions</th></tr></thead>
-        <tbody>
-          ${users.map((user) => `
-            <tr>
-              <td>${user.name}</td>
-              <td>${user.email}</td>
-              <td>${isAdmin(user) ? 'Admin' : 'Player'}${user.isBanned ? ' (Banned)' : ''}</td>
-              <td>${Number(user.balance || 0).toFixed(0)} EGP</td>
-              <td>
-                ${user.id !== DEFAULT_ADMIN.id ? `<button class="btn btn-outline" onclick="toggleAdminRole('${user.id}')">${isAdmin(user) ? 'Remove Admin' : 'Make Admin'}</button>` : ''}
-                ${user.id !== DEFAULT_ADMIN.id ? `<button class="btn btn-outline" onclick="toggleBan('${user.id}')">${user.isBanned ? 'Unban' : 'Ban'}</button>` : ''}
-                ${user.id !== DEFAULT_ADMIN.id ? `<button class="btn btn-outline" onclick="deleteUser('${user.id}')">Delete</button>` : ''}
-                <button class="btn btn-outline" onclick="adjustBalancePrompt('${user.id}')">Balance +/-</button>
-              </td>
-            </tr>
-          `).join('')}
-        </tbody>
-      `;
+        document.getElementById('adminUsersTable').innerHTML = `
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Balance</th><th>Actions</th></tr></thead>
+          <tbody>
+            ${safeUsers.map((user) => `
+              <tr>
+                <td>${user.name}</td>
+                <td>${user.email}</td>
+                <td>${isAdmin(user) ? 'Admin' : 'Player'}${user.isBanned ? ' (Banned)' : ''}</td>
+                <td>${Number(user.balance || 0).toFixed(0)} EGP</td>
+                <td>
+                  ${user.id !== DEFAULT_ADMIN.id ? `<button class="btn btn-outline" onclick="toggleAdminRole('${user.id}')">${isAdmin(user) ? 'Remove Admin' : 'Make Admin'}</button>` : ''}
+                  ${user.id !== DEFAULT_ADMIN.id ? `<button class="btn btn-outline" onclick="toggleBan('${user.id}')">${user.isBanned ? 'Unban' : 'Ban'}</button>` : ''}
+                  ${user.id !== DEFAULT_ADMIN.id ? `<button class="btn btn-outline" onclick="deleteUser('${user.id}')">Delete</button>` : ''}
+                  <button class="btn btn-outline" onclick="adjustBalancePrompt('${user.id}')">Balance +/-</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        `;
 
-      document.getElementById('adminLeaderboardTable').innerHTML = `
-        <thead><tr><th>Player</th><th>Points</th><th>Actions</th></tr></thead>
-        <tbody>
-          ${leaderboard.map((entry) => `
-            <tr>
-              <td>${entry.name}</td>
-              <td>${entry.points}</td>
-              <td>
-                <button class="btn btn-outline" onclick="editLeaderboardEntry('${entry.id}')">Edit</button>
-                <button class="btn btn-outline" onclick="deleteLeaderboardEntry('${entry.id}')">Delete</button>
-              </td>
-            </tr>
-          `).join('')}
-        </tbody>
-      `;
+        document.getElementById('adminLeaderboardTable').innerHTML = `
+          <thead><tr><th>Player</th><th>Points</th><th>Actions</th></tr></thead>
+          <tbody>
+            ${safeLeaderboard.map((entry) => `
+              <tr>
+                <td>${entry.name}</td>
+                <td>${entry.points}</td>
+                <td>
+                  <button class="btn btn-outline" onclick="editLeaderboardEntry('${entry.id}')">Edit</button>
+                  <button class="btn btn-outline" onclick="deleteLeaderboardEntry('${entry.id}')">Delete</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        `;
 
-      const activity = loadData(DB_KEYS.activity, []);
-      document.getElementById('activityLogList').innerHTML = activity.slice(0, 30).map((item) => (
-        `<div style="margin-bottom:8px;"><strong>${new Date(item.at).toLocaleString()}</strong> - ${item.actor}: ${item.action}</div>`
-      )).join('') || '<div>No activity yet.</div>';
-    }
-
-    function toggleBookingStatus(bookingId) {
-      const bookings = getBookings();
-      const target = bookings.find((booking) => booking.id === bookingId);
-      if (!target) return;
-      target.status = target.status === 'Confirmed' ? 'Pending' : 'Confirmed';
-      saveBookings(bookings);
-      addActivity(`Booking ${target.ticketId} marked ${target.status}`, 'Admin');
-      renderAdminPanel();
-    }
-
-    function deleteBooking(bookingId) {
-      const bookings = getBookings();
-      const target = bookings.find((booking) => booking.id === bookingId);
-      const updated = bookings.filter((booking) => booking.id !== bookingId);
-      saveBookings(updated);
-      addActivity(`Booking deleted: ${target ? target.ticketId : bookingId}`, 'Admin');
-      renderAdminPanel();
-      showToast('Booking deleted', 'warning');
-    }
-
-    function toggleAdminRole(userId) {
-      const users = getUsers();
-      const user = users.find((item) => item.id === userId);
-      if (!user) return;
-      if (!Array.isArray(user.roles)) user.roles = ['player'];
-      if (user.roles.includes('admin')) {
-        user.roles = user.roles.filter((role) => role !== 'admin');
-      } else {
-        user.roles.push('admin');
+        const activity = await loadData(DB_KEYS.activity, []);
+        const safeActivity = Array.isArray(activity) ? activity : [];
+        document.getElementById('activityLogList').innerHTML = safeActivity.slice(0, 30).map((item) => (
+          `<div style="margin-bottom:8px;"><strong>${new Date(item.at).toLocaleString()}</strong> - ${item.actor}: ${item.action}</div>`
+        )).join('') || '<div>No activity yet.</div>';
+      } catch (e) {
+        console.error('renderAdminPanel error:', e);
       }
-      saveUsers(users);
-      addActivity(`Role updated for ${user.name}`, 'Admin');
-      renderAdminPanel();
-      checkAuth();
     }
 
-    function toggleBan(userId) {
-      const users = getUsers();
-      const user = users.find((item) => item.id === userId);
-      if (!user) return;
-      user.isBanned = !user.isBanned;
-      saveUsers(users);
-      addActivity(`${user.name} ${user.isBanned ? 'banned' : 'unbanned'}`, 'Admin');
-      renderAdminPanel();
+    async function toggleBookingStatus(bookingId) {
+      try {
+        const bookings = await getBookings();
+        const safeBookings = Array.isArray(bookings) ? bookings : [];
+        const target = safeBookings.find((booking) => booking.id === bookingId);
+        if (!target) return;
+        target.status = target.status === 'Confirmed' ? 'Pending' : 'Confirmed';
+        await saveBookings(safeBookings);
+        addActivity(`Booking ${target.ticketId} marked ${target.status}`, 'Admin');
+        await renderAdminPanel();
+      } catch (e) {
+        console.error('toggleBookingStatus error:', e);
+      }
     }
 
-    function deleteUser(userId) {
-      let users = getUsers();
-      const deleted = users.find((user) => user.id === userId);
-      users = users.filter((user) => user.id !== userId);
-      saveUsers(users);
-      saveBookings(getBookings().filter((booking) => booking.userId !== userId));
-      addActivity(`User deleted: ${deleted ? deleted.name : userId}`, 'Admin');
-      renderAdminPanel();
+    async function deleteBooking(bookingId) {
+      try {
+        const bookings = await getBookings();
+        const safeBookings = Array.isArray(bookings) ? bookings : [];
+        const target = safeBookings.find((booking) => booking.id === bookingId);
+        const updated = safeBookings.filter((booking) => booking.id !== bookingId);
+        await saveBookings(updated);
+        addActivity(`Booking deleted: ${target ? target.ticketId : bookingId}`, 'Admin');
+        await renderAdminPanel();
+        showToast('Booking deleted', 'warning');
+      } catch (e) {
+        console.error('deleteBooking error:', e);
+      }
     }
 
-    function adjustBalancePrompt(userId) {
-      const amount = Number(prompt('Enter amount to add/remove (example: 100 or -50):', '100'));
-      if (Number.isNaN(amount)) return;
-      const users = getUsers();
-      const user = users.find((item) => item.id === userId);
-      if (!user) return;
-      user.balance = Number(user.balance || 0) + amount;
-      saveUsers(users);
-      addActivity(`Balance changed for ${user.name}: ${amount > 0 ? '+' : ''}${amount} EGP`, 'Admin');
-      renderAdminPanel();
-      checkAuth();
+    async function toggleAdminRole(userId) {
+      try {
+        const users = await getUsers();
+        const safeUsers = Array.isArray(users) ? users : [];
+        const user = safeUsers.find((item) => item.id === userId);
+        if (!user) return;
+        if (!Array.isArray(user.roles)) user.roles = ['player'];
+        if (user.roles.includes('admin')) {
+          user.roles = user.roles.filter((role) => role !== 'admin');
+        } else {
+          user.roles.push('admin');
+        }
+        await saveUsers(safeUsers);
+        addActivity(`Role updated for ${user.name}`, 'Admin');
+        await renderAdminPanel();
+        checkAuth();
+      } catch (e) {
+        console.error('toggleAdminRole error:', e);
+      }
     }
 
-    function addLeaderboardEntry() {
-      const name = document.getElementById('lbName').value.trim();
-      const points = Number(document.getElementById('lbPoints').value || 0);
-      if (!name) return showToast('Enter player name', 'error');
-      const entries = getLeaderboard();
-      entries.push({ id: `lb-${Date.now()}`, name, points });
-      saveLeaderboard(entries);
-      addActivity(`Leaderboard add: ${name} (${points})`, 'Admin');
-      document.getElementById('lbName').value = '';
-      document.getElementById('lbPoints').value = '';
-      renderAdminPanel();
-      showToast('Leaderboard updated', 'success');
+    async function toggleBan(userId) {
+      try {
+        const users = await getUsers();
+        const safeUsers = Array.isArray(users) ? users : [];
+        const user = safeUsers.find((item) => item.id === userId);
+        if (!user) return;
+        user.isBanned = !user.isBanned;
+        await saveUsers(safeUsers);
+        addActivity(`${user.name} ${user.isBanned ? 'banned' : 'unbanned'}`, 'Admin');
+        await renderAdminPanel();
+      } catch (e) {
+        console.error('toggleBan error:', e);
+      }
     }
 
-    function editLeaderboardEntry(entryId) {
-      const entries = getLeaderboard();
-      const entry = entries.find((item) => item.id === entryId);
-      if (!entry) return;
-      const newPoints = Number(prompt(`Edit points for ${entry.name}`, String(entry.points)));
-      if (Number.isNaN(newPoints)) return;
-      entry.points = newPoints;
-      saveLeaderboard(entries);
-      addActivity(`Leaderboard edit: ${entry.name} -> ${newPoints}`, 'Admin');
-      renderAdminPanel();
+    async function deleteUser(userId) {
+      try {
+        let users = await getUsers();
+        const safeUsers = Array.isArray(users) ? users : [];
+        const deleted = safeUsers.find((user) => user.id === userId);
+        users = safeUsers.filter((user) => user.id !== userId);
+        await saveUsers(users);
+        const bookings = await getBookings();
+        const safeBookings = Array.isArray(bookings) ? bookings : [];
+        await saveBookings(safeBookings.filter((booking) => booking.userId !== userId));
+        addActivity(`User deleted: ${deleted ? deleted.name : userId}`, 'Admin');
+        await renderAdminPanel();
+      } catch (e) {
+        console.error('deleteUser error:', e);
+      }
     }
 
-    function deleteLeaderboardEntry(entryId) {
-      const entries = getLeaderboard().filter((entry) => entry.id !== entryId);
-      saveLeaderboard(entries);
-      addActivity(`Leaderboard entry removed: ${entryId}`, 'Admin');
-      renderAdminPanel();
+    async function adjustBalancePrompt(userId) {
+      try {
+        const amount = Number(prompt('Enter amount to add\remove (example: 100 or -50):', '100'));
+        if (Number.isNaN(amount)) return;
+        const users = await getUsers();
+        const safeUsers = Array.isArray(users) ? users : [];
+        const user = safeUsers.find((item) => item.id === userId);
+        if (!user) return;
+        user.balance = Number(user.balance || 0) + amount;
+        await saveUsers(safeUsers);
+        addActivity(`Balance changed for ${user.name}: ${amount > 0 ? '+' : ''}${amount} EGP`, 'Admin');
+        await renderAdminPanel();
+        checkAuth();
+      } catch (e) {
+        console.error('adjustBalancePrompt error:', e);
+      }
     }
 
-    function clearAllData() {
+    async function addLeaderboardEntry() {
+      try {
+        const name = document.getElementById('lbName').value.trim();
+        const points = Number(document.getElementById('lbPoints').value || 0);
+        if (!name) return showToast('Enter player name', 'error');
+        const entries = await getLeaderboard();
+        const safeEntries = Array.isArray(entries) ? entries : [];
+        safeEntries.push({ id: `lb-${Date.now()}`, name, points });
+        await saveLeaderboard(safeEntries);
+        addActivity(`Leaderboard add: ${name} (${points})`, 'Admin');
+        document.getElementById('lbName').value = '';
+        document.getElementById('lbPoints').value = '';
+        await renderAdminPanel();
+        showToast('Leaderboard updated', 'success');
+      } catch (e) {
+        console.error('addLeaderboardEntry error:', e);
+      }
+    }
+
+    async function editLeaderboardEntry(entryId) {
+      try {
+        const entries = await getLeaderboard();
+        const safeEntries = Array.isArray(entries) ? entries : [];
+        const entry = safeEntries.find((item) => item.id === entryId);
+        if (!entry) return;
+        const newPoints = Number(prompt(`Edit points for ${entry.name}`, String(entry.points)));
+        if (Number.isNaN(newPoints)) return;
+        entry.points = newPoints;
+        await saveLeaderboard(safeEntries);
+        addActivity(`Leaderboard edit: ${entry.name} -> ${newPoints}`, 'Admin');
+        await renderAdminPanel();
+      } catch (e) {
+        console.error('editLeaderboardEntry error:', e);
+      }
+    }
+
+    async function deleteLeaderboardEntry(entryId) {
+      try {
+        const entries = await getLeaderboard();
+        const safeEntries = Array.isArray(entries) ? entries : [];
+        const filtered = safeEntries.filter((entry) => entry.id !== entryId);
+        await saveLeaderboard(filtered);
+        addActivity(`Leaderboard entry removed: ${entryId}`, 'Admin');
+        await renderAdminPanel();
+      } catch (e) {
+        console.error('deleteLeaderboardEntry error:', e);
+      }
+    }
+
+    async function clearAllData() {
       if (!confirm('Are you sure? This will clear users/bookings/leaderboard except root admin.')) return;
       localStorage.removeItem(DB_KEYS.users);
       localStorage.removeItem(DB_KEYS.bookings);
       localStorage.removeItem(DB_KEYS.activity);
       localStorage.removeItem(DB_KEYS.leaderboard);
       clearCurrentUser();
-      ensureSeedData();
+      await ensureSeedData();
       addActivity('All data cleared by admin', 'Admin');
-      renderAdminPanel();
+      await renderAdminPanel();
       checkAuth();
       showToast('All data cleared', 'warning');
     }
