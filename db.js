@@ -36,9 +36,13 @@ export async function logoutUser() {
 }
 
 export async function getCurrentUser() {
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error) return null;
-  return user;
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data) return null;
+    return data.user;
+  } catch (e) {
+    return null;
+  }
 }
 
 // ============================================

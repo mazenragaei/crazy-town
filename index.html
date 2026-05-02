@@ -3636,9 +3636,10 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
       if (user) {
         authButtons.style.display = 'none';
         userMenuContainer.style.display = 'block';
-        document.getElementById('navUserName').textContent = user.name.split(' ')[0];
-        document.getElementById('navUserAvatar').textContent = user.name.charAt(0).toUpperCase();
-        document.getElementById('dropdownName').textContent = user.name;
+        const userName = user && user.name ? user.name : 'User';
+        document.getElementById('navUserName').textContent = userName.split(' ')[0];
+        document.getElementById('navUserAvatar').textContent = userName.charAt(0).toUpperCase();
+        document.getElementById('dropdownName').textContent = userName;
         document.getElementById('dropdownAvatar').textContent = user.name.charAt(0).toUpperCase();
         const rolesText = Array.isArray(user.roles) && user.roles.length ? user.roles.join(' / ') : (user.rank || 'member');
         document.getElementById('dropdownRank').textContent = rolesText;
