@@ -184,6 +184,12 @@
       member:{ accessAdminPanel:false, accessOwnerControl:false, managePrivilegedRoles:false, manageStaffRoles:false, manageTargetedDiscounts:false, runProductionMode:false }
     };
 
+    // Safe array wrapper - prevents "n.unshift is not a function" errors
+    function safeArray(val, fallback = []) {
+      if (Array.isArray(val)) return val;
+      return fallback;
+    }
+
     async function ro(k, d) { try { return await getKV(k, d); } catch { return d; } }
     async function so(k, v) { try { await setKV(k, v); } catch (e) { console.error('Save error:', e); } }
 
@@ -224,7 +230,8 @@
 
     async function act(action, actor='Owner Control') {
       try {
-        const arr = await ro(K.activity, []);
+        let arr = await ro(K.activity, []);
+        arr = safeArray(arr, []);
         arr.unshift({ id:Date.now()+Math.random(), action, actor, at:new Date().toISOString() });
         await so(K.activity, arr.slice(0, 300));
       } catch (e) { console.error('Activity error:', e); }
@@ -258,13 +265,19 @@
     }
 
     async function saveGlobalSettings() {
-      const settings = await ro(K.settings, { maintenance:false, notifications:[] });
+      let settings = await ro(K.settings, { maintenance:false, notifications:[] });
+      // Ensure settings is an object with notifications array
+      if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+        settings = { maintenance:false, notifications:[] };
+      }
+      if (!Array.isArray(settings.notifications)) {
+        settings.notifications = [];
+      }
       settings.maintenance = document.getElementById('cfgMaintenance').checked;
       settings.supportEnabled = document.getElementById('cfgSupport').checked;
       settings.vipEnabled = document.getElementById('cfgVip').checked;
       const text = document.getElementById('cfgNotification').value.trim();
       if (text) {
-        settings.notifications = settings.notifications || [];
         settings.notifications.unshift({ text, at:new Date().toISOString() });
       }
       await so(K.settings, settings);
@@ -285,7 +298,8 @@
     }
 
     async function addRole(id) {
-      const users = await ro(K.users, []);
+      let users = await ro(K.users, []);
+      users = safeArray(users, []);
       const u = users.find((x)=>String(x.id)===String(id));
       if(!u) return;
       const role = document.getElementById(`add-role-${id}`).value;
@@ -317,7 +331,8 @@
       const targetUserId = document.getElementById('dcTargetUser').value;
       if(!code) return alert('Enter discount code.');
       if (targetGroup === 'user' && !targetUserId) return alert('Select user for user-target discount.');
-      const coupons = await ro(K.coupons, []);
+      let coupons = await ro(K.coupons, []);
+      coupons = safeArray(coupons, []);
       coupons.push({ code, type, value, active:true, targetGroup, targetUserId:targetGroup === 'user' ? targetUserId : '', createdByRole:'owner-control' });
       await so(K.coupons, coupons);
       await act(`Discount ${code} created for ${targetGroup}`, (await me())?.name || 'Owner');

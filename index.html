@@ -4526,9 +4526,13 @@ async function showDashboard() {
           createdAt: new Date().toISOString()
         });
         await saveData(DB_KEYS.tournamentRegs, safeRegs);
-      addActivity(`Team ${myTeam.name} registered in ${tournament.name}`, user.name);
-      renderTeamPanel();
-      showToast('Team registered successfully', 'success');
+        addActivity(`Team ${myTeam.name} registered in ${tournament.name}`, user.name);
+        renderTeamPanel();
+        showToast('Team registered successfully', 'success');
+      } catch (err) {
+        console.error('registerTeamInTournament error:', err);
+        showToast('Failed to register team', 'error');
+      }
     }
 
     async function applySettingsSync() {

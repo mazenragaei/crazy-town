@@ -119,14 +119,20 @@
       { id:'op-night', name:'Night Strike', brief:'Low-light mission with stealth checkpoints.', basePrice:1300, type:'Night Ops' },
       { id:'op-hq', name:'Headquarters Raid', brief:'Capture command room under heavy pressure.', basePrice:1250, type:'Hardcore' }
     ];
-    
-    async function ro(k, d) { 
-      try { return await getKV(k, d); } catch { return d; } 
+
+    // Safe array wrapper - prevents "n.unshift is not a function" errors
+    function safeArray(val, fallback = []) {
+      if (Array.isArray(val)) return val;
+      return fallback;
     }
-    async function so(k, v) { 
-      try { await setKV(k, v); } catch (e) { console.error('Save error:', e); } 
+
+    async function ro(k, d) {
+      try { return await getKV(k, d); } catch { return d; }
     }
-    
+    async function so(k, v) {
+      try { await setKV(k, v); } catch (e) { console.error('Save error:', e); }
+    }
+
     async function me() {
       try {
         const current = await getCurrentUser();
@@ -138,7 +144,8 @@
 
     async function addActivity(action, actor='System') {
       try {
-        const arr = await ro(K.activity, []);
+        let arr = await ro(K.activity, []);
+        arr = safeArray(arr, []);
         arr.unshift({ id:`act-${Date.now()}`, action, actor, at:new Date().toISOString() });
         await so(K.activity, arr.slice(0,300));
       } catch (e) { console.error('Activity error:', e); }
@@ -183,7 +190,8 @@
       if (!scenario) return;
       try {
         const totalPrice = Math.round((scenario.basePrice * getDifficultyMultiplier(difficulty)) + (Math.max(0, squadSize - 5) * 85));
-        const ops = await ro(K.ops, []);
+        let ops = await ro(K.ops, []);
+        ops = safeArray(ops, []);
         const op = {
           id:`ops-${Date.now()}`,
           userId:user.id,

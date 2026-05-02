@@ -66,6 +66,12 @@
 
     const K = { users:'crazyTown_users', session:'crazyTown_session', teams:'crazyTown_teams', tournamentRegs:'crazyTown_tournament_regs' };
 
+    // Safe array wrapper - prevents "n.unshift is not a function" errors
+    function safeArray(val, fallback = []) {
+      if (Array.isArray(val)) return val;
+      return fallback;
+    }
+
     async function ro(k, d) { try { return await getKV(k, d); } catch { return d; } }
     async function so(k, v) { try { await setKV(k, v); } catch (e) { console.error('Save error:', e); } }
 
@@ -107,6 +113,8 @@
       if (team.members.includes(target.id)) return alert('User already in team.');
       const existingTeam = await getTeamForUser(target.id);
       if (existingTeam) return alert('User already belongs to another team.');
+      team.members = team.members || [];
+      if (!Array.isArray(team.members)) team.members = [];
       team.members.push(target.id);
       await so(K.teams, teams);
       document.getElementById('addMemberEmail').value = '';

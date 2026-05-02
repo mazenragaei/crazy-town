@@ -6,15 +6,21 @@
     body { font-family: Arial; max-width: 500px; margin: 50px auto; padding: 20px; }
     .card-form { background: #f8f9fa; padding: 30px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
     input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+    select { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
     button { width: 100%; padding: 14px; background: #007bff; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    .status { margin-top: 15px; padding: 10px; border-radius: 6px; }
+    .success { background: #d4edda; color: #155724; padding: 12px; border-radius: 6px; }
+    .error { background: #f8d7da; color: #721c24; padding: 12px; border-radius: 6px; }
+    a { display: inline-block; margin-top: 15px; color: #007bff; text-decoration: none; }
   </style>
 </head>
 <body>
   <div class="card-form">
-    <h2>🔗 Link Your Member Card</h2>
+    <h2>Link Your Member Card</h2>
     <p>Enter your physical/digital VIP or Elite card details to unlock exclusive benefits.</p>
-    
-    <form onsubmit="linkCard(event)">
+
+    <form id="cardForm" onsubmit="linkCard(event)">
       <input type="text" id="cardNumber" placeholder="Card Number (16 digits)" maxlength="16" required pattern="\d{16}">
       <select id="cardType" required>
         <option value="">Card Type</option>
@@ -23,31 +29,102 @@
         <option value="special">Special Card</option>
       </select>
       <input type="month" id="expires" required>
-      <button type="submit">Link Card Now</button>
+      <button type="submit" id="submitBtn">Link Card Now</button>
     </form>
-    
+
     <div id="status"></div>
+    <a href="index.html">Back to Home</a>
   </div>
 
-  <script>
+  <script type="module">
+    import { getCurrentUser, getKV, setKV } from './db.js';
+
+    // Safe array wrapper - prevents "n.unshift is not a function" errors
+    function safeArray(val, fallback = []) {
+      if (Array.isArray(val)) return val;
+      return fallback;
+    }
+
     async function linkCard(e) {
       e.preventDefault();
+      const form = document.getElementById('cardForm');
+      const submitBtn = document.getElementById('submitBtn');
       const number = document.getElementById('cardNumber').value;
       const type = document.getElementById('cardType').value;
       const expires = document.getElementById('expires').value;
-      
       const status = document.getElementById('status');
-      status.innerHTML = '<p>Saving...</p>';
-      
-      try {
-        // Call db.manageCard(userId, {type, number, expires})
-        // For demo:
-        status.innerHTML = `<p style="color: green;">✅ ${type.toUpperCase()} Card ${number.slice(-4)} linked successfully!</p>
-        <p>Your benefits are now active.</p>`;
-      } catch (err) {
-        status.innerHTML = `<p style="color: red;">❌ ${err.message}</p>`;
+
+      // Validate card number
+      if (!/^\d{16}$/.test(number)) {
+        status.innerHTML = '<div class="error">Card number must be exactly 16 digits</div>';
+        return;
       }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Linking...';
+      status.innerHTML = '<div class="status">Processing...</div>';
+
+      try {
+        // Get current user
+        const currentUser = await getCurrentUser();
+        if (!currentUser) {
+          status.innerHTML = '<div class="error">Please login first to link your card</div>';
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Link Card Now';
+          return;
+        }
+
+        // Get users list
+        let users = await getKV('crazyTown_users', [], true);
+        users = safeArray(users, []);
+
+        // Find current user in the list
+        const userIndex = users.findIndex(u => u.email === currentUser.email);
+        if (userIndex === -1) {
+          status.innerHTML = '<div class="error">User profile not found. Please register first.</div>';
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Link Card Now';
+          return;
+        }
+
+        // Create card object
+        const cardData = {
+          number: number,
+          type: type,
+          expires: expires,
+          linkedAt: new Date().toISOString(),
+          lastFour: number.slice(-4)
+        };
+
+        // Update user with card info
+        users[userIndex].memberCard = cardData;
+        users[userIndex].cardType = type;
+        users[userIndex].isCardLinked = true;
+
+        // Save updated users array
+        await setKV('crazyTown_users', users);
+
+        // Show success message
+        status.innerHTML = `<div class="success">
+          <strong>Card linked successfully!</strong><br>
+          Type: ${type.toUpperCase()}<br>
+          Card ending: ${number.slice(-4)}<br>
+          Your benefits are now active.
+        </div>`;
+
+        form.reset();
+
+      } catch (err) {
+        console.error('Link card error:', err);
+        status.innerHTML = `<div class="error">Error: ${err.message}</div>`;
+      }
+
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Link Card Now';
     }
+
+    // Make function available globally for inline onclick
+    window.linkCard = linkCard;
   </script>
 </body>
 </html>

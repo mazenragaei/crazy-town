@@ -183,6 +183,12 @@
 
     const K = { users:'crazyTown_users', session:'crazyTown_session', activity:'crazyTown_activity', vipRequests:'crazyTown_vip_requests', vipDailyBonus:'crazyTown_vip_daily_bonus' };
 
+    // Safe array wrapper - prevents "n.unshift is not a function" errors
+    function safeArray(val, fallback = []) {
+      if (Array.isArray(val)) return val;
+      return fallback;
+    }
+
     async function ro(k, d) { try { return await getKV(k, d); } catch { return d; } }
     async function so(k, v) { try { await setKV(k, v); } catch (e) { console.error('Save error:', e); } }
 
@@ -200,7 +206,8 @@
 
     async function addActivity(action, actor='System') {
       try {
-        const arr = await ro(K.activity, []);
+        let arr = await ro(K.activity, []);
+        arr = safeArray(arr, []);
         arr.unshift({ id:`act-${Date.now()}`, action, actor, at:new Date().toISOString() });
         await so(K.activity, arr.slice(0,300));
       } catch (e) { console.error('Activity error:', e); }
@@ -220,7 +227,8 @@
     }
 
     async function buyVip() {
-      const users = await ro(K.users, []);
+      let users = await ro(K.users, []);
+      users = safeArray(users, []);
       const user = await getUser();
       if(!user) return location.href='index.html';
       const idx = users.findIndex(u=>u.id===user.id);
@@ -247,7 +255,8 @@
       const notes = document.getElementById('vipReqNotes').value.trim();
       if(!title) return alert('Please enter request title');
       try {
-        const list = await ro(K.vipRequests, []);
+        let list = await ro(K.vipRequests, []);
+        list = safeArray(list, []);
         list.unshift({
           id:`vip-${Date.now()}`,
           userId:user.id,

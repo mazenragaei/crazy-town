@@ -98,6 +98,12 @@
       { id:'el-3', name:'Elite Championship Finals', prize:'40,000 EGP + Hall of Fame', status:'Coming Soon' }
     ];
 
+    // Safe array wrapper - prevents "n.unshift is not a function" errors
+    function safeArray(val, fallback = []) {
+      if (Array.isArray(val)) return val;
+      return fallback;
+    }
+
     async function ro(k, d) { try { return await getKV(k, d); } catch { return d; } }
     async function so(k, v) { try { await setKV(k, v); } catch (e) { console.error('Save error:', e); } }
 
@@ -130,7 +136,8 @@
 
     async function addActivity(action, actor='Elite') {
       try {
-        const arr = await ro(K.activity, []);
+        let arr = await ro(K.activity, []);
+        arr = safeArray(arr, []);
         arr.unshift({ id:`act-${Date.now()}`, action, actor, at:new Date().toISOString() });
         await so(K.activity, arr.slice(0, 300));
       } catch (e) { console.error('Activity error:', e); }
@@ -166,7 +173,8 @@
       const tour = tours.find((t)=>t.id === tournamentId);
       if (!tour) return;
       try {
-        const regs = await ro(K.eliteRegs, []);
+        let regs = await ro(K.eliteRegs, []);
+        regs = safeArray(regs, []);
         regs.unshift({
           id:`elr-${Date.now()}`,
           tournamentId,

@@ -82,11 +82,17 @@
       activity:'crazyTown_activity'
     };
 
-    async function ro(k, d) { 
-      try { return await getKV(k, d); } catch { return d; } 
+    // Safe array wrapper - prevents "n.unshift is not a function" errors
+    function safeArray(val, fallback = []) {
+      if (Array.isArray(val)) return val;
+      return fallback;
     }
-    async function so(k, v) { 
-      try { await setKV(k, v); } catch (e) { console.error('Save error:', e); } 
+
+    async function ro(k, d) {
+      try { return await getKV(k, d); } catch { return d; }
+    }
+    async function so(k, v) {
+      try { await setKV(k, v); } catch (e) { console.error('Save error:', e); }
     }
 
     async function me() {
@@ -100,7 +106,8 @@
 
     async function addActivity(action, actor='System') {
       try {
-        const arr = await ro(K.activity, []);
+        let arr = await ro(K.activity, []);
+        arr = safeArray(arr, []);
         arr.unshift({ id:`act-${Date.now()}`, action, actor, at:new Date().toISOString() });
         await so(K.activity, arr.slice(0,300));
       } catch (e) { console.error('Activity error:', e); }
@@ -121,7 +128,8 @@
       const message = document.getElementById('ticketMessage').value.trim();
       if (!category || !priority || !subject || !message) return;
       try {
-        const tickets = await ro(K.supportTickets, []);
+        let tickets = await ro(K.supportTickets, []);
+        tickets = safeArray(tickets, []);
         const ticket = {
           id:`T-${Date.now()}`,
           userId:user.id,
