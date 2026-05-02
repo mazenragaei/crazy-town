@@ -112,3 +112,23 @@
           <div class="row">
             <button class="btn" onclick="setPane('bookings')">Open Bookings</button>
 
+  <script type="module">
+    import { getCurrentUser, getKV } from "./db.js";
+    function hasRole(u, r) { return u && Array.isArray(u.roles) && u.roles.includes(r); }
+    function isAdmin(u) { return hasRole(u,"admin") || hasRole(u,"owner"); }
+    function goBack() { window.history.back(); }
+    function goHome() { window.location.href = "index.html"; }
+    function setPane(id) { document.querySelectorAll(".pane").forEach(p => p.classList.remove("active")); document.querySelectorAll(".tab").forEach(t => t.classList.remove("active")); const p = document.querySelector("[data-pane="+id+"]"); if(p) p.classList.add("active"); }
+    async function initAdmin() {
+      const user = await getCurrentUser();
+      const allUsers = await getKV("crazyTown_users", []);
+      const localUser = allUsers.find(u => u.email === user?.email);
+      if (!localUser || !isAdmin(localUser)) { document.body.innerHTML = "<div style=padding:40px><h2>Access Denied</h2></div>"; return; }
+      document.getElementById("statUsers").textContent = allUsers.length;
+      const tabs = ["insights","bookings","users","orders","inventory","coupons"];
+      document.getElementById("tabs").innerHTML = tabs.map(t => "<button class=tab onclick=setPane('"+t+"')>"+t+"</button>").join("");
+      setPane("insights");
+    }
+    window.goBack = goBack; window.goHome = goHome; window.setPane = setPane; window.initAdmin = initAdmin;
+    initAdmin();
+  </script>
