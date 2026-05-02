@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Elite Portal - CRAZY TOWN</title>
+  <style>
+    :root { --bg:#070b18; --card:#111a2f; --line:#243252; --text:#e7eefc; --muted:#9fb2d3; --gold:#fbbf24; --accent:#38bdf8; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: Arial, sans-serif; background:radial-gradient(circle at top,#0f1a35,#070b18); color:var(--text); }
+    .wrap { width:min(1180px,95vw); margin:20px auto; }
+    .top { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
+    .btn { border:1px solid var(--line); background:#0f1730; color:var(--text); padding:10px 12px; border-radius:10px; text-decoration:none; display:inline-block; cursor:pointer; }
+    .hero { margin-top:12px; border:1px solid rgba(251,191,36,0.4); background:linear-gradient(135deg,rgba(251,191,36,0.18),rgba(17,26,47,0.95)); border-radius:16px; padding:18px; text-align:center; }
+    .hero .cup { font-size:56px; color:var(--gold); }
+    .hero h1 { margin:8px 0 4px; letter-spacing:2px; }
+    .hero p { color:var(--muted); margin:0; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px; margin-top:14px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
+    .small { color:var(--muted); font-size:12px; }
+    .badge { display:inline-block; padding:4px 10px; border-radius:999px; border:1px solid rgba(251,191,36,0.45); color:#fde68a; font-size:12px; }
+    .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin:10px 0; }
+    input, select, textarea { width:100%; background:#0b1328; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px; }
+    table { width:100%; border-collapse:collapse; min-width:760px; }
+    th, td { border-bottom:1px solid var(--line); text-align:left; padding:10px; font-size:14px; }
+    .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:12px; margin-top:8px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <a class="btn" href="index.html">Main Website</a>
+        <a class="btn" href="vip.html">VIP</a>
+        <a class="btn" href="operations.html">Operations</a>
+      </div>
+    </div>
+
+    <div class="hero">
+      <div class="cup">⭐</div>
+      <h1>CRAZY TOWN</h1>
+      <p>Elite Division</p>
+    </div>
+
+    <div class="grid">
+      <div class="card"><div class="small">Elite Benefits</div><h2>40% Discount</h2><span class="badge">Active</span></div>
+      <div class="card"><div class="small">Elite Tournaments</div><h2 id="eliteTourCount">0</h2></div>
+      <div class="card"><div class="small">Elite Card</div><h2 id="eliteCardCode">-</h2></div>
+      <div class="card"><div class="small">My Status</div><h2 id="eliteUserRank">Elite</h2></div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <h3 style="margin-top:0;">Elite Card</h3>
+      <div style="border:1px solid rgba(251,191,36,0.45); border-radius:12px; padding:14px; background:linear-gradient(135deg,rgba(251,191,36,0.18),rgba(11,19,40,0.95));">
+        <div class="small">CRAZY TOWN - ELITE ACCESS</div>
+        <h3 id="eliteCardName" style="margin:6px 0;">-</h3>
+        <div class="small">Card ID: <span id="eliteCardId">-</span></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <h3 style="margin-top:0;">Elite-Only Tournaments</h3>
+      <div class="table-wrap"><table id="eliteTourTable"></table></div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <h3 style="margin-top:0;">Elite Registration</h3>
+      <form onsubmit="registerEliteTournament(event)">
+        <div class="row">
+          <select id="eliteTourSelect" required></select>
+          <input id="eliteTeamTag" placeholder="Team tag" required>
+          <input id="elitePreferredDate" type="date" required>
+        </div>
+        <textarea id="eliteNotes" rows="3" placeholder="Elite tactical notes..."></textarea>
+        <div style="margin-top:8px;"><button class="btn" type="submit">Register as Elite</button></div>
+      </form>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <h3 style="margin-top:0;">My Elite Registrations</h3>
+      <div class="table-wrap"><table id="eliteRegTable"></table></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { getCurrentUser, getKV, setKV } from './db.js';
+
+    const K = {
+      users:'crazyTown_users',
+      session:'crazyTown_session',
+      eliteTournaments:'crazyTown_elite_tournaments',
+      eliteRegs:'crazyTown_elite_regs',
+      activity:'crazyTown_activity'
+    };
+    const DEFAULT_TOURS = [
+      { id:'el-1', name:'Elite Dawn Raid', prize:'25,000 EGP + Elite Medal', status:'Open' },
+      { id:'el-2', name:'Desert Elite Clash', prize:'18,000 EGP + Gear Sponsor', status:'Open' },
+      { id:'el-3', name:'Elite Championship Finals', prize:'40,000 EGP + Hall of Fame', status:'Coming Soon' }
+    ];
+
+    async function ro(k, d) { try { return await getKV(k, d); } catch { return d; } }
+    async function so(k, v) { try { await setKV(k, v); } catch (e) { console.error('Save error:', e); } }
+
+    async function me() {
+      try {
+        const current = await getCurrentUser();
+        if (!current) return null;
+        const users = await ro(K.users, []);
+        return users.find((u) => String(u.email) === String(current.email)) || null;
+      } catch { return null; }
+    }
+
+    const hasRole = (user, role)=>!!user && Array.isArray(user.roles) && user.roles.includes(role);
+    const isAdmin = (user)=>hasRole(user, 'admin') || hasRole(user, 'owner') || hasRole(user, 'co-owner') || hasRole(user, 'ceo') || hasRole(user, 'hr');
+
+    async function guard() {
+      const user = await me();
+      if (!(hasRole(user, 'elite') || isAdmin(user))) {
+        alert('Elite portal access denied.');
+        location.href = 'index.html';
+      }
+    }
+
+    async function ensureSeed() {
+      const existing = await ro(K.eliteTournaments, null);
+      if (!existing) await so(K.eliteTournaments, DEFAULT_TOURS);
+      const regs = await ro(K.eliteRegs, null);
+      if (!regs) await so(K.eliteRegs, []);
+    }
+
+    async function addActivity(action, actor='Elite') {
+      try {
+        const arr = await ro(K.activity, []);
+        arr.unshift({ id:`act-${Date.now()}`, action, actor, at:new Date().toISOString() });
+        await so(K.activity, arr.slice(0, 300));
+      } catch (e) { console.error('Activity error:', e); }
+    }
+
+    function renderEliteCard(user) {
+      const cardId = `CT-EL-${String(user.id).slice(-4).toUpperCase()}`;
+      document.getElementById('eliteCardName').textContent = user.name || 'Elite';
+      document.getElementById('eliteCardId').textContent = cardId;
+      document.getElementById('eliteCardCode').textContent = cardId;
+      document.getElementById('eliteUserRank').textContent = hasRole(user, 'elite') ? 'Elite' : 'Admin Access';
+    }
+
+    async function renderTournaments() {
+      const tours = await ro(K.eliteTournaments, []);
+      document.getElementById('eliteTourCount').textContent = tours.length;
+      document.getElementById('eliteTourSelect').innerHTML = `<option value="">Select tournament</option>${tours.filter((t)=>t.status !== 'Closed').map((t)=>`<option value="${t.id}">${t.name}</option>`).join('')}`;
+      document.getElementById('eliteTourTable').innerHTML = `
+        <thead><tr><th>Tournament</th><th>Prize</th><th>Status</th></tr></thead>
+        <tbody>${tours.map((t)=>`<tr><td>${t.name}</td><td>${t.prize}</td><td>${t.status}</td></tr>`).join('')}</tbody>`;
+    }
+
+    async function registerEliteTournament(e) {
+      e.preventDefault();
+      const user = await me();
+      if (!user) return;
+      const tournamentId = document.getElementById('eliteTourSelect').value;
+      const teamTag = document.getElementById('eliteTeamTag').value.trim();
+      const preferredDate = document.getElementById('elitePreferredDate').value;
+      const notes = document.getElementById('eliteNotes').value.trim();
+      if (!tournamentId || !teamTag || !preferredDate) return;
+      const tours = await ro(K.eliteTournaments, []);
+      const tour = tours.find((t)=>t.id === tournamentId);
+      if (!tour) return;
+      try {
+        const regs = await ro(K.eliteRegs, []);
+        regs.unshift({
+          id:`elr-${Date.now()}`,
+          tournamentId,
+          tournamentName: tour.name,
+          userId:user.id,
+          userName:user.name,
+          teamTag,
+          preferredDate,
+          notes,
+          status:'Pending',
+          createdAt:new Date().toISOString()
+        });
+        await so(K.eliteRegs, regs);
+        await addActivity(`Elite registration: ${tour.name}`, user.name);
+        e.target.reset();
+        await renderRegistrations();
+      } catch (err) {
+        console.error('Registration error:', err);
+        alert('Failed to register');
+      }
+    }
+
+    async function renderRegistrations() {
+      const user = await me();
+      const regs = (await ro(K.eliteRegs, [])).filter((r)=>String(r.userId)===String(user?.id));
+      document.getElementById('eliteRegTable').innerHTML = `
+        <thead><tr><th>Tournament</th><th>Team</th><th>Date</th><th>Status</th><th>Created</th></tr></thead>
+        <tbody>${regs.length ? regs.map((r)=>`<tr><td>${r.tournamentName}</td><td>${r.teamTag}</td><td>${r.preferredDate}</td><td>${r.status}</td><td>${new Date(r.createdAt).toLocaleString()}</td></tr>`).join('') : '<tr><td colspan="5">No registrations yet.</td></tr>'}</tbody>`;
+    }
+
+    async function render() {
+      const user = await me();
+      if (!user) return;
+      renderEliteCard(user);
+      await renderTournaments();
+      await renderRegistrations();
+    }
+
+    window.registerEliteTournament = registerEliteTournament;
+
+    guard();
+    ensureSeed();
+    render();
+  </script>
+</body>
+</html>
