@@ -3973,6 +3973,16 @@ async function showDashboard() {
       window.location.href = 'vip.html';
     }
 
+    async function openElitePortal() {
+      closeUserDropdown();
+      const user = await getLocalUser();
+      if (!user) {
+        showToast('Please login first', 'warning');
+        return openLogin();
+      }
+      window.location.href = 'elite.html';
+    }
+
     function showLeaderboard() {
       closeUserDropdown();
       document.getElementById('leaderboard').scrollIntoView({ behavior: 'smooth' });
