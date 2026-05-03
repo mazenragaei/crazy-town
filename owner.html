@@ -845,7 +845,7 @@
     window.clearOwnerLB = clearOwnerLB;
 
     // === LEADERBOARD MANAGEMENT (Owner) ===
-    async function ro(key, def) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch { return def; } }
+    // Reuse existing ro() from line 519 - do NOT redeclare
     async function wo(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
 
     window.switchOwnerLBPane = async function(type, btn) {
