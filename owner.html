@@ -33,6 +33,7 @@
   </style>
 </head>
 <body>
+  <div id="modalContainer"></div>
   <div class="wrap">
     <div class="top">
       <h1>Owner Control Center</h1>
@@ -57,30 +58,48 @@
 
       <main>
         <section class="pane active" data-pane="overview">
-          <div class="grid">
-            <div class="card"><div class="small">Users</div><h2 id="statUsers">0</h2></div>
-            <div class="card"><div class="small">Bookings</div><h2 id="statBookings">0</h2></div>
-            <div class="card"><div class="small">Orders</div><h2 id="statOrders">0</h2></div>
-            <div class="card"><div class="small">Support Tickets</div><h2 id="statTickets">0</h2></div>
+          <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));">
+            <div class="card" style="border-color:#00c2ff33;"><div class="small">Total Users</div><h2 id="statUsers" style="margin:4px 0 0;color:#00c2ff;">0</h2></div>
+            <div class="card" style="border-color:#22c55e33;"><div class="small">Revenue</div><h2 id="statRevenue" style="margin:4px 0 0;color:#22c55e;">0 EGP</h2></div>
+            <div class="card" style="border-color:#f59e0b33;"><div class="small">Bookings</div><h2 id="statBookings" style="margin:4px 0 0;color:#f59e0b;">0</h2></div>
+            <div class="card" style="border-color:#ef444433;"><div class="small">Orders</div><h2 id="statOrders" style="margin:4px 0 0;color:#ef4444;">0</h2></div>
+            <div class="card" style="border-color:#9d4edd33;"><div class="small">VIP/Elite Users</div><h2 id="statVip" style="margin:4px 0 0;color:#9d4edd;">0</h2></div>
+            <div class="card" style="border-color:#ffd70033;"><div class="small">Admins</div><h2 id="statAdmins" style="margin:4px 0 0;color:#ffd700;">0</h2></div>
+            <div class="card" style="border-color:#ef444433;"><div class="small">Banned</div><h2 id="statBanned" style="margin:4px 0 0;color:#ef4444;">0</h2></div>
+            <div class="card" style="border-color:#22c55e33;"><div class="small">Support Tickets</div><h2 id="statTickets" style="margin:4px 0 0;">0</h2></div>
           </div>
+
           <div class="card" style="margin-top:12px;">
-            <h3 style="margin-top:0;">Global Launch Settings</h3>
+            <h3 style="margin-top:0;">⚡ Quick Actions</h3>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+              <button class="btn primary" onclick="switchPane('staff')">👥 View All Users</button>
+              <button class="btn" onclick="switchPane('roles')">🔐 Manage Roles</button>
+              <button class="btn" onclick="switchPane('bulk')">⚡ Bulk Ops</button>
+              <button class="btn" onclick="switchPane('system')">🔧 System Config</button>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:12px;">
+            <h3 style="margin-top:0;">🌐 Global Launch Settings</h3>
             <div class="row">
               <label><input id="cfgMaintenance" type="checkbox"> Maintenance Mode</label>
               <label><input id="cfgSupport" type="checkbox"> Support Enabled</label>
               <label><input id="cfgVip" type="checkbox"> VIP Enabled</label>
+              <label><input id="cfgElite" type="checkbox" checked> Elite Enabled</label>
             </div>
             <div class="row">
-              <input id="cfgNotification" placeholder="Global notification text">
+              <input id="cfgNotification" placeholder="Global notification text (shown to all users)">
               <button class="btn primary" onclick="saveGlobalSettings()">Save Settings</button>
             </div>
           </div>
+
           <div class="card" style="margin-top:12px;">
-            <h3 style="margin-top:0;">Emergency Actions</h3>
+            <h3 style="margin-top:0;">🚨 Emergency Actions</h3>
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
-              <button class="btn" onclick="exportAllBackup()">Export Full Backup</button>
-              <button class="btn danger" onclick="clearRuntimeCaches()">Clear Chat/Cart Cache</button>
-              <button class="btn danger" onclick="forceSignOutEveryone()">Force Sign-out All</button>
+              <button class="btn" onclick="exportAllBackup()">📦 Export Full Backup</button>
+              <button class="btn" onclick="exportUsersCSV()">📊 Export Users CSV</button>
+              <button class="btn danger" onclick="clearRuntimeCaches()">🗑 Clear Chat/Cart Cache</button>
+              <button class="btn danger" onclick="forceSignOutEveryone()">🚪 Force Sign-out All</button>
             </div>
           </div>
         </section>
@@ -156,9 +175,23 @@
         <section class="pane" data-pane="staff">
           <div class="card">
             <h3 style="margin-top:0;">👥 Staff Monitor</h3>
-            <p class="small" style="margin-bottom:12px;">Monitor admin and privileged staff activity</p>
+            <p class="small" style="margin-bottom:12px;">Monitor privileged staff and all users</p>
+            <div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <input type="search" id="staffSearch" placeholder="Search staff or users..." style="max-width:220px;" oninput="renderStaffTable(this.value)">
+              <select id="staffFilter" onchange="renderStaffTable(document.getElementById('staffSearch').value)" style="max-width:160px;">
+                <option value="">All Users</option>
+                <option value="owner">Owners</option>
+                <option value="admin">Admins</option>
+                <option value="hr">HR</option>
+                <option value="elite">Elite</option>
+                <option value="vip">VIP</option>
+                <option value="champion">Champion</option>
+                <option value="member">Members</option>
+              </select>
+              <span style="margin-left:auto;color:#9ca3af;font-size:12px;" id="staffCount"></span>
+            </div>
             <div class="table-wrap">
-              <table id="staffTable"><thead><tr><th>Name</th><th>Email</th><th>Roles</th><th>Balance</th><th>Actions</th></tr></thead><tbody id="staffTableBody"></tbody></table>
+              <table id="staffTable"><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Roles</th><th>Balance</th><th>Joined</th><th>Actions</th></tr></thead><tbody id="staffTableBody"></tbody></table>
             </div>
           </div>
         </section>
@@ -342,6 +375,7 @@
       settings.maintenance = document.getElementById('cfgMaintenance').checked;
       settings.supportEnabled = document.getElementById('cfgSupport').checked;
       settings.vipEnabled = document.getElementById('cfgVip').checked;
+      settings.eliteEnabled = document.getElementById('cfgElite')?.checked ?? true;
       const text = document.getElementById('cfgNotification').value.trim();
       if (text) {
         settings.notifications.unshift({ text, at:new Date().toISOString() });
@@ -349,7 +383,7 @@
       await so(K.settings, settings);
       await act('Global settings updated from Owner Control');
       await render();
-      alert('Settings saved.');
+      showToast('Settings saved!', 'success');
     }
 
     async function renderRolesTable() {
@@ -426,15 +460,37 @@
       const bookings = await ro(K.bookings, []);
       const orders = await ro(K.orders, []);
       const tickets = await ro(K.supportTickets, []);
-      const settings = await ro(K.settings, { maintenance:false, supportEnabled:true, vipEnabled:true, notifications:[] });
+      const settings = await ro(K.settings, { maintenance:false, supportEnabled:true, vipEnabled:true, eliteEnabled:true, notifications:[] });
+      const revenue = [...bookings, ...orders].reduce((s,b) => s + Number(b.price||b.total||0), 0);
+      const vipCount = users.filter(u => u.roles?.some(r => ['vip','elite','champion'].includes(r))).length;
+      const adminCount = users.filter(u => u.roles?.some(r => ['admin','owner','co-owner','ceo','hr'].includes(r))).length;
+      const bannedCount = users.filter(u => u.isBanned).length;
       document.getElementById('statUsers').textContent = users.length;
+      document.getElementById('statRevenue').textContent = revenue.toFixed(0) + ' EGP';
       document.getElementById('statBookings').textContent = bookings.length;
       document.getElementById('statOrders').textContent = orders.length;
+      document.getElementById('statVip').textContent = vipCount;
+      document.getElementById('statAdmins').textContent = adminCount;
+      document.getElementById('statBanned').textContent = bannedCount;
       document.getElementById('statTickets').textContent = tickets.length;
       document.getElementById('cfgMaintenance').checked = !!settings.maintenance;
       document.getElementById('cfgSupport').checked = settings.supportEnabled !== false;
       document.getElementById('cfgVip').checked = settings.vipEnabled !== false;
+      document.getElementById('cfgElite').checked = settings.eliteEnabled !== false;
       document.getElementById('cfgNotification').value = '';
+    }
+
+    function exportUsersCSV() {
+      const users = window._bulkUsers || [];
+      const rows = [['Name','Email','Phone','Roles','Balance','Banned','Joined']];
+      users.forEach(u => rows.push([u.name||'',u.email||'',u.phone||'',(u.roles||[]).join('/'),u.balance||0,u.isBanned?'Yes':'No',u.joined||'']));
+      const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+      const blob = new Blob([csv], {type:'text/csv'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'crazytown-users.csv';
+      a.click();
+      showToast('Users exported!', 'success');
     }
 
     async function renderPolicyTable() {
@@ -490,19 +546,177 @@
     window.resetSystemConfig = resetSystemConfig;
     window.wipeAllUserData = wipeAllUserData;
     window.factoryReset = factoryReset;
+    window.renderStaffTable = renderStaffTable;
+    window.openUserDetailModal = openUserDetailModal;
+    window.addStaffPrivileges = addStaffPrivileges;
+    window.executePromote = executePromote;
+    window.addRoleFromDetail = addRoleFromDetail;
+    window.removeRoleFromDetail = removeRoleFromDetail;
+    window.toggleBanFromDetail = toggleBanFromDetail;
+    window.adjustBalanceFromDetail = adjustBalanceFromDetail;
+    window.closeModal = closeModal;
 
     // === NEW OWNER SECTIONS ===
-    async function renderStaffTable() {
-      const users = await ro(K.users, []);
-      const staff = users.filter(u => u.roles?.some(r => ['admin','owner','co-owner','ceo','hr'].includes(r)));
-      document.getElementById('staffTableBody').innerHTML = staff.map(u => `<tr>
-        <td><strong>${u.name||'-'}</strong></td>
+    async function renderStaffTable(searchQuery) {
+      const q = searchQuery !== undefined ? searchQuery : (document.getElementById('staffSearch')?.value || '').toLowerCase();
+      const filter = document.getElementById('staffFilter')?.value || '';
+      let users = await ro(K.users, []);
+      // Apply role filter
+      if (filter) {
+        users = users.filter(u => u.roles?.includes(filter));
+      }
+      // Apply search
+      if (q) {
+        users = users.filter(u =>
+          (u.name||'').toLowerCase().includes(q) ||
+          (u.email||'').toLowerCase().includes(q) ||
+          (u.phone||'').toLowerCase().includes(q)
+        );
+      }
+      // Show count
+      const total = (await ro(K.users, [])).length;
+      const el = document.getElementById('staffCount');
+      if (el) el.textContent = `Showing ${users.length} of ${total} users`;
+      // Badge colors for roles
+      const roleColor = r => r==='owner'||r==='co-owner'||r==='ceo' ? '#ef4444' : r==='admin' ? '#f59e0b' : r==='hr' ? '#8b5cf6' : r==='elite' ? '#9d4edd' : r==='vip' ? '#ffd700' : r==='champion' ? '#f97316' : '#64748b';
+      document.getElementById('staffTableBody').innerHTML = users.map(u => `<tr>
+        <td><strong>${u.name||'-'}</strong> ${u.isBanned?'<span style="color:#ef4444;">[Banned]</span>':''}</td>
         <td>${u.email||'-'}</td>
-        <td><span class="badge">${u.roles.join('/')}</span></td>
-        <td>${Number(u.balance||0).toFixed(0)}</td>
-        <td><button class="btn" onclick="removeStaffRole('${u.id}')">Remove Privileges</button></td>
-      </tr>`).join('') || '<tr><td colspan="5">No privileged staff found</td></tr>';
+        <td>${u.phone||'-'}</td>
+        <td>${(u.roles||['member']).map(r => `<span style="background:${roleColor(r)}22;color:${roleColor(r)};border:1px solid ${roleColor(r)};padding:1px 6px;border-radius:4px;font-size:11px;margin:1px;">${r.toUpperCase()}</span>`).join(' ')}</td>
+        <td style="color:#22c55e;">${Number(u.balance||0).toFixed(0)} EGP</td>
+        <td>${u.joined?new Date(u.joined).toLocaleDateString('en-GB'):'-'}</td>
+        <td>
+          <button class="btn" onclick="openUserDetailModal('${u.id}')" style="padding:4px 8px;font-size:12px;">View</button>
+          ${u.roles?.some(r => ['admin','owner','co-owner','ceo','hr'].includes(r)) ? `<button class="btn" onclick="removeStaffRole('${u.id}')" style="padding:4px 8px;font-size:12px;color:#ef4444;">Remove</button>` : `<button class="btn" onclick="addStaffPrivileges('${u.id}')" style="padding:4px 8px;font-size:12px;">Promote</button>`}
+        </td>
+      </tr>`).join('') || '<tr><td colspan="7">No users found</td></tr>';
     }
+
+    async function openUserDetailModal(id) {
+      const users = await ro(K.users, []);
+      const u = users.find(x => String(x.id) === String(id));
+      if (!u) return alert('User not found');
+      const bookings = (await ro(K.bookings, [])).filter(b => b.userId === u.id || b.email === u.email);
+      const orders = (await ro(K.orders, [])).filter(o => o.userId === u.id || o.email === u.email);
+      document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
+        <div class="modal" onclick="event.stopPropagation()" style="width:min(600px,90vw);">
+          <h3 style="color:var(--accent);">${u.name||'Unknown'}</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0;">
+            <div class="card" style="padding:10px;"><div class="small">Email</div><strong>${u.email||'-'}</strong></div>
+            <div class="card" style="padding:10px;"><div class="small">Phone</div><strong>${u.phone||'-'}</strong></div>
+            <div class="card" style="padding:10px;"><div class="small">Balance</div><strong style="color:#22c55e;">${Number(u.balance||0).toFixed(0)} EGP</strong></div>
+            <div class="card" style="padding:10px;"><div class="small">Joined</div><strong>${u.joined?new Date(u.joined).toLocaleDateString():'-'}</strong></div>
+          </div>
+          <h4>Roles: ${(u.roles||['member']).map(r => `<span style="background:#9d4edd33;color:#9d4edd;padding:2px 8px;border-radius:4px;border:1px solid #9d4edd;margin:2px;">${r}</span>`).join(' ')}</h4>
+          <h4 style="margin-top:12px;">Bookings (${bookings.length})</h4>
+          <div style="max-height:150px;overflow:auto;background:#121226;border:1px solid #2a2a42;border-radius:8px;padding:8px;">
+            ${bookings.length ? bookings.map(b => `<div style="padding:6px;border-bottom:1px solid #2a2a42;display:flex;justify-content:space-between;"><span>${b.ticketId||'-'} - ${b.date||'-'}</span><span class="badge ${b.status==='Confirmed'?'ok':'warn'}">${b.status}</span></div>`).join('') : '<div style="color:#555;">No bookings</div>'}
+          </div>
+          <h4 style="margin-top:12px;">Orders (${orders.length})</h4>
+          <div style="max-height:150px;overflow:auto;background:#121226;border:1px solid #2a2a42;border-radius:8px;padding:8px;">
+            ${orders.length ? orders.map(o => `<div style="padding:6px;border-bottom:1px solid #2a2a42;display:flex;justify-content:space-between;"><span>#${(o.id||'').slice(-6)} - ${Number(o.total||0).toFixed(0)} EGP</span><span>${o.status||''}</span></div>`).join('') : '<div style="color:#555;">No orders</div>'}
+          </div>
+          <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn" onclick="addRoleFromDetail('${u.id}')">+ Add Role</button>
+            <button class="btn" onclick="removeRoleFromDetail('${u.id}')">- Remove Role</button>
+            ${u.isBanned ? `<button class="btn" style="background:#166534;color:#fff;" onclick="toggleBanFromDetail('${u.id}')">Unban</button>` : `<button class="btn" style="background:#991b1b;color:#fff;" onclick="toggleBanFromDetail('${u.id}')">Ban</button>`}
+            <button class="btn" onclick="adjustBalanceFromDetail('${u.id}')">Adjust Balance</button>
+          </div>
+          <div class="modal-actions" style="margin-top:12px;"><button class="btn" onclick="closeModal()">Close</button></div>
+        </div></div>`;
+    }
+
+    async function addStaffPrivileges(id) {
+      document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+          <h3>Promote User</h3>
+          <p style="color:#9ca3af;">Select role to assign to user:</p>
+          <div class="form-section">
+            <select id="promoteRole" style="margin:8px 0;"><option value="vip">VIP</option><option value="elite">Elite</option><option value="champion">Champion</option><option value="admin">Admin</option><option value="hr">HR</option></select>
+          </div>
+          <div class="modal-actions">
+            <button class="btn" onclick="closeModal()">Cancel</button>
+            <button class="btn primary" onclick="executePromote('${id}')">Promote</button>
+          </div>
+        </div></div>`;
+    }
+
+    async function executePromote(id) {
+      const role = document.getElementById('promoteRole').value;
+      let users = await ro(K.users, []);
+      const u = users.find(x => String(x.id) === String(id));
+      if (!u) return;
+      if (!Array.isArray(u.roles)) u.roles = ['member'];
+      if (!u.roles.includes(role)) u.roles.push(role);
+      await so(K.users, users);
+      await act(`User ${u.name} promoted to ${role}`, (await me())?.name || 'Owner');
+      closeModal();
+      await render();
+      showToast(`${u.name} promoted to ${role}`, 'success');
+    }
+
+    async function addRoleFromDetail(id) {
+      const users = await ro(K.users, []);
+      const u = users.find(x => String(x.id) === String(id));
+      if (!u) return;
+      const role = prompt('Enter role to add (vip/elite/champion/admin/hr/owner/co-owner/ceo):');
+      if (!role) return;
+      if (!Array.isArray(u.roles)) u.roles = ['member'];
+      if (!u.roles.includes(role)) { u.roles.push(role); await so(K.users, users); await act(`Role '${role}' added to ${u.name}`, (await me())?.name || 'Owner'); }
+      closeModal();
+      showToast(`Role '${role}' added`, 'success');
+      await render();
+    }
+
+    async function removeRoleFromDetail(id) {
+      const users = await ro(K.users, []);
+      const u = users.find(x => String(x.id) === String(id));
+      if (!u) return;
+      const role = prompt('Enter role to remove:');
+      if (!role) return;
+      if (u.id === 'root-admin' && role === 'owner') return alert('Cannot remove owner from root-admin');
+      u.roles = (u.roles || []).filter(r => r !== role);
+      if (!u.roles.length) u.roles = ['member'];
+      await so(K.users, users);
+      await act(`Role '${role}' removed from ${u.name}`, (await me())?.name || 'Owner');
+      closeModal();
+      showToast(`Role '${role}' removed`, 'success');
+      await render();
+    }
+
+    async function toggleBanFromDetail(id) {
+      let users = await ro(K.users, []);
+      const u = users.find(x => String(x.id) === String(id));
+      if (!u) return;
+      u.isBanned = !u.isBanned;
+      await so(K.users, users);
+      await act(`User ${u.name} ${u.isBanned ? 'banned' : 'unbanned'}`, (await me())?.name || 'Owner');
+      closeModal();
+      showToast(`User ${u.isBanned ? 'banned' : 'unbanned'}`, 'success');
+      await render();
+    }
+
+    function adjustBalanceFromDetail(id) {
+      const promptVal = prompt('Enter new balance (EGP):');
+      if (promptVal === null) return;
+      const newBalance = Number(promptVal);
+      if (isNaN(newBalance)) return alert('Invalid number');
+      (async () => {
+        let users = await ro(K.users, []);
+        const u = users.find(x => String(x.id) === String(id));
+        if (!u) return;
+        u.balance = newBalance;
+        await so(K.users, users);
+        await act(`Balance of ${u.name} set to ${newBalance} EGP`, (await me())?.name || 'Owner');
+        closeModal();
+        showToast(`Balance updated to ${newBalance} EGP`, 'success');
+        await render();
+      })();
+    }
+
+    function closeModal() { document.getElementById('modalContainer').innerHTML = ''; }
+    function showToast(msg, type) { const el = document.createElement('div'); el.style = 'position:fixed;bottom:20px;right:20px;padding:12px 20px;border-radius:8px;z-index:9999;font-size:14px;font-weight:bold;' + (type==='success'?'background:#22c55e;color:#fff;':type==='error'?'background:#ef4444;color:#fff;':'background:#1a1a2e;color:#fff;border:1px solid #2a2a42;'); el.textContent = msg; document.body.appendChild(el); setTimeout(()=>el.remove(),3000); }
 
     async function removeStaffRole(id) {
       let users = await ro(K.users, []);
