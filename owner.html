@@ -834,17 +834,10 @@
     window.closeModal = closeModal;
     window.switchPane = setPane;
     window.setPane = setPane;
-    window.switchOwnerLBPane = switchOwnerLBPane;
-    window.openOwnerLBBulkModal = openOwnerLBBulkModal;
-    window.loadOwnerLBSample = loadOwnerLBSample;
-    window.saveOwnerLBCSV = saveOwnerLBCSV;
-    window.openOwnerLBEdit = openOwnerLBEdit;
-    window.saveOwnerLBEdit = saveOwnerLBEdit;
-    window.adjustOwnerLB = adjustOwnerLB;
-    window.deleteOwnerLB = deleteOwnerLB;
-    window.clearOwnerLB = clearOwnerLB;
 
     // === LEADERBOARD MANAGEMENT (Owner) ===
+    // Note: functions use "window.xxx = function()" pattern for self-assignment
+    // so do NOT assign them here before they're defined
     // Reuse existing ro() from line 519 - do NOT redeclare
     async function wo(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
 
