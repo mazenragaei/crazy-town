@@ -3642,23 +3642,29 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
     }
 
     async function checkAuth() {
-      // 1. Try to auto-sync session from Supabase
+      const authButtons = document.getElementById('authButtons');
+      const userMenuContainer = document.getElementById('userMenuContainer');
+
+      // 1. إجبار الموقع على المزامنة فوراً مع سوبابيز قبل أي خطوة
       try {
         const { data } = await supabase.auth.getUser();
         if (data && data.user) {
+          // لو سوبابيز قالت "تمام"، نربط مفتاح الجلسة فوراً لو مش موجود
           if (localStorage.getItem(DB_KEYS.session) !== data.user.id) {
             localStorage.setItem(DB_KEYS.session, data.user.id);
-            console.log("🔄 Auto-Synced session from Supabase.");
+            console.log("🚀 Auto-Sync Complete. Welcome back, Commander.");
           }
+        } else {
+          // لو سوبابيز قالت مفيش دخول، نمسح المفتاح القديم عشان ميهنجش
+          localStorage.removeItem(DB_KEYS.session);
         }
       } catch (e) {
-        console.warn("Session sync waiting...");
+        console.warn("Auth sync pending...");
       }
 
-      // 2. Get user safely
+      // 2. جلب المستخدم من قاعدة البيانات بعد المزامنة
       const user = await getLocalUser();
-      const authButtons = document.getElementById('authButtons');
-      const userMenuContainer = document.getElementById('userMenuContainer');
+
       const adminMenuItem = document.getElementById('adminMenuItem');
       const eliteMenuItem = document.getElementById('eliteMenuItem');
       const ownerMenuItem = document.getElementById('ownerMenuItem');
@@ -3666,32 +3672,36 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
       const adminQuickLink = document.getElementById('adminQuickLink');
       const ownerQuickLink = document.getElementById('ownerQuickLink');
 
-      // 3. Update UI based on user state
+      // 3. تحديث الواجهة أوتوماتيكياً
       if (user && user.id) {
         authButtons.style.display = 'none';
         userMenuContainer.style.display = 'block';
 
-        const userName = user?.name || 'Operative';
+        const userName = user.name || 'Operative';
         document.getElementById('navUserName').textContent = userName.split(' ')[0];
         document.getElementById('navUserAvatar').textContent = userName.charAt(0).toUpperCase();
         document.getElementById('dropdownName').textContent = userName;
         document.getElementById('dropdownAvatar').textContent = userName.charAt(0).toUpperCase();
 
-        const rolesText = Array.isArray(user?.roles) ? user.roles.join(' / ') : (user?.rank || 'Recruit');
+        const rolesText = Array.isArray(user.roles) ? user.roles.join(' / ') : (user.rank || 'Recruit');
         document.getElementById('dropdownRank').textContent = rolesText;
-        document.getElementById('dropdownBalance').textContent = Number(user?.balance || 0).toFixed(0);
+        document.getElementById('dropdownBalance').textContent = Number(user.balance || 0).toFixed(0);
 
-        adminMenuItem.style.display = isAdmin(user) ? 'block' : 'none';
-        eliteMenuItem.style.display = (user?.roles || []).includes('elite') ? 'block' : 'none';
-        ownerMenuItem.style.display = (hasRole(user, 'owner') || hasRole(user, 'co-owner') || hasRole(user, 'ceo')) ? 'block' : 'none';
+        // إظهار لوحات التحكم (Admin/Elite/Owner)
+        if (adminMenuItem) adminMenuItem.style.display = isAdmin(user) ? 'block' : 'none';
+        if (eliteMenuItem) eliteMenuItem.style.display = (user.roles || []).includes('elite') ? 'block' : 'none';
+
+        const isOwner = (user.roles || []).some(r => ['owner', 'co-owner', 'ceo'].includes(r));
+        if (ownerMenuItem) ownerMenuItem.style.display = isOwner ? 'block' : 'none';
 
         if (quickSwitch) quickSwitch.style.display = 'flex';
         if (adminQuickLink) adminQuickLink.style.display = isAdmin(user) ? 'inline' : 'none';
-        if (ownerQuickLink) ownerQuickLink.style.display = (hasRole(user, 'owner') || hasRole(user, 'co-owner') || hasRole(user, 'ceo')) ? 'inline' : 'none';
+        if (ownerQuickLink) ownerQuickLink.style.display = isOwner ? 'inline' : 'none';
 
         applyUserAvatar(user);
         autoFillBookingForm(user);
       } else {
+        // حالة الخروج
         authButtons.style.display = 'flex';
         userMenuContainer.style.display = 'none';
         if (quickSwitch) quickSwitch.style.display = 'none';
@@ -5047,9 +5057,9 @@ function switchLeaderboard(type) {
     
 
     
-    document.addEventListener('DOMContentLoaded', () => {
-      ensureSeedData();
-      checkAuth();
+    document.addEventListener('DOMContentLoaded', async () => {
+      await ensureSeedData();
+      await checkAuth();
       renderNews();
       renderChatMessages();
       renderFriendList();

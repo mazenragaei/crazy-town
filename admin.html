@@ -132,6 +132,8 @@
         {id:'team', label:'Team Control', icon:'&#129309;'},
         {id:'leaderboard', label:'Leaderboard', icon:'&#127941;'},
         {id:'commerce', label:'Commerce', icon:'&#128188;'},
+        {id:'coupons', label:'Coupons', icon:'&#128179;'},
+        {id:'tournaments', label:'Tournaments', icon:'&#127942;'},
         {id:'operations', label:'Operations', icon:'&#9881;'},
         {id:'customers', label:'Customers', icon:'&#128079;'},
         {id:'news', label:'News', icon:'&#128240;'},
@@ -202,13 +204,18 @@
             </tbody></table></div></div>`;
           break;
         case 'team':
-          html = `<div class="card"><h3>Teams</h3>
-            <div class="table-wrap"><table><thead><tr><th>Name</th><th>Leader</th><th>Members</th><th>Status</th></tr></thead><tbody>
-            ${d.teams.length ? d.teams.map(t => `<tr><td>${t.name||'-'}</td><td>${t.leader||'-'}</td><td>${t.members?.length||0}</td><td><span class="badge ok">Active</span></td></tr>`).join('') : '<tr><td colspan="4">No teams</td></tr>'}
+          html = `<div class="card"><h3>Team Control</h3>
+            <div style="margin-bottom:12px;"><button class="btn" onclick="switchPane('operations')" style="background:#1b1b34;">View Operations</button></div>
+            <div class="table-wrap"><table><thead><tr><th>Name</th><th>Leader</th><th>Members</th><th>Tournament</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+            ${d.teams.length ? d.teams.map(t => `<tr><td><strong>${t.name||'-'}</strong></td><td>${t.leader||'-'}</td><td>${t.members?.length||0}</td><td>${t.tournament?'<span class="badge ok">'+t.tournament+'</span>':'-'}</td><td><span class="badge ${t.status==='active'?'ok':'warn'}">${t.status||'active'}</span></td><td>
+              <button class="btn" onclick="editTeam('${t.id}')">Edit</button>
+              <button class="btn" onclick="disbandTeam('${t.id}')" style="color:#ef4444;">Disband</button>
+            </td></tr>`).join('') : '<tr><td colspan="6">No teams registered</td></tr>'}
             </tbody></table></div></div>`;
           break;
         case 'leaderboard':
           html = `<div class="card"><h3>Leaderboard</h3>
+            <div style="margin-bottom:12px;"><button class="btn" onclick="addLeaderboardEntryFromAdmin()" style="background:var(--accent);color:#000;">+ Add Player</button></div>
             <div class="table-wrap"><table><thead><tr><th>Rank</th><th>Name</th><th>Points</th><th>Kills</th><th>Wins</th><th>Actions</th></tr></thead><tbody>
             ${d.leaderboard.map((e,i) => `<tr><td>#${i+1}</td><td>${e.name||'-'}</td><td>${e.points||0}</td><td>${e.kills||0}</td><td>${e.wins||0}</td><td>
               <button class="btn" onclick="editLeaderboardEntry('${e.id}')">Edit</button>
@@ -217,26 +224,73 @@
             </tbody></table></div></div>`;
           break;
         case 'commerce':
-          html = `<div class="card"><h3>Inventory & Coupons</h3>
-            <h4>Inventory</h4>
-            <div class="table-wrap"><table><thead><tr><th>Item</th><th>Category</th><th>Price</th><th>Qty</th></tr></thead><tbody>
-            ${d.inventory.map(i => `<tr><td>${i.name||'-'}</td><td>${i.category||'-'}</td><td>${i.price||0} EGP</td><td class="${(i.qty||0)<5?'warn':''}">${i.qty||0}</td></tr>`).join('')}
-            </tbody></table></div>
-            <h4 style="margin-top:20px;">Coupons</h4>
-            <div class="table-wrap"><table><thead><tr><th>Code</th><th>Type</th><th>Value</th><th>Active</th></tr></thead><tbody>
-            ${d.coupons.map(c => `<tr><td>${c.code||'-'}</td><td>${c.type||'-'}</td><td>${c.value||0}</td><td>${c.active?'<span class="ok">Yes</span>':'<span class="danger">No</span>'}</td></tr>`).join('')}
+          const lowStockItems = d.inventory.filter(i => (i.qty || 0) < 5);
+          html = `<div class="card"><h3>Inventory Management</h3>
+            <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn" onclick="openAddInventoryModal()" style="background:var(--accent);color:#000;">+ Add Item</button>
+              <button class="btn" onclick="switchPane('coupons')">Manage Coupons</button>
+            </div>
+            ${lowStockItems.length ? `<div style="background:#3b1a0a;border:1px solid #ef4444;border-radius:8px;padding:10px;margin-bottom:12px;"><strong style="color:#ef4444;">Low Stock Alert:</strong> ${lowStockItems.length} items need restock</div>` : ''}
+            <div class="table-wrap"><table><thead><tr><th>Item</th><th>Category</th><th>Price</th><th>Qty</th><th>Actions</th></tr></thead><tbody>
+            ${d.inventory.length ? d.inventory.map(i => `<tr><td>${i.name||'-'}</td><td>${i.category||'-'}</td><td>${Number(i.price||0).toFixed(0)} EGP</td><td class="${(i.qty||0)<5?'warn':''}">${i.qty||0}</td><td>
+              <button class="btn" onclick="editInventory('${i.id}')">Edit</button>
+              <button class="btn" onclick="deleteInventory('${i.id}')" style="color:#ef4444;">Delete</button>
+            </td></tr>`).join('') : '<tr><td colspan="5">No inventory items</td></tr>'}
+            </tbody></table></div></div>`;
+          break;
+        case 'coupons':
+          html = `<div class="card"><h3>Coupon Management</h3>
+            <div style="margin-bottom:12px;"><button class="btn" onclick="openAddCouponModal()" style="background:var(--accent);color:#000;">+ Add Coupon</button></div>
+            <div class="table-wrap"><table><thead><tr><th>Code</th><th>Type</th><th>Value</th><th>Min Order</th><th>Uses</th><th>Active</th><th>Actions</th></tr></thead><tbody>
+            ${d.coupons.length ? d.coupons.map(c => `<tr><td><code style="background:#1a1a2e;padding:2px 6px;border-radius:4px;">${c.code||'-'}</code></td><td>${c.type||'%'}</td><td>${c.type==='percent'?c.value+'%':Number(c.value||0).toFixed(0)+' EGP'}</td><td>${c.minOrder||0}</td><td>${c.used||0}/${c.maxUses||'∞'}</td><td>
+              <button class="btn" onclick="toggleCouponActive('${c.code}')" style="background:${c.active?'#166534':'#991b1b'};color:#fff;border:none;">${c.active?'Active':'Inactive'}</button>
+            </td><td>
+              <button class="btn" onclick="editCoupon('${c.code}')">Edit</button>
+              <button class="btn" onclick="deleteCoupon('${c.code}')" style="color:#ef4444;">Delete</button>
+            </td></tr>`).join('') : '<tr><td colspan="7">No coupons</td></tr>'}
+            </tbody></table></div></div>`;
+          break;
+        case 'tournaments':
+          html = `<div class="card"><h3>Tournament Management</h3>
+            <div style="margin-bottom:12px;"><button class="btn" onclick="openAddTournamentModal()" style="background:var(--accent);color:#000;">+ Create Tournament</button></div>
+            <div class="table-wrap"><table><thead><tr><th>Name</th><th>Date</th><th>Teams</th><th>Entry Fee</th><th>Prize</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+            ${d.tournaments.length ? d.tournaments.map(t => `<tr><td>${t.name||'-'}</td><td>${t.date||'-'}</td><td>${t.registrations?.length||0}/${t.maxTeams||'?'}</td><td>${Number(t.entryFee||0).toFixed(0)} EGP</td><td>${Number(t.prize||0).toFixed(0)} EGP</td><td><span class="badge ${t.status==='Active'?'ok':'warn'}">${t.status||'Draft'}</span></td><td>
+              <button class="btn" onclick="editTournament('${t.id}')">Edit</button>
+              <button class="btn" onclick="deleteTournament('${t.id}')" style="color:#ef4444;">Delete</button>
+            </td></tr>`).join('') : '<tr><td colspan="7">No tournaments</td></tr>'}
             </tbody></table></div></div>`;
           break;
         case 'news':
-          html = `<div class="card"><h3>News</h3>
-            <div class="table-wrap"><table><thead><tr><th>Title</th><th>Body</th><th>Date</th></tr></thead><tbody>
-            ${d.news.map(n => `<tr><td>${n.title||'-'}</td><td>${(n.body||'-').substring(0,50)}...</td><td>${new Date(n.date).toLocaleDateString()}</td></tr>`).join('')}
+          html = `<div class="card"><h3>News Management</h3>
+            <div style="margin-bottom:12px;"><button class="btn" onclick="openAddNewsModal()" style="background:var(--accent);color:#000;">+ Add Article</button></div>
+            <div class="table-wrap"><table><thead><tr><th>Title</th><th>Body</th><th>Date</th><th>Featured</th><th>Actions</th></tr></thead><tbody>
+            ${d.news.length ? d.news.map(n => `<tr><td><strong>${n.title||'-'}</strong></td><td>${(n.body||'-').substring(0,60)}...</td><td>${n.date?new Date(n.date).toLocaleDateString():'-'}</td><td>${n.featured?'<span class="ok">★</span>':'<span style="color:#555;">-</span>'}</td><td>
+              <button class="btn" onclick="toggleFeaturedNews('${n.id}')">${n.featured?'Unfeature':'Feature'}</button>
+              <button class="btn" onclick="editNews('${n.id}')">Edit</button>
+              <button class="btn" onclick="deleteNews('${n.id}')" style="color:#ef4444;">Delete</button>
+            </td></tr>`).join('') : '<tr><td colspan="5">No news articles</td></tr>'}
+            </tbody></table></div></div>`;
+          break;
+        case 'support':
+          const tickets = (window.allData['crazyTown_chat'] || []).filter(m => m.isTicket);
+          html = `<div class="card"><h3>Support Tickets</h3>
+            <div class="table-wrap"><table><thead><tr><th>ID</th><th>From</th><th>Subject</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead><tbody>
+            ${tickets.length ? tickets.map(t => `<tr><td>#${t.id?.slice(-6)||'-'}</td><td>${t.sender||'-'}</td><td>${t.subject||'-'}</td><td><span class="badge ${t.status==='open'?'ok':'warn'}">${t.status||'open'}</span></td><td>${t.created_at?new Date(t.created_at).toLocaleDateString():'-'}</td><td>
+              <button class="btn" onclick="viewTicket('${t.id}')">View</button>
+              <button class="btn" onclick="closeTicket('${t.id}')">${t.status==='closed'?'Reopen':'Close'}</button>
+            </td></tr>`).join('') : '<tr><td colspan="6">No tickets</td></tr>'}
             </tbody></table></div></div>`;
           break;
         case 'activity':
-          html = `<div class="card"><h3>Activity Log</h3><div class="log">
-            ${d.activity.slice(0,50).map(a => `<div style="margin-bottom:8px;border-bottom:1px solid #2a2a42;padding-bottom:8px;"><small style="color:#9ca3af;">${new Date(a.at).toLocaleString()}</small><br>${a.actor}: ${a.action}</div>`).join('') || '<div>No activity</div>'}
-          </div></div>`;
+          html = `<div class="card"><h3>Activity Log</h3>
+            <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;">
+              <input type="search" id="activitySearch" placeholder="Filter activities..." oninput="filterActivity(this.value)" style="max-width:250px;">
+              <button class="btn" onclick="clearActivityLog()" style="color:#ef4444;border-color:#ef4444;">Clear All</button>
+              <button class="btn" onclick="exportActivityLog()">Export Log</button>
+            </div>
+            <div class="log" id="activityLogContent">
+            ${d.activity.slice(0,50).map(a => `<div style="margin-bottom:8px;border-bottom:1px solid #2a2a42;padding-bottom:8px;"><small style="color:#9ca3af;">${new Date(a.at).toLocaleString()}</small> <span style="background:#1b1b34;padding:1px 6px;border-radius:4px;">${a.actor||'System'}</span> ${a.action}</div>`).join('') || '<div>No activity</div>'}
+            </div></div>`;
           break;
         default:
           html = `<div class="card"><h3>${id.charAt(0).toUpperCase()+id.slice(1)}</h3><p>Coming soon...</p></div>`;
@@ -385,6 +439,452 @@
       switchPane('leaderboard');
     }
 
+    // === INVENTORY FUNCTIONS ===
+    function openAddInventoryModal() {
+      document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+          <h3>+ Add Inventory Item</h3>
+          <div class="form-section">
+            <input type="text" id="invName" placeholder="Item name">
+            <select id="invCategory"><option value="gear">Gear</option><option value="weapon">Weapon</option><option value="ammo">Ammo</option><option value="armor">Armor</option><option value="accessory">Accessory</option></select>
+            <input type="number" id="invPrice" placeholder="Price (EGP)">
+            <input type="number" id="invQty" placeholder="Quantity">
+            <textarea id="invDesc" placeholder="Description (optional)" style="height:60px;"></textarea>
+          </div>
+          <div class="modal-actions">
+            <button class="btn" onclick="closeModal()">Cancel</button>
+            <button class="btn" style="background:var(--accent);color:#000;" onclick="addInventoryItem()">Add Item</button>
+          </div>
+        </div></div>`;
+    }
+
+    async function addInventoryItem() {
+      const name = document.getElementById('invName').value.trim();
+      const category = document.getElementById('invCategory').value;
+      const price = Number(document.getElementById('invPrice').value);
+      const qty = Number(document.getElementById('invQty').value);
+      const desc = document.getElementById('invDesc').value.trim();
+      if (!name || !price) { showToast('Name and price required', 'error'); return; }
+      let inv = await getKV(DB_KEYS.inventory, []);
+      inv.push({ id: `inv-${Date.now()}`, name, category, price, qty, description: desc });
+      await setKV(DB_KEYS.inventory, inv);
+      window.allData[DB_KEYS.inventory] = inv;
+      showToast('Item added', 'success');
+      closeModal();
+      switchPane('commerce');
+    }
+
+    function editInventory(id) {
+      const inv = (window.allData[DB_KEYS.inventory] || []).find(x => x.id === id);
+      if (!inv) return;
+      document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+          <h3>Edit Item</h3>
+          <div class="form-section">
+            <input type="text" id="editInvName" value="${inv.name||''}">
+            <select id="editInvCategory"><option value="gear" ${inv.category==='gear'?'selected':''}>Gear</option><option value="weapon" ${inv.category==='weapon'?'selected':''}>Weapon</option><option value="ammo" ${inv.category==='ammo'?'selected':''}>Ammo</option><option value="armor" ${inv.category==='armor'?'selected':''}>Armor</option></select>
+            <input type="number" id="editInvPrice" value="${inv.price||0}">
+            <input type="number" id="editInvQty" value="${inv.qty||0}">
+          </div>
+          <div class="modal-actions">
+            <button class="btn" onclick="closeModal()">Cancel</button>
+            <button class="btn" style="background:var(--accent);color:#000;" onclick="saveInventoryEdit('${id}')">Save</button>
+          </div>
+        </div></div>`;
+    }
+
+    async function saveInventoryEdit(id) {
+      let inv = await getKV(DB_KEYS.inventory, []);
+      const idx = inv.findIndex(x => x.id === id);
+      if (idx >= 0) {
+        inv[idx] = { ...inv[idx], name: document.getElementById('editInvName').value.trim(), category: document.getElementById('editInvCategory').value, price: Number(document.getElementById('editInvPrice').value), qty: Number(document.getElementById('editInvQty').value) };
+        await setKV(DB_KEYS.inventory, inv);
+        window.allData[DB_KEYS.inventory] = inv;
+        showToast('Item updated', 'success');
+        closeModal();
+        switchPane('commerce');
+      }
+    }
+
+    async function deleteInventory(id) {
+      if (!confirm('Delete this item?')) return;
+      let inv = await getKV(DB_KEYS.inventory, []);
+      inv = inv.filter(x => x.id !== id);
+      await setKV(DB_KEYS.inventory, inv);
+      window.allData[DB_KEYS.inventory] = inv;
+      showToast('Item deleted', 'success');
+      switchPane('commerce');
+    }
+
+    // === COUPON FUNCTIONS ===
+    function openAddCouponModal() {
+      document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+          <h3>+ Add Coupon</h3>
+          <div class="form-section">
+            <input type="text" id="couponCode" placeholder="Code (e.g. SUMMER20)">
+            <select id="couponType"><option value="percent">Percentage Discount (%)</option><option value="fixed">Fixed Amount (EGP)</option></select>
+            <input type="number" id="couponValue" placeholder="Value">
+            <input type="number" id="couponMinOrder" placeholder="Minimum Order (EGP)">
+            <input type="number" id="couponMaxUses" placeholder="Max Uses (0 = unlimited)">
+          </div>
+          <div class="modal-actions">
+            <button class="btn" onclick="closeModal()">Cancel</button>
+            <button class="btn" style="background:var(--accent);color:#000;" onclick="addCoupon()">Create</button>
+          </div>
+        </div></div>`;
+    }
+
+    async function addCoupon() {
+      const code = document.getElementById('couponCode').value.trim().toUpperCase();
+      const type = document.getElementById('couponType').value;
+      const value = Number(document.getElementById('couponValue').value);
+      const minOrder = Number(document.getElementById('couponMinOrder').value) || 0;
+      const maxUses = Number(document.getElementById('couponMaxUses').value) || 0;
+      if (!code || !value) { showToast('Code and value required', 'error'); return; }
+      let coupons = await getKV(DB_KEYS.coupons, []);
+      coupons.push({ code, type, value, minOrder, maxUses, used: 0, active: true, created: new Date().toISOString() });
+      await setKV(DB_KEYS.coupons, coupons);
+      window.allData[DB_KEYS.coupons] = coupons;
+      showToast('Coupon created', 'success');
+      closeModal();
+      switchPane('coupons');
+    }
+
+    function editCoupon(code) {
+      const c = (window.allData[DB_KEYS.coupons] || []).find(x => x.code === code);
+      if (!c) return;
+      document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+          <h3>Edit Coupon ${code}</h3>
+          <div class="form-section">
+            <input type="number" id="editCouponValue" value="${c.value||0}">
+            <select id="editCouponType"><option value="percent" ${c.type==='percent'?'selected':''}>Percentage</option><option value="fixed" ${c.type==='fixed'?'selected':''}>Fixed</option></select>
+            <input type="number" id="editCouponMin" value="${c.minOrder||0}">
+            <input type="number" id="editCouponMax" value="${c.maxUses||0}">
+          </div>
+          <div class="modal-actions">
+            <button class="btn" onclick="closeModal()">Cancel</button>
+            <button class="btn" style="background:var(--accent);color:#000;" onclick="saveCouponEdit('${code}')">Save</button>
+          </div>
+        </div></div>`;
+    }
+
+    async function saveCouponEdit(code) {
+      let coupons = await getKV(DB_KEYS.coupons, []);
+      const idx = coupons.findIndex(x => x.code === code);
+      if (idx >= 0) {
+        coupons[idx] = { ...coupons[idx], value: Number(document.getElementById('editCouponValue').value), type: document.getElementById('editCouponType').value, minOrder: Number(document.getElementById('editCouponMin').value), maxUses: Number(document.getElementById('editCouponMax').value) };
+        await setKV(DB_KEYS.coupons, coupons);
+        window.allData[DB_KEYS.coupons] = coupons;
+        showToast('Coupon updated', 'success');
+        closeModal();
+        switchPane('coupons');
+      }
+    }
+
+    async function toggleCouponActive(code) {
+      let coupons = await getKV(DB_KEYS.coupons, []);
+      const idx = coupons.findIndex(x => x.code === code);
+      if (idx >= 0) { coupons[idx].active = !coupons[idx].active; await setKV(DB_KEYS.coupons, coupons); window.allData[DB_KEYS.coupons] = coupons; showToast('Coupon ' + (coupons[idx].active ? 'activated' : 'deactivated'), 'success'); switchPane('coupons'); }
+    }
+
+    async function deleteCoupon(code) {
+      if (!confirm('Delete coupon ' + code + '?')) return;
+      let coupons = await getKV(DB_KEYS.coupons, []);
+      coupons = coupons.filter(x => x.code !== code);
+      await setKV(DB_KEYS.coupons, coupons);
+      window.allData[DB_KEYS.coupons] = coupons;
+      showToast('Coupon deleted', 'success');
+      switchPane('coupons');
+    }
+
+    // === TOURNAMENT FUNCTIONS ===
+    function openAddTournamentModal() {
+      document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+          <h3>+ Create Tournament</h3>
+          <div class="form-section">
+            <input type="text" id="tName" placeholder="Tournament name">
+            <input type="date" id="tDate">
+            <input type="number" id="tMaxTeams" placeholder="Max teams">
+            <input type="number" id="tEntryFee" placeholder="Entry fee (EGP)">
+            <input type="number" id="tPrize" placeholder="Prize pool (EGP)">
+            <select id="tStatus"><option value="Draft">Draft</option><option value="Active">Active</option><option value="Completed">Completed</option></select>
+          </div>
+          <div class="modal-actions">
+            <button class="btn" onclick="closeModal()">Cancel</button>
+            <button class="btn" style="background:var(--accent);color:#000;" onclick="addTournament()">Create</button>
+          </div>
+        </div></div>`;
+    }
+
+    async function addTournament() {
+      const name = document.getElementById('tName').value.trim();
+      if (!name) { showToast('Name required', 'error'); return; }
+      let tournaments = await getKV(DB_KEYS.tournaments, []);
+      tournaments.push({ id: `t-${Date.now()}`, name, date: document.getElementById('tDate').value, maxTeams: Number(document.getElementById('tMaxTeams').value) || 8, entryFee: Number(document.getElementById('tEntryFee').value) || 0, prize: Number(document.getElementById('tPrize').value) || 0, status: document.getElementById('tStatus').value, registrations: [], created: new Date().toISOString() });
+      await setKV(DB_KEYS.tournaments, tournaments);
+      window.allData[DB_KEYS.tournaments] = tournaments;
+      showToast('Tournament created', 'success');
+      closeModal();
+      switchPane('tournaments');
+    }
+
+    function editTournament(id) {
+      const t = (window.allData[DB_KEYS.tournaments] || []).find(x => x.id === id);
+      if (!t) return;
+      document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+          <h3>Edit Tournament</h3>
+          <div class="form-section">
+            <input type="text" id="editTName" value="${t.name||''}">
+            <input type="date" id="editTDate" value="${t.date||''}">
+            <input type="number" id="editTMaxTeams" value="${t.maxTeams||8}">
+            <input type="number" id="editTEntryFee" value="${t.entryFee||0}">
+            <input type="number" id="editTPrize" value="${t.prize||0}">
+            <select id="editTStatus"><option value="Draft" ${t.status==='Draft'?'selected':''}>Draft</option><option value="Active" ${t.status==='Active'?'selected':''}>Active</option><option value="Completed" ${t.status==='Completed'?'selected':''}>Completed</option></select>
+          </div>
+          <div class="modal-actions">
+            <button class="btn" onclick="closeModal()">Cancel</button>
+            <button class="btn" style="background:var(--accent);color:#000;" onclick="saveTournamentEdit('${id}')">Save</button>
+          </div>
+        </div></div>`;
+    }
+
+    async function saveTournamentEdit(id) {
+      let tournaments = await getKV(DB_KEYS.tournaments, []);
+      const idx = tournaments.findIndex(x => x.id === id);
+      if (idx >= 0) {
+        tournaments[idx] = { ...tournaments[idx], name: document.getElementById('editTName').value.trim(), date: document.getElementById('editTDate').value, maxTeams: Number(document.getElementById('editTMaxTeams').value), entryFee: Number(document.getElementById('editTEntryFee').value), prize: Number(document.getElementById('editTPrize').value), status: document.getElementById('editTStatus').value };
+        await setKV(DB_KEYS.tournaments, tournaments);
+        window.allData[DB_KEYS.tournaments] = tournaments;
+        showToast('Tournament updated', 'success');
+        closeModal();
+        switchPane('tournaments');
+      }
+    }
+
+    async function deleteTournament(id) {
+      if (!confirm('Delete this tournament?')) return;
+      let tournaments = await getKV(DB_KEYS.tournaments, []);
+      tournaments = tournaments.filter(x => x.id !== id);
+      await setKV(DB_KEYS.tournaments, tournaments);
+      window.allData[DB_KEYS.tournaments] = tournaments;
+      showToast('Tournament deleted', 'success');
+      switchPane('tournaments');
+    }
+
+    // === NEWS FUNCTIONS ===
+    function openAddNewsModal() {
+      document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+          <h3>+ Add News Article</h3>
+          <div class="form-section">
+            <input type="text" id="newsTitle" placeholder="Headline">
+            <textarea id="newsBody" placeholder="Article body..." style="height:100px;"></textarea>
+            <label style="display:flex;align-items:center;gap:8px;margin-top:8px;"><input type="checkbox" id="newsFeatured"> Featured article</label>
+          </div>
+          <div class="modal-actions">
+            <button class="btn" onclick="closeModal()">Cancel</button>
+            <button class="btn" style="background:var(--accent);color:#000;" onclick="addNewsArticle()">Publish</button>
+          </div>
+        </div></div>`;
+    }
+
+    async function addNewsArticle() {
+      const title = document.getElementById('newsTitle').value.trim();
+      const body = document.getElementById('newsBody').value.trim();
+      const featured = document.getElementById('newsFeatured').checked;
+      if (!title || !body) { showToast('Title and body required', 'error'); return; }
+      let news = await getKV(DB_KEYS.news, []);
+      news.unshift({ id: `news-${Date.now()}`, title, body, featured, date: new Date().toISOString() });
+      await setKV(DB_KEYS.news, news);
+      window.allData[DB_KEYS.news] = news;
+      showToast('Article published', 'success');
+      closeModal();
+      switchPane('news');
+    }
+
+    function editNews(id) {
+      const n = (window.allData[DB_KEYS.news] || []).find(x => x.id === id);
+      if (!n) return;
+      document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+          <h3>Edit Article</h3>
+          <div class="form-section">
+            <input type="text" id="editNewsTitle" value="${n.title||''}">
+            <textarea id="editNewsBody" style="height:100px;">${n.body||''}</textarea>
+            <label style="display:flex;align-items:center;gap:8px;margin-top:8px;"><input type="checkbox" id="editNewsFeatured" ${n.featured?'checked':''}> Featured</label>
+          </div>
+          <div class="modal-actions">
+            <button class="btn" onclick="closeModal()">Cancel</button>
+            <button class="btn" style="background:var(--accent);color:#000;" onclick="saveNewsEdit('${id}')">Save</button>
+          </div>
+        </div></div>`;
+    }
+
+    async function saveNewsEdit(id) {
+      let news = await getKV(DB_KEYS.news, []);
+      const idx = news.findIndex(x => x.id === id);
+      if (idx >= 0) {
+        news[idx] = { ...news[idx], title: document.getElementById('editNewsTitle').value.trim(), body: document.getElementById('editNewsBody').value.trim(), featured: document.getElementById('editNewsFeatured').checked };
+        await setKV(DB_KEYS.news, news);
+        window.allData[DB_KEYS.news] = news;
+        showToast('Article updated', 'success');
+        closeModal();
+        switchPane('news');
+      }
+    }
+
+    async function toggleFeaturedNews(id) {
+      let news = await getKV(DB_KEYS.news, []);
+      const idx = news.findIndex(x => x.id === id);
+      if (idx >= 0) { news[idx].featured = !news[idx].featured; await setKV(DB_KEYS.news, news); window.allData[DB_KEYS.news] = news; showToast(news[idx].featured ? 'Featured' : 'Unfeatured', 'success'); switchPane('news'); }
+    }
+
+    async function deleteNews(id) {
+      if (!confirm('Delete this article?')) return;
+      let news = await getKV(DB_KEYS.news, []);
+      news = news.filter(x => x.id !== id);
+      await setKV(DB_KEYS.news, news);
+      window.allData[DB_KEYS.news] = news;
+      showToast('Article deleted', 'success');
+      switchPane('news');
+    }
+
+    // === SUPPORT TICKET FUNCTIONS ===
+    function viewTicket(id) {
+      const tickets = (window.allData['crazyTown_chat'] || []).filter(m => m.isTicket);
+      const t = tickets.find(x => x.id === id);
+      if (!t) return;
+      document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
+        <div class="modal" onclick="event.stopPropagation()" style="width:min(600px,90vw);">
+          <h3>Ticket #${id.slice(-6)}</h3>
+          <div style="background:#121226;border:1px solid #2a2a42;border-radius:8px;padding:14px;margin-bottom:12px;">
+            <strong>From:</strong> ${t.sender||'Unknown'}<br>
+            <strong>Date:</strong> ${t.created_at?new Date(t.created_at).toLocaleString():'-'}<br>
+            <strong>Status:</strong> <span class="badge ${t.status==='open'?'ok':'warn'}">${t.status||'open'}</span>
+            <hr style="border:none;border-top:1px solid #2a2a42;margin:10px 0;">
+            <p style="margin:0;line-height:1.6;">${t.body||t.message||'-'}</p>
+          </div>
+          <div class="form-section">
+            <textarea id="ticketReply" placeholder="Write reply..." style="height:80px;"></textarea>
+          </div>
+          <div class="modal-actions">
+            <button class="btn" onclick="closeModal()">Close</button>
+            <button class="btn" style="background:var(--accent);color:#000;" onclick="sendTicketReply('${id}')">Send Reply</button>
+          </div>
+        </div></div>`;
+    }
+
+    async function sendTicketReply(id) {
+      const reply = document.getElementById('ticketReply').value.trim();
+      if (!reply) { showToast('Reply cannot be empty', 'error'); return; }
+      let chat = await getKV('crazyTown_chat', []);
+      chat.push({ id: `reply-${Date.now()}`, ticketId: id, sender: 'Admin', body: reply, isReply: true, created_at: new Date().toISOString() });
+      await setKV('crazyTown_chat', chat);
+      window.allData['crazyTown_chat'] = chat;
+      showToast('Reply sent', 'success');
+      closeModal();
+      switchPane('support');
+    }
+
+    async function closeTicket(id) {
+      let chat = await getKV('crazyTown_chat', []);
+      const idx = chat.findIndex(x => x.id === id);
+      if (idx >= 0) { chat[idx].status = chat[idx].status === 'closed' ? 'open' : 'closed'; await setKV('crazyTown_chat', chat); window.allData['crazyTown_chat'] = chat; showToast('Ticket updated', 'success'); switchPane('support'); }
+    }
+
+    // === ACTIVITY LOG FUNCTIONS ===
+    function filterActivity(q) {
+      const content = document.getElementById('activityLogContent');
+      const all = window.allData[DB_KEYS.activity] || [];
+      if (!q) { content.innerHTML = all.slice(0,50).map(a => `<div style="margin-bottom:8px;border-bottom:1px solid #2a2a42;padding-bottom:8px;"><small style="color:#9ca3af;">${new Date(a.at).toLocaleString()}</small> <span style="background:#1b1b34;padding:1px 6px;border-radius:4px;">${a.actor||'System'}</span> ${a.action}</div>`).join('') || '<div>No activity</div>'; return; }
+      const filtered = all.filter(a => (a.action||'').toLowerCase().includes(q.toLowerCase()) || (a.actor||'').toLowerCase().includes(q.toLowerCase()));
+      content.innerHTML = filtered.slice(0,50).map(a => `<div style="margin-bottom:8px;border-bottom:1px solid #2a2a42;padding-bottom:8px;"><small style="color:#9ca3af;">${new Date(a.at).toLocaleString()}</small> <span style="background:#1b1b34;padding:1px 6px;border-radius:4px;">${a.actor||'System'}</span> ${a.action}</div>`).join('') || '<div>No matches</div>';
+    }
+
+    async function clearActivityLog() {
+      if (!confirm('Clear entire activity log?')) return;
+      await setKV(DB_KEYS.activity, []);
+      window.allData[DB_KEYS.activity] = [];
+      showToast('Activity log cleared', 'success');
+      switchPane('activity');
+    }
+
+    function exportActivityLog() {
+      const all = window.allData[DB_KEYS.activity] || [];
+      const blob = new Blob([JSON.stringify(all, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'activity-log-' + new Date().toISOString().slice(0,10) + '.json';
+      a.click();
+      showToast('Activity log exported', 'success');
+    }
+
+    // === TEAM FUNCTIONS ===
+    function editTeam(id) {
+      const t = (window.allData[DB_KEYS.teams] || []).find(x => x.id === id);
+      if (!t) return;
+      document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+          <h3>Edit Team: ${t.name}</h3>
+          <div class="form-section">
+            <input type="text" id="editTeamName" value="${t.name||''}" placeholder="Team name">
+            <input type="text" id="editTeamLeader" value="${t.leader||''}" placeholder="Leader name">
+            <select id="editTeamStatus"><option value="active" ${t.status==='active'?'selected':''}>Active</option><option value="inactive" ${t.status==='inactive'?'selected':''}>Inactive</option><option value="banned" ${t.status==='banned'?'selected':''}>Banned</option></select>
+            <h4 style="margin:8px 0 4px;color:#9ca3af;">Members (one per line)</h4>
+            <textarea id="editTeamMembers" style="height:80px;">${(t.members||[]).join('\n')}</textarea>
+          </div>
+          <div class="modal-actions">
+            <button class="btn" onclick="closeModal()">Cancel</button>
+            <button class="btn" style="background:var(--accent);color:#000;" onclick="saveTeamEdit('${id}')">Save</button>
+          </div>
+        </div></div>`;
+    }
+
+    async function saveTeamEdit(id) {
+      let teams = await getKV(DB_KEYS.teams, []);
+      const idx = teams.findIndex(x => x.id === id);
+      if (idx >= 0) {
+        const membersText = document.getElementById('editTeamMembers').value.trim();
+        const members = membersText ? membersText.split('\n').map(m => m.trim()).filter(m => m) : [];
+        teams[idx] = { ...teams[idx], name: document.getElementById('editTeamName').value.trim(), leader: document.getElementById('editTeamLeader').value.trim(), status: document.getElementById('editTeamStatus').value, members };
+        await setKV(DB_KEYS.teams, teams);
+        window.allData[DB_KEYS.teams] = teams;
+        showToast('Team updated', 'success');
+        closeModal();
+        switchPane('team');
+      }
+    }
+
+    async function disbandTeam(id) {
+      if (!confirm('Disband this team? This cannot be undone.')) return;
+      let teams = await getKV(DB_KEYS.teams, []);
+      teams = teams.filter(x => x.id !== id);
+      await setKV(DB_KEYS.teams, teams);
+      window.allData[DB_KEYS.teams] = teams;
+      showToast('Team disbanded', 'success');
+      switchPane('team');
+    }
+
+    // === ADD LEADBOARD ENTRY ===
+    async function addLeaderboardEntryFromAdmin() {
+      const name = prompt('Player name:');
+      if (!name) return;
+      const points = Number(prompt('Points:') || 0);
+      const kills = Number(prompt('Kills:') || 0);
+      const wins = Number(prompt('Wins:') || 0);
+      let lb = await getKV(DB_KEYS.leaderboard, []);
+      lb.push({ id: `lb-${Date.now()}`, name, points, kills, wins });
+      await setKV(DB_KEYS.leaderboard, lb);
+      window.allData[DB_KEYS.leaderboard] = lb;
+      showToast('Entry added', 'success');
+      switchPane('leaderboard');
+    }
+
     function openAddUserModal() {
       const modal = document.getElementById('modalContainer');
       modal.innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
@@ -449,7 +949,7 @@
       const q = document.getElementById('adminGlobalSearch').value.toLowerCase();
       const results = document.getElementById('adminSearchResults');
       if (!q) { results.style.display = 'none'; return; }
-      const tabs = ['insights','bookings','orders','users','team','leaderboard','commerce','news','support','activity'];
+      const tabs = ['insights','bookings','orders','users','team','leaderboard','commerce','coupons','tournaments','operations','customers','news','support','activity'];
       const matches = tabs.filter(t => t.includes(q));
       results.innerHTML = matches.map(t => `<div class="search-item" onclick="switchPane('${t}');document.getElementById('adminGlobalSearch').value='';results.style.display='none';">${t.charAt(0).toUpperCase()+t.slice(1)}</div>`).join('');
       results.style.display = matches.length ? 'block' : 'none';
@@ -484,6 +984,28 @@
     window.saveEditUser = saveEditUser;
     window.editLeaderboardEntry = editLeaderboardEntry;
     window.deleteLeaderboardEntry = deleteLeaderboardEntry;
+    window.openAddInventoryModal = openAddInventoryModal;
+    window.editInventory = editInventory;
+    window.deleteInventory = deleteInventory;
+    window.openAddCouponModal = openAddCouponModal;
+    window.toggleCouponActive = toggleCouponActive;
+    window.editCoupon = editCoupon;
+    window.deleteCoupon = deleteCoupon;
+    window.openAddTournamentModal = openAddTournamentModal;
+    window.editTournament = editTournament;
+    window.deleteTournament = deleteTournament;
+    window.openAddNewsModal = openAddNewsModal;
+    window.toggleFeaturedNews = toggleFeaturedNews;
+    window.editNews = editNews;
+    window.deleteNews = deleteNews;
+    window.viewTicket = viewTicket;
+    window.closeTicket = closeTicket;
+    window.filterActivity = filterActivity;
+    window.clearActivityLog = clearActivityLog;
+    window.exportActivityLog = exportActivityLog;
+    window.editTeam = editTeam;
+    window.disbandTeam = disbandTeam;
+    window.addLeaderboardEntryFromAdmin = addLeaderboardEntryFromAdmin;
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
