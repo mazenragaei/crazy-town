@@ -268,9 +268,18 @@
     }
 
     async function guard() {
-      const user = await me();
-      if (!canAccessOwnerControls(user)) {
-        alert('Owner control access denied.');
+      // Add loading indicator while checking auth
+      document.body.style.opacity = '0.6';
+      try {
+        const user = await me();
+        document.body.style.opacity = '1';
+        if (!canAccessOwnerControls(user)) {
+          alert('Owner control access denied.');
+          location.href = 'index.html';
+        }
+      } catch(e) {
+        document.body.style.opacity = '1';
+        console.error('Guard error:', e);
         location.href = 'index.html';
       }
     }
@@ -632,7 +641,8 @@
       return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
     }
 
-    // === ENHANCED RENDER with lazy sections ===
+    // Override the original render - enhanced version below handles all sections
+    // Original render function was at line 464, replaced by enhanced version
     async function render() {
       await renderOverview();
       await renderRolesTable();

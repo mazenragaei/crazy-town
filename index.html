@@ -3409,10 +3409,25 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
     async function saveLeaderboard(entries) { await saveData(DB_KEYS.leaderboard, entries); }
     async function getLocalUser() {
       try {
-        const user = await getCurrentUser();
-        if (!user) return null;
-        const users = await getUsers();
-        return users.find((u) => u.email === user.email) || null;
+        // Fast path: check localStorage session first (avoids Supabase call on every nav)
+        const localSessionId = localStorage.getItem(DB_KEYS.session);
+        let user = null;
+
+        if (localSessionId) {
+          // Try to find user by session ID first (instant, no network)
+          const users = await getUsers();
+          user = users.find((u) => u.id === localSessionId);
+        }
+
+        // If not found locally or no session, ask Supabase
+        if (!user) {
+          const supabaseUser = await getCurrentUser();
+          if (!supabaseUser) return null;
+          const users = await getUsers();
+          user = users.find((u) => u.email === supabaseUser.email) || null;
+        }
+
+        return user;
       } catch {
         return null;
       }
