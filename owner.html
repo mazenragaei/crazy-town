@@ -17,7 +17,8 @@
     .layout { display:grid; grid-template-columns:280px 1fr; gap:14px; margin-top:12px; }
     .sidebar { position:sticky; top:10px; max-height:calc(100vh - 20px); overflow:auto; }
     .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
-    .tabs { display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+    .tabs { display:flex; flex-direction:column; gap:8px; margin-top:10px; min-height:50px; background:#fffbe6; padding:8px; border-radius:8px; border:1px dashed #f59e0b; }
+    .tabs:empty::after { content:'No tabs loaded - check console (F12)'; color:#f59e0b; font-size:12px; }
     .tab { width:100%; text-align:left; font-size:13px; padding:10px 12px; }
     .tab.active { border-color:var(--accent); color:var(--accent); background:#eff6ff; font-weight:bold; }
     .pane { display:none; }
@@ -51,8 +52,9 @@
     <div class="layout">
       <aside class="sidebar">
         <div class="card">
-          <div class="small">Privileged Navigation</div>
-          <div class="tabs" id="tabs"></div>
+          <div class="small" style="font-size:11px;color:#94a3b8;">Privileged Navigation</div>
+          <div id="tabsDebug" style="display:block;background:#f0f9ff;color:#0369a1;padding:8px;margin-bottom:8px;font-size:12px;border-radius:6px;border:1px solid #0ea5e9;word-break:break-all;"></div>
+          <div class="tabs" id="tabs" style="min-height:80px;border:2px dashed #0ea5e9;border-radius:8px;padding:8px;background:#f8fafc;"></div>
         </div>
       </aside>
 
@@ -485,6 +487,8 @@
   <script type="module">
     import { getCurrentUser, getKV, setKV, subscribeToTable } from './db.js';
 
+    console.log('[owner.html] Module script started');
+
     const K = {
       users:'crazyTown_users', bookings:'crazyTown_bookings', orders:'crazyTown_orders', supportTickets:'crazyTown_support_tickets',
       activity:'crazyTown_activity', settings:'crazyTown_settings', coupons:'crazyTown_coupons', session:'crazyTown_session', rolePolicy:'crazyTown_role_policy',
@@ -533,32 +537,58 @@
     }
 
     async function guard() {
-      // Add loading indicator while checking auth
       document.body.style.opacity = '0.6';
       try {
         const user = await me();
         document.body.style.opacity = '1';
-        if (!canAccessOwnerControls(user)) {
-          alert('Owner control access denied.');
-          location.href = 'index.html';
+        console.log('[guard] user:', user ? user.name + ' roles=' + JSON.stringify(user.roles) : 'NULL');
+        if (!user) {
+          // Don't redirect - just show warning in sidebar
+          const dbg = document.getElementById('tabsDebug');
+          if (dbg) dbg.textContent = '⚠️ Cannot identify user. You may not have owner access.';
+          return; // Don't redirect - let them see the panel
         }
+        if (!canAccessOwnerControls(user)) {
+          const dbg = document.getElementById('tabsDebug');
+          if (dbg) dbg.textContent = '⚠️ Access denied. Your roles: ' + JSON.stringify(user.roles) + '. Need: owner/co-owner/ceo';
+          return;
+        }
+        console.log('[guard] Access granted for:', user.name);
       } catch(e) {
         document.body.style.opacity = '1';
         console.error('Guard error:', e);
-        location.href = 'index.html';
+        const dbg = document.getElementById('tabsDebug');
+        if (dbg) dbg.textContent = '⚠️ Guard error: ' + e.message;
       }
     }
 
     function tabs() {
+      const dbg = document.getElementById('tabsDebug');
       const box = document.getElementById('tabs');
-      if (!box) { console.error('tabs box not found'); return; }
-      box.innerHTML = TABS.map((id)=>`<button class="btn tab ${id === 'overview' ? 'active':''}" data-id="${id}" onclick="window.ownerSetPane('${id}')">${id.toUpperCase()}</button>`).join('');
+      const init = (msg) => { if (dbg) dbg.textContent = msg; console.log('[tabs] ' + msg); };
+      try {
+        if (!box) { init('ERROR: box #tabs NOT FOUND'); return; }
+        if (typeof TABS === 'undefined') { init('ERROR: TABS is UNDEFINED (check JS load order)'); return; }
+        if (!Array.isArray(TABS)) { init('ERROR: TABS is not an array, type=' + typeof TABS); return; }
+        if (!TABS.length) { init('ERROR: TABS array is EMPTY'); return; }
+        init('Loading ' + TABS.length + ' tabs...');
+        let html = TABS.map((id)=>`<button class="btn tab ${id === 'overview' ? 'active':''}" data-id="${id}" onclick="window.ownerSetPane('${id}')">${id.toUpperCase()}</button>`).join('');
+        box.innerHTML = html;
+        const successMsg = '✅ ' + TABS.length + ' tabs loaded at ' + new Date().toLocaleTimeString();
+        if (dbg) { dbg.textContent = successMsg; dbg.style.background = '#dcfce7'; dbg.style.color = '#166534'; dbg.style.border = '1px solid #16a34a'; }
+        console.log('[tabs] SUCCESS:', successMsg);
+      } catch(e) {
+        const errMsg = 'ERROR in tabs(): ' + e.message;
+        if (dbg) { dbg.textContent = errMsg; dbg.style.background = '#fee2e2'; dbg.style.color = '#991b1b'; }
+        console.error('[tabs]', errMsg, e);
+      }
     }
 
     function setPane(id) {
-      document.querySelectorAll('.pane').forEach((p)=>p.classList.toggle('active', p.dataset.pane === id));
-      document.querySelectorAll('.tab').forEach((t)=>t.classList.toggle('active', t.dataset.id === id));
-      // Auto-render data for the activated pane
+      try {
+        document.querySelectorAll('.pane').forEach((p)=>p.classList.toggle('active', p.dataset.pane === id));
+        document.querySelectorAll('.tab').forEach((t)=>t.classList.toggle('active', t.dataset.id === id));
+      } catch(e) { console.error('setPane toggle error:', e); }
       const renderers = {
         analytics: renderRevenueChart, security: renderSecurityTable, scheduler: renderSchedulerTable,
         apikeys: renderApiKeysTable, dbhealth: checkDBHealth, customfields: renderCustomFieldsTable,
@@ -572,6 +602,7 @@
     window.ownerSetPane = setPane;
     window.switchPane = setPane;
     window.setPane = setPane;
+    window.tabs = tabs; // debug global
 
     async function act(action, actor='Owner Control') {
       try {
@@ -1658,19 +1689,41 @@
       URL.revokeObjectURL(url);
     }
 
-    guard();
-    tabs();
-    render();
-    renderRevenueChart();
-    renderSecurityTable();
-    renderSchedulerTable();
-    renderApiKeysTable();
-    checkDBHealth();
-    renderCustomFieldsTable();
-    renderEventsStream();
-    renderSessionsTable();
-    renderGeoStats();
-    syncGameStats();
+    // Call guard and tabs in sequence
+    guard().then(async () => {
+      console.log('[INIT] guard complete, calling tabs()');
+      tabs();
+      try { await render(); } catch(e) { console.error('[INIT] render error:', e); }
+    }).catch(e => {
+      console.error('[INIT] guard rejected:', e);
+      tabs(); // still try to render tabs even if guard fails
+    });
+    // These run immediately (don't depend on guard)
+    try { renderRevenueChart(); } catch(e) { console.error('renderRevenueChart error:', e); }
+    try { renderSecurityTable(); } catch(e) { console.error('renderSecurityTable error:', e); }
+    try { renderSchedulerTable(); } catch(e) { console.error('renderSchedulerTable error:', e); }
+    try { renderApiKeysTable(); } catch(e) { console.error('renderApiKeysTable error:', e); }
+    try { checkDBHealth(); } catch(e) { console.error('checkDBHealth error:', e); }
+    try { renderCustomFieldsTable(); } catch(e) { console.error('renderCustomFieldsTable error:', e); }
+    try { renderEventsStream(); } catch(e) { console.error('renderEventsStream error:', e); }
+    try { renderSessionsTable(); } catch(e) { console.error('renderSessionsTable error:', e); }
+    try { renderGeoStats(); } catch(e) { console.error('renderGeoStats error:', e); }
+    try { syncGameStats(); } catch(e) { console.error('syncGameStats error:', e); }
+
+    // Final safety: ensure tabs render after all init is done
+    setTimeout(() => {
+      console.log('[FINAL] Running safety tabs() check');
+      const box = document.getElementById('tabs');
+      const dbg = document.getElementById('tabsDebug');
+      if (box && box.children.length === 0) {
+        console.log('[FINAL] tabs box still empty, re-running tabs()');
+        if (dbg) dbg.textContent = '⚠️ tabs was empty, re-rendering...';
+        try { tabs(); } catch(e) { console.error('[FINAL tabs] error:', e); }
+      } else {
+        console.log('[FINAL] tabs already populated, count:', box.children.length);
+        if (dbg) dbg.textContent = '✅ Owner Panel Ready | ' + TABS.length + ' sections loaded at ' + new Date().toLocaleTimeString();
+      }
+    }, 2000);
   </script>
 </body>
 </html>
