@@ -5276,6 +5276,7 @@ function switchLeaderboard(type) {
     window.renderNews = renderNews;
     window.renderChatMessages = renderChatMessages;
     window.renderAdminPanel = renderAdminPanel;
+    window.renderLeaderboardLists = renderLeaderboardLists;
 
     // Attach core data functions to window for HTML onclick access
     window.getUsers = getUsers;
@@ -5299,6 +5300,7 @@ function switchLeaderboard(type) {
       renderNews();
       renderChatMessages();
       renderFriendList();
+      renderLeaderboardLists(); // Auto-load leaderboard on page load
       calculatePrice();
       applySettingsSync();
       initShopCartButtons();
@@ -5317,10 +5319,11 @@ function switchLeaderboard(type) {
     });
 
     window.addEventListener('storage', (event) => {
-      const syncKeys = ['crazyTown_users', 'crazyTown_settings', 'crazyTown_news', 'crazyTown_coupons'];
+      const syncKeys = ['crazyTown_users', 'crazyTown_settings', 'crazyTown_news', 'crazyTown_coupons', 'crazyTown_tournamentChampions', 'crazyTown_topPlayers', 'crazyTown_eliteTeams'];
       if (!syncKeys.includes(event.key || '')) return;
       checkAuth();
       renderNews();
+      renderLeaderboardLists(); // Re-render leaderboard when changed from admin/owner
       applySettingsSync();
     });
   </script>

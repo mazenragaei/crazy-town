@@ -130,23 +130,64 @@
 
         <section class="pane" data-pane="discounts">
           <div class="card">
-            <h3 style="margin-top:0;">Advanced Targeted Discounts</h3>
-            <div class="row">
-              <input id="dcCode" placeholder="Code">
-              <select id="dcType"><option value="percent">Percent</option><option value="fixed">Fixed</option></select>
-              <input id="dcValue" type="number" placeholder="Value">
+            <h3 style="margin-top:0;">🎯 Advanced Targeted Discounts</h3>
+            <div class="small" style="margin-bottom:14px;">Create, enable/disable, and manage discount codes for specific users or groups.</div>
+
+            <!-- Global Discount Toggle -->
+            <div style="background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input id="dcGlobalEnabled" type="checkbox" checked onchange="setGlobalDiscounts(this.checked)" style="width:18px;height:18px;cursor:pointer;">
+                <span style="font-weight:bold;">Enable All Discounts</span>
+              </label>
+              <span class="small">Turn off to disable all discount codes system-wide</span>
             </div>
-            <div class="row">
-              <select id="dcTargetGroup">
-                <option value="all">All Users</option>
-                <option value="vip">VIP Only</option>
-                <option value="admin">Admins Only</option>
-                <option value="user">Specific User</option>
+
+            <!-- Create Discount -->
+            <div style="background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px;">
+              <h4 style="margin:0 0 10px;color:var(--accent);">➕ Create New Discount</h4>
+              <div class="row">
+                <input id="dcCode" placeholder="Code (e.g. SUMMER25)" style="flex:1;">
+                <select id="dcType" style="max-width:130px;"><option value="percent">Percent %</option><option value="fixed">Fixed EGP</option></select>
+                <input id="dcValue" type="number" placeholder="Value" style="max-width:100px;">
+              </div>
+              <div class="row">
+                <select id="dcTargetGroup" onchange="onDcGroupChange()" style="flex:1;">
+                  <option value="all">🌐 All Users</option>
+                  <option value="vip">⭐ VIP Members</option>
+                  <option value="elite">💎 Elite Members</option>
+                  <option value="admin">🔐 Admins Only</option>
+                  <option value="user">👤 Specific User</option>
+                </select>
+                <select id="dcTargetUser" style="flex:1;display:none;"></select>
+                <button class="btn primary" onclick="createDiscount()">🎁 Create Discount</button>
+              </div>
+            </div>
+
+            <!-- Stats -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px;">
+              <div style="background:#dcfce7;color:#16a34a;padding:12px;border-radius:10px;text-align:center;">
+                <div class="small">Active</div><h2 id="dcStatActive" style="margin:4px 0;">0</h2>
+              </div>
+              <div style="background:#fee2e2;color:#dc2626;padding:12px;border-radius:10px;text-align:center;">
+                <div class="small">Disabled</div><h2 id="dcStatDisabled" style="margin:4px 0;">0</h2>
+              </div>
+              <div style="background:#eff6ff;color:#2563eb;padding:12px;border-radius:10px;text-align:center;">
+                <div class="small">Total</div><h2 id="dcStatTotal" style="margin:4px 0;">0</h2>
+              </div>
+            </div>
+
+            <!-- Search -->
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+              <input type="search" id="dcSearch" placeholder="Search code or user..." style="max-width:220px;" oninput="renderDiscountsTable()">
+              <select id="dcFilterStatus" onchange="renderDiscountsTable()" style="max-width:130px;">
+                <option value="">All</option><option value="active">Active</option><option value="disabled">Disabled</option>
               </select>
-              <select id="dcTargetUser"></select>
-              <button class="btn primary" onclick="createDiscount()">Create Discount</button>
+              <button class="btn danger" style="margin-left:auto;" onclick="clearAllDiscounts()">🗑 Clear All</button>
             </div>
-            <div class="table-wrap"><table id="discountsTable"></table></div>
+
+            <div class="table-wrap">
+              <table><thead><tr><th>Code</th><th>Type</th><th>Value</th><th>Target</th><th>User</th><th>Status</th><th>Actions</th></tr></thead><tbody id="discountsTable"></tbody></table>
+            </div>
           </div>
         </section>
 
@@ -239,6 +280,7 @@
               <input type="search" id="staffSearch" placeholder="Search staff or users..." style="max-width:220px;" oninput="renderStaffTable(this.value)">
               <select id="staffFilter" onchange="renderStaffTable(document.getElementById('staffSearch').value)" style="max-width:160px;">
                 <option value="">All Users</option>
+                <option value="privileged">Privileged Staff Only</option>
                 <option value="owner">Owners</option>
                 <option value="admin">Admins</option>
                 <option value="hr">HR</option>
@@ -280,13 +322,57 @@
 
         <section class="pane" data-pane="system">
           <div class="card">
-            <h3 style="margin-top:0;">🔧 System Health & Config</h3>
-            <div class="grid" style="margin-bottom:16px;">
-              <div class="card"><div class="small">Total Storage Keys</div><h2 id="sysKeys">0</h2></div>
-              <div class="card"><div class="small">Active Sessions</div><h2 id="sysSessions">0</h2></div>
-              <div class="card"><div class="small">Supabase Status</div><h2 id="sysSupabase" style="color:#16a34a;">● Connected</h2></div>
+            <h3 style="margin-top:0;">🔧 System Health & Server Info</h3>
+
+            <!-- Server Info Grid -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:16px;">
+              <div style="background:linear-gradient(135deg,#2563eb,#60a5fa);color:#fff;padding:14px;border-radius:10px;text-align:center;">
+                <div class="small" style="color:#dbeafe;">Server Status</div>
+                <h2 id="sysStatus" style="margin:4px 0;font-size:16px;">● Online</h2>
+              </div>
+              <div style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;padding:14px;border-radius:10px;text-align:center;">
+                <div class="small" style="color:#e9d5ff;">Active Users</div>
+                <h2 id="sysActiveUsers" style="margin:4px 0;">-</h2>
+              </div>
+              <div style="background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;padding:14px;border-radius:10px;text-align:center;">
+                <div class="small" style="color:#dcfce7;">Total Users</div>
+                <h2 id="sysTotalUsers" style="margin:4px 0;">-</h2>
+              </div>
+              <div style="background:linear-gradient(135deg,#f59e0b,#eab308);color:#fff;padding:14px;border-radius:10px;text-align:center;">
+                <div class="small" style="color:#fef9c3;">Storage Used</div>
+                <h2 id="sysStorageUsed" style="margin:4px 0;">-</h2>
+              </div>
+              <div style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:14px;border-radius:10px;text-align:center;">
+                <div class="small" style="color:#fee2e2;">Total Storage Keys</div>
+                <h2 id="sysKeys" style="margin:4px 0;">-</h2>
+              </div>
+              <div style="background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;padding:14px;border-radius:10px;text-align:center;">
+                <div class="small" style="color:#cffafe;">Uptime</div>
+                <h2 id="sysUptime" style="margin:4px 0;">-</h2>
+              </div>
             </div>
-            <h4>Site Configuration</h4>
+
+            <!-- Environment & Runtime -->
+            <div class="grid" style="grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+              <div style="background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:14px;">
+                <h4 style="margin:0 0 10px;color:var(--accent);">🖥️ Environment</h4>
+                <div class="small" style="margin:4px 0;"><strong>Browser:</strong> <span id="envBrowser">-</span></div>
+                <div class="small" style="margin:4px 0;"><strong>Platform:</strong> <span id="envPlatform">-</span></div>
+                <div class="small" style="margin:4px 0;"><strong>Screen:</strong> <span id="envScreen">-</span></div>
+                <div class="small" style="margin:4px 0;"><strong>Language:</strong> <span id="envLang">-</span></div>
+                <div class="small" style="margin:4px 0;"><strong>Online:</strong> <span id="envOnline">-</span></div>
+              </div>
+              <div style="background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:14px;">
+                <h4 style="margin:0 0 10px;color:var(--accent);">💾 Storage Info</h4>
+                <div class="small" style="margin:4px 0;"><strong>LocalStorage:</strong> <span id="lsSize">-</span></div>
+                <div class="small" style="margin:4px 0;"><strong>SessionStorage:</strong> <span id="ssSize">-</span></div>
+                <div class="small" style="margin:4px 0;"><strong>Supabase URL:</strong> <span style="font-size:11px;" id="envSupaUrl">-</span></div>
+                <div class="small" style="margin:4px 0;"><strong>Environment:</strong> <span id="envMode">-</span></div>
+                <div class="small" style="margin:4px 0;"><strong>Current Time:</strong> <span id="envTime">-</span></div>
+              </div>
+            </div>
+
+            <h4 style="margin-top:4px;">⚙️ Site Configuration</h4>
             <div class="row">
               <input id="sysSiteName" placeholder="Site Name" value="Crazy Town">
               <input id="sysCurrency" placeholder="Currency Code" value="EGP">
@@ -301,7 +387,7 @@
               <button class="btn primary" onclick="saveSystemConfig()">Save Config</button>
               <button class="btn" onclick="resetSystemConfig()">Reset Defaults</button>
             </div>
-            <h4 style="margin-top:16px;">Danger Zone</h4>
+            <h4 style="margin-top:16px;">⚠️ Danger Zone</h4>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               <button class="btn danger" onclick="wipeAllUserData()">Wipe All User Data</button>
               <button class="btn danger" onclick="factoryReset()">Factory Reset</button>
@@ -476,17 +562,80 @@
 
         <section class="pane" data-pane="split">
           <div class="card">
-            <h3 style="margin-top:0;">💰 Revenue Split Calculator</h3>
-            <div class="row">
-              <input id="rsTotal" type="number" placeholder="Total Revenue (EGP)">
-              <input id="rsPlatform" type="number" placeholder="Platform %" value="15">
-              <input id="rsPartner" type="number" placeholder="Partner %" value="10">
+            <h3 style="margin-top:0;">💰 Revenue & Finance Tracker</h3>
+            <div class="small" style="margin-bottom:14px;">Track income, expenses, and revenue splits across all booking and order channels.</div>
+
+            <!-- Summary Cards -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px;">
+              <div style="background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;padding:14px;border-radius:10px;text-align:center;">
+                <div class="small" style="color:#dcfce7;">Total Income</div>
+                <h2 id="finTotalIncome" style="margin:4px 0;">0 EGP</h2>
+              </div>
+              <div style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:14px;border-radius:10px;text-align:center;">
+                <div class="small" style="color:#fee2e2;">Total Expenses</div>
+                <h2 id="finTotalExpense" style="margin:4px 0;">0 EGP</h2>
+              </div>
+              <div style="background:linear-gradient(135deg,#2563eb,#60a5fa);color:#fff;padding:14px;border-radius:10px;text-align:center;">
+                <div class="small" style="color:#dbeafe;">Net Profit</div>
+                <h2 id="finNetProfit" style="margin:4px 0;">0 EGP</h2>
+              </div>
+              <div style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;padding:14px;border-radius:10px;text-align:center;">
+                <div class="small" style="color:#e9d5ff;">Total Transactions</div>
+                <h2 id="finTxCount" style="margin:4px 0;">0</h2>
+              </div>
             </div>
-            <button class="btn primary" onclick="calculateSplit()" style="margin:8px 0;">Calculate Split</button>
-            <div id="splitResult" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px;">
-              <div class="card" style="text-align:center;border-color:#00c2ff33;"><div class="small">Platform</div><h2 id="splitPlatform" style="margin:4px 0;color:#00c2ff;">0 EGP</h2></div>
-              <div class="card" style="text-align:center;border-color:#22c55e33;"><div class="small">Partner Share</div><h2 id="splitPartner" style="margin:4px 0;color:#22c55e;">0 EGP</h2></div>
-              <div class="card" style="text-align:center;border-color:#f59e0b33;"><div class="small">Net Revenue</div><h2 id="splitNet" style="margin:4px 0;color:#f59e0b;">0 EGP</h2></div>
+
+            <!-- Add Income/Expense -->
+            <div style="background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px;">
+              <h4 style="margin:0 0 10px;color:var(--accent);">➕ Add Transaction</h4>
+              <div class="row">
+                <select id="finType" style="max-width:120px;">
+                  <option value="income">Income ↑</option>
+                  <option value="expense">Expense ↓</option>
+                </select>
+                <input id="finAmount" type="number" placeholder="Amount (EGP)" style="flex:1;">
+                <input id="finCategory" placeholder="Category (e.g. Booking, Shop, Refund)" style="flex:1;">
+              </div>
+              <div class="row">
+                <input id="finDesc" placeholder="Description" style="flex:1;">
+                <input id="finDate" type="date" style="max-width:160px;">
+                <button class="btn primary" onclick="addFinanceEntry()">Add Entry</button>
+              </div>
+            </div>
+
+            <!-- Revenue Split Calculator -->
+            <div style="background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px;">
+              <h4 style="margin:0 0 10px;color:var(--accent);">📊 Revenue Split Calculator</h4>
+              <div class="row">
+                <input id="rsTotal" type="number" placeholder="Total Revenue (EGP)" style="flex:1;">
+                <input id="rsPlatform" type="number" placeholder="Platform %" value="15" style="max-width:100px;">
+                <input id="rsPartner" type="number" placeholder="Partner %" value="10" style="max-width:100px;">
+                <button class="btn primary" onclick="calculateSplit()">Calculate</button>
+              </div>
+              <div id="splitResult" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px;">
+                <div style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px;text-align:center;">
+                  <div class="small">Platform</div><h3 id="splitPlatform" style="margin:4px 0;color:#2563eb;">0 EGP</h3>
+                </div>
+                <div style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px;text-align:center;">
+                  <div class="small">Partner</div><h3 id="splitPartner" style="margin:4px 0;color:#16a34a;">0 EGP</h3>
+                </div>
+                <div style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px;text-align:center;">
+                  <div class="small">Net</div><h3 id="splitNet" style="margin:4px 0;color:#f59e0b;">0 EGP</h3>
+                </div>
+              </div>
+            </div>
+
+            <!-- Filter -->
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+              <input type="search" id="finSearch" placeholder="Search transactions..." style="max-width:220px;" oninput="renderFinanceTable()">
+              <select id="finFilterType" onchange="renderFinanceTable()" style="max-width:130px;">
+                <option value="">All</option><option value="income">Income</option><option value="expense">Expense</option>
+              </select>
+              <button class="btn" onclick="exportFinanceCSV()">📊 Export CSV</button>
+              <button class="btn danger" style="margin-left:auto;" onclick="clearAllFinance()">🗑 Clear All</button>
+            </div>
+            <div class="table-wrap">
+              <table><thead><tr><th>Date</th><th>Type</th><th>Category</th><th>Description</th><th>Amount</th><th>Actions</th></tr></thead><tbody id="financeTableBody"></tbody></table>
             </div>
           </div>
         </section>
@@ -580,7 +729,16 @@
         const current = await getCurrentUser();
         if (!current) return null;
         const users = await ro(K.users, []);
-        return users.find((u) => String(u.email) === String(current.email)) || null;
+        const user = users.find((u) => String(u.email) === String(current.email)) || null;
+        if (user && current.role) {
+          // Sync role from Supabase Auth metadata
+          if (!user.roles) user.roles = [];
+          if (!user.roles.includes(current.role) && ['owner','co-owner','ceo','admin'].includes(current.role)) {
+            user.roles.push(current.role);
+            await so(K.users, users);
+          }
+        }
+        return user;
       } catch { return null; }
     }
 
@@ -599,14 +757,18 @@
         document.body.style.opacity = '1';
         console.log('[guard] user:', user ? user.name + ' roles=' + JSON.stringify(user.roles) : 'NULL');
         if (!user) {
-          // Don't redirect - just show warning in sidebar
+          // No user session - redirect to main site
           const dbg = document.getElementById('tabsDebug');
-          if (dbg) dbg.textContent = '⚠️ Cannot identify user. You may not have owner access.';
-          return; // Don't redirect - let them see the panel
+          if (dbg) dbg.textContent = '⚠️ No session. Redirecting...';
+          showToast('Please login first', 'error');
+          setTimeout(() => { location.href = 'index.html'; }, 1500);
+          return;
         }
         if (!canAccessOwnerControls(user)) {
           const dbg = document.getElementById('tabsDebug');
-          if (dbg) dbg.textContent = '⚠️ Access denied. Your roles: ' + JSON.stringify(user.roles) + '. Need: owner/co-owner/ceo';
+          if (dbg) dbg.textContent = '⚠️ Access denied. Need: owner/co-owner/ceo. Your: ' + JSON.stringify(user.roles);
+          showToast('Owner access required', 'error');
+          setTimeout(() => { location.href = 'index.html'; }, 1500);
           return;
         }
         console.log('[guard] Access granted for:', user.name);
@@ -650,7 +812,10 @@
         apikeys: renderApiKeysTable, dbhealth: checkDBHealth, customfields: renderCustomFieldsTable,
         events: renderEventsStream, sessions: renderSessionsTable, geo: renderGeoStats,
         gamestats: syncGameStats,
-        cards: async () => { await populateCardUsers(); await renderCardsTable(); }
+        cards: async () => { await populateCardUsers(); await renderCardsTable(); },
+        split: async () => { await renderFinanceTable(); },
+        discounts: async () => { await onDcGroupChange(); await renderDiscountsTable(); },
+        system: async () => { await populateSystemInfo(); await checkDBHealth(); },
       };
       const fn = renderers[id];
       if (fn) { try { fn(); } catch(e) { console.error('render ' + id + ' error:', e); } }
@@ -764,23 +929,136 @@
       const value = Number(document.getElementById('dcValue').value || 0);
       const targetGroup = document.getElementById('dcTargetGroup').value || 'all';
       const targetUserId = document.getElementById('dcTargetUser').value;
-      if(!code) return alert('Enter discount code.');
-      if (targetGroup === 'user' && !targetUserId) return alert('Select user for user-target discount.');
-      let coupons = await ro(K.coupons, []);
-      coupons = safeArray(coupons, []);
-      coupons.push({ code, type, value, active:true, targetGroup, targetUserId:targetGroup === 'user' ? targetUserId : '', createdByRole:'owner-control' });
+      if (!code) { showToast('Enter discount code', 'error'); return; }
+      if (targetGroup === 'user' && !targetUserId) { showToast('Select user', 'error'); return; }
+      const coupons = safeArray(await ro(K.coupons, []), []);
+      if (coupons.find(c => c.code === code)) { showToast('Code already exists', 'error'); return; }
+      const users = await ro(K.users, []);
+      const targetUser = targetUserId ? users.find(u => u.id === targetUserId) : null;
+      coupons.push({
+        code, type, value,
+        active: true,
+        targetGroup,
+        targetUserId: targetGroup === 'user' ? targetUserId : '',
+        targetUserName: targetUser ? targetUser.name : '',
+        createdAt: new Date().toISOString(),
+        createdBy: (await me())?.name || 'Owner'
+      });
       await so(K.coupons, coupons);
       await act(`Discount ${code} created for ${targetGroup}`, (await me())?.name || 'Owner');
-      await renderDiscounts();
+      showToast(`Discount ${code} created!`, 'success');
+      document.getElementById('dcCode').value = '';
+      document.getElementById('dcValue').value = '';
+      await renderDiscountsTable();
+      await onDcGroupChange();
     }
+    window.createDiscount = createDiscount;
+
+    async function toggleDiscount(idx) {
+      const coupons = safeArray(await ro(K.coupons, []), []);
+      if (!coupons[idx]) return;
+      coupons[idx].active = !coupons[idx].active;
+      await so(K.coupons, coupons);
+      await act(`Discount ${coupons[idx].code} ${coupons[idx].active ? 'enabled' : 'disabled'}`, (await me())?.name || 'Owner');
+      showToast(coupons[idx].active ? 'Discount enabled' : 'Discount disabled', 'success');
+      await renderDiscountsTable();
+    }
+    window.toggleDiscount = toggleDiscount;
+
+    async function deleteDiscount(idx) {
+      if (!confirm('Delete this discount?')) return;
+      const coupons = safeArray(await ro(K.coupons, []), []);
+      const code = coupons[idx]?.code;
+      coupons.splice(idx, 1);
+      await so(K.coupons, coupons);
+      await act(`Discount ${code} deleted`, (await me())?.name || 'Owner');
+      showToast('Discount deleted', 'success');
+      await renderDiscountsTable();
+    }
+    window.deleteDiscount = deleteDiscount;
+
+    async function clearAllDiscounts() {
+      if (!confirm('Delete ALL discounts?')) return;
+      await so(K.coupons, []);
+      showToast('All discounts cleared', 'success');
+      await renderDiscountsTable();
+    }
+    window.clearAllDiscounts = clearAllDiscounts;
+
+    async function setGlobalDiscounts(enabled) {
+      const settings = await ro(K.settings, {});
+      settings.discountsEnabled = enabled;
+      await so(K.settings, settings);
+      await act(`Global discounts ${enabled ? 'enabled' : 'disabled'}`, (await me())?.name || 'Owner');
+      showToast(enabled ? 'All discounts enabled' : 'All discounts disabled', 'success');
+    }
+    window.setGlobalDiscounts = setGlobalDiscounts;
+
+    async function onDcGroupChange() {
+      const group = document.getElementById('dcTargetGroup')?.value;
+      const userSel = document.getElementById('dcTargetUser');
+      if (!userSel) return;
+      if (group === 'user') {
+        userSel.style.display = 'block';
+        const users = await ro(K.users, []);
+        userSel.innerHTML = '<option value="">Select user...</option>' + users.map(u => `<option value="${u.id}">${u.name} (${u.email || 'no email'})</option>`).join('');
+      } else {
+        userSel.style.display = 'none';
+        userSel.innerHTML = '';
+      }
+    }
+    window.onDcGroupChange = onDcGroupChange;
+
+    async function renderDiscountsTable() {
+      const coupons = safeArray(await ro(K.coupons, []), []);
+      const users = await ro(K.users, []);
+      const settings = await ro(K.settings, {});
+      const isGlobalEnabled = settings.discountsEnabled !== false;
+      const q = (document.getElementById('dcSearch')?.value || '').toLowerCase();
+      const statusFilter = document.getElementById('dcFilterStatus')?.value;
+      const active = coupons.filter(c => c.active && c.active !== false);
+      const disabled = coupons.filter(c => c.active === false);
+      const el = id => document.getElementById(id);
+      if (el('dcStatActive')) el('dcStatActive').textContent = active.length;
+      if (el('dcStatDisabled')) el('dcStatDisabled').textContent = disabled.length;
+      if (el('dcStatTotal')) el('dcStatTotal').textContent = coupons.length;
+      if (el('dcGlobalEnabled')) el('dcGlobalEnabled').checked = isGlobalEnabled;
+      if (!isGlobalEnabled) {
+        if (el('dcStatActive')) el('dcStatActive').textContent = '0';
+        if (el('dcStatDisabled')) el('dcStatDisabled').textContent = coupons.length;
+      }
+      const filtered = coupons.filter((c, i) => {
+        if (statusFilter === 'active' && !c.active) return false;
+        if (statusFilter === 'disabled' && c.active !== false) return false;
+        if (q && !c.code?.toLowerCase().includes(q) && !(c.targetUserName || '').toLowerCase().includes(q)) return false;
+        return true;
+      });
+      const tbody = document.getElementById('discountsTable');
+      if (!tbody) return;
+      const targetLabel = { all: '🌐 All Users', vip: '⭐ VIP', elite: '💎 Elite', admin: '🔐 Admins', user: '👤 Specific' };
+      tbody.innerHTML = filtered.map((c, i) => {
+        const isDisabled = !isGlobalEnabled || c.active === false;
+        const rowStyle = isDisabled ? 'opacity:0.5;' : '';
+        const valStr = c.type === 'percent' ? c.value + '%' : c.value + ' EGP';
+        return `<tr style="${rowStyle}">
+          <td><strong style="font-family:monospace;font-size:13px;">${c.code || '-'}</strong></td>
+          <td><span style="background:#f1f5f9;padding:2px 8px;border-radius:6px;font-size:12px;">${c.type === 'percent' ? '📊 Percent' : '💵 Fixed'}</span></td>
+          <td><strong>${valStr}</strong></td>
+          <td><span style="font-size:12px;">${targetLabel[c.targetGroup] || c.targetGroup || 'all'}</span></td>
+          <td><span style="font-size:12px;color:#64748b;">${c.targetUserName || (c.targetUserId ? users.find(u=>u.id===c.targetUserId)?.name || c.targetUserId : '-')}</span></td>
+          <td><span style="color:${isDisabled ? '#dc2626' : '#16a34a'};font-weight:bold;font-size:12px;">${!isGlobalEnabled ? 'OFF' : c.active === false ? 'DISABLED' : 'ACTIVE'}</span></td>
+          <td style="white-space:nowrap;">
+            ${c.active !== false ? `<button class="btn" style="padding:3px 8px;font-size:11px;" onclick="toggleDiscount(${coupons.indexOf(c)})">⏸</button>` : `<button class="btn" style="padding:3px 8px;font-size:11px;" onclick="toggleDiscount(${coupons.indexOf(c)})">▶️</button>`}
+            <button class="btn danger" style="padding:3px 8px;font-size:11px;" onclick="deleteDiscount(${coupons.indexOf(c)})">🗑</button>
+          </td>
+        </tr>`;
+      }).join('') || '<tr><td colspan="7" style="text-align:center;color:#64748b;padding:24px;">No discounts found. Create one above!</td></tr>';
+    }
+    window.renderDiscountsTable = renderDiscountsTable;
 
     async function renderDiscounts() {
-      const coupons = await ro(K.coupons, []);
-      const users = await ro(K.users, []);
-      document.getElementById('dcTargetUser').innerHTML = `<option value="">Select user...</option>${users.map((u)=>`<option value="${u.id}">${u.name}</option>`).join('')}`;
-      document.getElementById('discountsTable').innerHTML = `
-        <thead><tr><th>Code</th><th>Type</th><th>Value</th><th>Target</th><th>Active</th></tr></thead>
-        <tbody>${coupons.map((c)=>`<tr><td>${c.code}</td><td>${c.type}</td><td>${c.value}</td><td>${c.targetGroup || 'all'}${c.targetUserId ? ` (${users.find((u)=>String(u.id)===String(c.targetUserId))?.name || c.targetUserId})` : ''}</td><td>${c.active ? 'Yes' : 'No'}</td></tr>`).join('')}</tbody>`;
+      await onDcGroupChange();
+      await renderDiscountsTable();
     }
 
     async function renderAudit() {
@@ -1195,6 +1473,11 @@
       const statLabel = { tc: 'Champ', tp: 'Kills', et: 'Members' };
       const statKey = { tc: 'championships', tp: 'kills', et: 'members' };
       const statKey2 = { tc: 'wins', tp: 'matches', et: 'wins' };
+
+      // Force sync to all panels via localStorage event
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: keys[type], oldValue: null, newValue: localStorage.getItem(keys[type])
+      }));
       document.getElementById('ownerLBBody').innerHTML = list.sort((a,b) => (b.points||0)-(a.points||0)).map((e,i) => `<tr>
         <td><span style="font-weight:bold;color:${i<3?'#ffd700':'#64748b'};">#${i+1}</span></td>
         <td><img src="${e.image||''}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
@@ -1336,7 +1619,9 @@
       const filter = document.getElementById('staffFilter')?.value || '';
       let users = await ro(K.users, []);
       // Apply role filter
-      if (filter) {
+      if (filter === 'privileged') {
+        users = users.filter(u => u.roles?.some(r => ['owner','co-owner','ceo','admin','hr'].includes(r)));
+      } else if (filter) {
         users = users.filter(u => u.roles?.includes(filter));
       }
       // Apply search
@@ -1855,7 +2140,40 @@
       log.textContent = output;
       const el1 = document.getElementById('dbTotalKeys'); if (el1) el1.textContent = allStorage.length;
       const el2 = document.getElementById('dbStorageUsed'); if (el2) el2.textContent = (totalSize / 1024).toFixed(1) + ' KB';
+      // Also update system info panel
+      await populateSystemInfo();
     }
+
+    async function populateSystemInfo() {
+      const users = await ro(K.users, []);
+      const totalSize = new Blob([JSON.stringify(localStorage)]).size;
+      const ssSize = new Blob([JSON.stringify(sessionStorage)]).size;
+      const allStorage = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k) allStorage.push(k); }
+      const activeCount = users.filter(u => { const t = u.lastActive ? new Date(u.lastActive).getTime() : 0; return Date.now() - t < 86400000; }).length;
+      const el = id => document.getElementById(id);
+      if (el('sysTotalUsers')) el('sysTotalUsers').textContent = users.length;
+      if (el('sysActiveUsers')) el('sysActiveUsers').textContent = activeCount;
+      if (el('sysKeys')) el('sysKeys').textContent = allStorage.filter(k => k.startsWith('crazyTown')).length;
+      if (el('sysStorageUsed')) el('sysStorageUsed').textContent = (totalSize / 1024).toFixed(1) + ' KB';
+      if (el('envBrowser')) el('envBrowser').textContent = navigator.userAgent.split(' ').slice(-2).join(' ');
+      if (el('envPlatform')) el('envPlatform').textContent = navigator.platform;
+      if (el('envScreen')) el('envScreen').textContent = screen.width + 'x' + screen.height;
+      if (el('envLang')) el('envLang').textContent = navigator.language;
+      if (el('envOnline')) el('envOnline').textContent = navigator.onLine ? '✅ Online' : '❌ Offline';
+      if (el('lsSize')) el('lsSize').textContent = (totalSize / 1024).toFixed(1) + ' KB';
+      if (el('ssSize')) el('ssSize').textContent = (ssSize / 1024).toFixed(1) + ' KB';
+      if (el('envSupaUrl')) el('envSupaUrl').textContent = 'gldwdwcpzcxcvqpcpiol.supabase.co';
+      if (el('envMode')) el('envMode').textContent = document.getElementById('sysMode')?.value || 'production';
+      if (el('envTime')) el('envTime').textContent = new Date().toLocaleString();
+      // Uptime (based on session start time in sessionStorage)
+      let startTime = sessionStorage.getItem('crazyTown_start');
+      if (!startTime) { startTime = Date.now(); sessionStorage.setItem('crazyTown_start', startTime); }
+      const uptimeMs = Date.now() - parseInt(startTime);
+      const uptimeH = Math.floor(uptimeMs / 3600000);
+      const uptimeM = Math.floor((uptimeMs % 3600000) / 60000);
+      if (el('sysUptime')) el('sysUptime').textContent = uptimeH > 0 ? `${uptimeH}h ${uptimeM}m` : `${uptimeM}m`;
+    }
+    window.populateSystemInfo = populateSystemInfo;
     window.checkDBHealth = checkDBHealth;
     function runDBVacuum() { showToast('Database vacuumed', 'success'); }
     window.runDBVacuum = runDBVacuum;
@@ -1940,6 +2258,93 @@
     }
     window.calculateSplit = calculateSplit;
 
+    // ── FINANCE TRACKER ──
+    const FIN_KEY = 'crazyTown_finance';
+
+    async function loadFinance() {
+      try { const d = localStorage.getItem(FIN_KEY); return d ? JSON.parse(d) : []; } catch { return []; }
+    }
+    async function saveFinance(entries) {
+      localStorage.setItem(FIN_KEY, JSON.stringify(entries));
+      window.dispatchEvent(new StorageEvent('storage', { key: FIN_KEY, oldValue: null, newValue: localStorage.getItem(FIN_KEY) }));
+    }
+
+    async function addFinanceEntry() {
+      const type = document.getElementById('finType')?.value;
+      const amount = parseFloat(document.getElementById('finAmount')?.value);
+      const category = document.getElementById('finCategory')?.value?.trim();
+      const desc = document.getElementById('finDesc')?.value?.trim();
+      const date = document.getElementById('finDate')?.value;
+      if (!amount || amount <= 0) { showToast('Enter valid amount', 'error'); return; }
+      const entries = await loadFinance();
+      entries.unshift({ id: Date.now(), type, amount, category: category || 'General', description: desc || '-', date: date || new Date().toISOString().slice(0,10), createdAt: new Date().toISOString() });
+      await saveFinance(entries);
+      showToast(type === 'income' ? 'Income added!' : 'Expense added!', 'success');
+      ['finAmount','finCategory','finDesc'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+      await renderFinanceTable();
+    }
+    window.addFinanceEntry = addFinanceEntry;
+
+    async function deleteFinanceEntry(id) {
+      if (!confirm('Delete this entry?')) return;
+      const entries = await loadFinance();
+      await saveFinance(entries.filter(e => e.id !== id));
+      showToast('Entry deleted', 'success');
+      await renderFinanceTable();
+    }
+    window.deleteFinanceEntry = deleteFinanceEntry;
+
+    async function clearAllFinance() {
+      if (!confirm('Clear ALL finance records?')) return;
+      await saveFinance([]);
+      showToast('Finance cleared', 'success');
+      await renderFinanceTable();
+    }
+    window.clearAllFinance = clearAllFinance;
+
+    function exportFinanceCSV() {
+      loadFinance().then(entries => {
+        const rows = [['Date','Type','Category','Description','Amount']];
+        entries.forEach(e => rows.push([e.date, e.type, e.category, e.description, (e.type === 'expense' ? '-' : '') + e.amount]));
+        const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'finance-report.csv'; a.click();
+      });
+    }
+    window.exportFinanceCSV = exportFinanceCSV;
+
+    async function renderFinanceTable(search = '') {
+      const entries = await loadFinance();
+      const filterType = document.getElementById('finFilterType')?.value;
+      const q = (search || '').toLowerCase();
+      const filtered = entries.filter(e => {
+        if (filterType && e.type !== filterType) return false;
+        if (q && !(e.category||'').toLowerCase().includes(q) && !(e.description||'').toLowerCase().includes(q)) return false;
+        return true;
+      });
+      const totalIncome = entries.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
+      const totalExpense = entries.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
+      const net = totalIncome - totalExpense;
+      const el = id => document.getElementById(id);
+      if (el('finTotalIncome')) el('finTotalIncome').textContent = totalIncome.toLocaleString() + ' EGP';
+      if (el('finTotalExpense')) el('finTotalExpense').textContent = totalExpense.toLocaleString() + ' EGP';
+      if (el('finNetProfit')) el('finNetProfit').textContent = net.toLocaleString() + ' EGP';
+      if (el('finTxCount')) el('finTxCount').textContent = entries.length;
+      const tbody = document.getElementById('financeTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = filtered.map(e => `<tr style="${e.type === 'expense' ? 'color:#dc2626;' : 'color:#16a34a;'}">
+        <td style="font-size:12px;">${e.date || '-'}</td>
+        <td><span style="background:${e.type === 'income' ? '#dcfce7' : '#fee2e2'};color:${e.type === 'income' ? '#16a34a' : '#dc2626'};padding:2px 8px;border-radius:20px;font-size:11px;font-weight:bold;">${e.type === 'income' ? 'INCOME ↑' : 'EXPENSE ↓'}</span></td>
+        <td><span style="background:#f1f5f9;padding:2px 8px;border-radius:6px;font-size:12px;">${e.category || '-'}</span></td>
+        <td style="font-size:13px;">${e.description || '-'}</td>
+        <td style="font-weight:bold;">${e.type === 'expense' ? '-' : '+'}${e.amount.toLocaleString()} EGP</td>
+        <td><button class="btn danger" style="padding:3px 8px;font-size:11px;" onclick="deleteFinanceEntry(${e.id})">🗑</button></td>
+      </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:#64748b;padding:24px;">No transactions yet. Add one above!</td></tr>';
+    }
+    window.renderFinanceTable = renderFinanceTable;
+
+    // ── REVENUE SPLIT ──
+
     // ── GAME STATS ──
     async function syncGameStats() {
       const tc = await ro(K.tournamentChampions, []);
@@ -1970,19 +2375,37 @@
     // ── SESSIONS ──
     async function renderSessionsTable() {
       const users = await ro(K.users, []);
-      const activeUsers = users.filter(u => u.lastActive && (Date.now() - new Date(u.lastActive).getTime() < 3600000));
+      const currentSession = localStorage.getItem('crazyTown_session');
+      // Show all users with their session status
+      const allUsers = users.map(u => {
+        const isLoggedIn = currentSession && String(u.id) === String(currentSession);
+        const lastActiveTime = u.lastActive ? new Date(u.lastActive).getTime() : null;
+        const isRecentlyActive = lastActiveTime && (Date.now() - lastActiveTime < 86400000); // 24h
+        return { ...u, isLoggedIn, isRecentlyActive };
+      }).sort((a, b) => {
+        // Sort: logged in first, then recently active, then by name
+        if (a.isLoggedIn !== b.isLoggedIn) return a.isLoggedIn ? -1 : 1;
+        if (a.isRecentlyActive !== b.isRecentlyActive) return a.isRecentlyActive ? -1 : 1;
+        return (a.name || '').localeCompare(b.name || '');
+      });
       const tbody = document.getElementById('sessionsTable');
+      const countEl = document.getElementById('sessionCount');
       if (!tbody) return;
-      tbody.innerHTML = activeUsers.map(u => `<tr>
-        <td>${u.name||'-'}</td><td>${u.email||'-'}</td>
-        <td>${(u.roles||[]).join('/')}</td>
-        <td>${u.lastActive ? new Date(u.lastActive).toLocaleString() : '-'}</td>
-        <td>${u.lastActive ? new Date(u.lastActive).toLocaleString() : '-'}</td>
-        <td>${u.lastIp||'N/A'}</td>
-        <td><button class="btn danger" style="padding:4px 8px;font-size:12px;" onclick="terminateUserSession('${u.id}')">Terminate</button></td>
-      </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:#64748b;">No active sessions</td></tr>';
-      const el = document.getElementById('sessionCount');
-      if (el) el.textContent = activeUsers.length + ' active sessions';
+      const loggedInCount = allUsers.filter(u => u.isLoggedIn).length;
+      tbody.innerHTML = allUsers.map(u => {
+        const statusColor = u.isLoggedIn ? '#16a34a' : u.isRecentlyActive ? '#f59e0b' : '#94a3b8';
+        const statusText = u.isLoggedIn ? '🟢 Online' : u.isRecentlyActive ? '🟡 Recent' : '⚪ Offline';
+        return `<tr style="${!u.isLoggedIn ? 'opacity:0.6;' : ''}">
+          <td><strong>${u.name||'-'}</strong></td>
+          <td>${u.email||'-'}</td>
+          <td><span style="background:#f1f5f9;padding:2px 8px;border-radius:6px;font-size:12px;">${(u.roles||['member']).join(' / ')}</span></td>
+          <td><span style="color:${statusColor};font-weight:bold;font-size:12px;">${statusText}</span></td>
+          <td>${u.lastActive ? new Date(u.lastActive).toLocaleString() : '-'}</td>
+          <td>${u.lastIp||'N/A'}</td>
+          <td>${u.isLoggedIn ? `<button class="btn danger" style="padding:4px 8px;font-size:12px;" onclick="terminateUserSession('${u.id}')">Terminate</button>` : '-'}</td>
+        </tr>`;
+      }).join('') || '<tr><td colspan="7" style="text-align:center;color:#64748b;padding:24px;">No users found</td></tr>';
+      if (countEl) countEl.textContent = loggedInCount + ' online / ' + allUsers.length + ' total';
     }
     window.renderSessionsTable = renderSessionsTable;
     async function terminateAllSessions() {
