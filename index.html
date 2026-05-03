@@ -3578,7 +3578,7 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
         }
 
         const newUser = {
-          id: authData.user?.id || `u-${Date.now()}`,
+          id: (authData && authData.user) ? authData.user.id : `u-${Date.now()}`,
           name, email, phone, password,
           rank: 'Recruit',
           roles: ['player'],
@@ -3592,11 +3592,23 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
         await addActivity(`New account registered: ${name}`, 'System');
         e.target.reset();
         closeModal('register');
-        showToast(`Welcome ${name.split(' ')[0]}! Account created.`, 'success');
+        showToast(`✅ Account created for ${name.split(' ')[0]}! Please sign in.`, 'success');
+        // Auto-switch to login tab after successful registration
+        setTimeout(() => {
+          const modal = document.getElementById('loginModal');
+          if (modal) {
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+          }
+          // Pre-fill email in login
+          const loginEmailField = document.getElementById('loginIdentifier');
+          if (loginEmailField) loginEmailField.value = email;
+        }, 1200);
         setCurrentUser(newUser.id);
         await checkAuth();
       } catch (err) {
-        showToast(err.message || 'Registration failed', 'error');
+        const msg = err?.message || (typeof err === 'string' ? err : 'Registration failed. Please try again.');
+        showToast(msg, 'error');
       }
     }
 

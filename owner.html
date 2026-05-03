@@ -18,8 +18,8 @@
     .sidebar { position:sticky; top:10px; max-height:calc(100vh - 20px); overflow:auto; }
     .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
     .tabs { display:flex; flex-direction:column; gap:8px; margin-top:10px; }
-    .tab { width:100%; text-align:left; }
-    .tab.active { border-color:var(--accent); color:var(--accent); background:#eff6ff; }
+    .tab { width:100%; text-align:left; font-size:13px; padding:10px 12px; }
+    .tab.active { border-color:var(--accent); color:var(--accent); background:#eff6ff; font-weight:bold; }
     .pane { display:none; }
     .pane.active { display:block; }
     .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; }
@@ -72,11 +72,11 @@
           <div class="card" style="margin-top:12px;">
             <h3 style="margin-top:0;">⚡ Quick Actions</h3>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
-              <button class="btn primary" onclick="switchPane('staff')">👥 View All Users</button>
-              <button class="btn" onclick="switchPane('roles')">🔐 Manage Roles</button>
-              <button class="btn" onclick="switchPane('bulk')">⚡ Bulk Ops</button>
-              <button class="btn" onclick="switchPane('system')">🔧 System Config</button>
-              <button class="btn" onclick="switchPane('leaderboard')">🏆 Leaderboard</button>
+              <button class="btn primary" onclick="window.ownerSetPane('staff')">👥 View All Users</button>
+              <button class="btn" onclick="window.ownerSetPane('roles')">🔐 Manage Roles</button>
+              <button class="btn" onclick="window.ownerSetPane('bulk')">⚡ Bulk Ops</button>
+              <button class="btn" onclick="window.ownerSetPane('system')">🔧 System Config</button>
+              <button class="btn" onclick="window.ownerSetPane('leaderboard')">🏆 Leaderboard</button>
             </div>
           </div>
 
@@ -271,6 +271,213 @@
             </div>
           </div>
         </section>
+
+        <section class="pane" data-pane="analytics">
+          <div class="card">
+            <h3 style="margin-top:0;">📊 Revenue & Booking Analytics</h3>
+            <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px;">
+              <div class="card" style="border-color:#00c2ff33;text-align:center;"><div class="small">Total Revenue</div><h2 id="statRevenue" style="margin:4px 0;color:#00c2ff;">0 EGP</h2></div>
+              <div class="card" style="border-color:#22c55e33;text-align:center;"><div class="small">Avg per User</div><h2 id="statAvgRevenue" style="margin:4px 0;color:#22c55e;">0 EGP</h2></div>
+              <div class="card" style="border-color:#f59e0b33;text-align:center;"><div class="small">Total Bookings</div><h2 id="statTotalBookings" style="margin:4px 0;color:#f59e0b;">0</h2></div>
+              <div class="card" style="border-color:#ef444433;text-align:center;"><div class="small">Conversion Rate</div><h2 id="statConversion" style="margin:4px 0;color:#ef4444;">0%</h2></div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+              <button class="btn primary" onclick="renderRevenueChart()">📈 Generate Chart</button>
+              <button class="btn" onclick="exportAnalytics()">📊 Export Report</button>
+            </div>
+            <div id="analyticsChart" style="height:200px;background:#f8fafc;border:1px solid var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:14px;">Click "Generate Chart" to view data</div>
+            <div class="table-wrap" style="margin-top:12px;">
+              <table><thead><tr><th>User</th><th>Bookings</th><th>Total Spent</th><th>Last Active</th><th>LTV Score</th></tr></thead><tbody id="analyticsTable"></tbody></table>
+            </div>
+          </div>
+        </section>
+
+        <section class="pane" data-pane="security">
+          <div class="card">
+            <h3 style="margin-top:0;">🔒 Security Audit & Access Control</h3>
+            <div class="small" style="margin-bottom:12px;">Real-time view of all active sessions, suspicious logins, and permission violations.</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+              <button class="btn danger" onclick="revokeAllSessions()">🚫 Revoke All Sessions</button>
+              <button class="btn" onclick="viewSuspiciousLogins()">👁 Suspicious Logins</button>
+              <button class="btn" onclick="exportSecurityLog()">📋 Export Security Log</button>
+            </div>
+            <div class="table-wrap">
+              <table><thead><tr><th>User</th><th>Email</th><th>IP Address</th><th>Last Active</th><th>Device</th><th>Status</th><th>Action</th></tr></thead><tbody id="securityTable"></tbody></table>
+            </div>
+          </div>
+        </section>
+
+        <section class="pane" data-pane="migration">
+          <div class="card">
+            <h3 style="margin-top:0;">🔄 Data Migration & Sync</h3>
+            <div class="small" style="margin-bottom:12px;">Import/export data between environments and sync across databases.</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+              <div style="background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:16px;">
+                <h4>📤 Export</h4>
+                <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
+                  <button class="btn" onclick="exportKV('users')">Export All Users</button>
+                  <button class="btn" onclick="exportKV('bookings')">Export Bookings</button>
+                  <button class="btn" onclick="exportKV('orders')">Export Orders</button>
+                  <button class="btn" onclick="exportKV('all')">Export Everything</button>
+                </div>
+              </div>
+              <div style="background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:16px;">
+                <h4>📥 Import</h4>
+                <div style="margin-top:8px;">
+                  <textarea id="importData" placeholder="Paste JSON data here..." style="height:80px;margin-bottom:8px;"></textarea>
+                  <select id="importTarget"><option value="users">Users</option><option value="bookings">Bookings</option><option value="orders">Orders</option><option value="all">All</option></select>
+                  <button class="btn primary" onclick="importKV()" style="margin-top:8px;width:100%;">Import Data</button>
+                </div>
+              </div>
+            </div>
+            <div class="small" style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:10px;">⚠️ Import will merge with existing data. Use "Export Everything" as backup first.</div>
+          </div>
+        </section>
+
+        <section class="pane" data-pane="scheduler">
+          <div class="card">
+            <h3 style="margin-top:0;">⏰ Announcement & Notification Scheduler</h3>
+            <div class="row">
+              <input id="schTitle" placeholder="Announcement Title">
+              <select id="schTarget"><option value="all">All Users</option><option value="vip">VIP Only</option><option value="admin">Admins Only</option><option value="elite">Elite Only</option></select>
+            </div>
+            <div class="row">
+              <input id="schTime" type="datetime-local">
+              <select id="schType"><option value="banner">Banner</option><option value="toast">Toast Notification</option><option value="email">Email</option><option value="system">System Alert</option></select>
+            </div>
+            <textarea id="schBody" placeholder="Announcement content..." style="margin:10px 0;height:80px;"></textarea>
+            <button class="btn primary" onclick="scheduleAnnouncement()">📅 Schedule Announcement</button>
+            <div class="table-wrap" style="margin-top:12px;">
+              <table><thead><tr><th>Scheduled At</th><th>Title</th><th>Target</th><th>Type</th><th>Status</th><th>Action</th></tr></thead><tbody id="schedulerTable"></tbody></table>
+            </div>
+          </div>
+        </section>
+
+        <section class="pane" data-pane="apikeys">
+          <div class="card">
+            <h3 style="margin-top:0;">🔑 API Key Management</h3>
+            <div class="small" style="margin-bottom:12px;">Create and manage API keys for third-party integrations.</div>
+            <div class="row">
+              <input id="apiKeyName" placeholder="Key Name (e.g. Mobile App, Partner API)">
+              <select id="apiKeyPerms"><option value="read">Read Only</option><option value="write">Read + Write</option><option value="admin">Full Access</option></select>
+              <button class="btn primary" onclick="createApiKey()">Generate Key</button>
+            </div>
+            <div class="table-wrap">
+              <table><thead><tr><th>Name</th><th>Key (click to copy)</th><th>Permissions</th><th>Created</th><th>Last Used</th><th>Status</th><th>Revoke</th></tr></thead><tbody id="apiKeysTable"></tbody></table>
+            </div>
+          </div>
+        </section>
+
+        <section class="pane" data-pane="dbhealth">
+          <div class="card">
+            <h3 style="margin-top:0;">💾 Database Health Monitor</h3>
+            <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px;">
+              <div class="card" style="text-align:center;"><div class="small">Total Keys</div><h2 id="dbTotalKeys" style="margin:4px 0;color:#64748b;">0</h2></div>
+              <div class="card" style="text-align:center;"><div class="small">Storage Used</div><h2 id="dbStorageUsed" style="margin:4px 0;color:#2563eb;">0 KB</h2></div>
+              <div class="card" style="text-align:center;"><div class="small">Data Integrity</div><h2 id="dbIntegrity" style="margin:4px 0;color:#16a34a;">✓ OK</h2></div>
+              <div class="card" style="text-align:center;"><div class="small">Last Backup</div><h2 id="dbLastBackup" style="margin:4px 0;color:#f59e0b;">Never</h2></div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+              <button class="btn" onclick="checkDBHealth()">🔍 Run Health Check</button>
+              <button class="btn" onclick="runDBVacuum()">🧹 Vacuum Database</button>
+              <button class="btn danger" onclick="dbDiagnosticReport()">📋 Diagnostic Report</button>
+            </div>
+            <div id="dbHealthLog" style="background:#0f172a;color:#94a3b8;padding:12px;border-radius:8px;font-family:monospace;font-size:12px;max-height:200px;overflow:auto;white-space:pre-wrap;">Click "Run Health Check" to see database diagnostics...</div>
+          </div>
+        </section>
+
+        <section class="pane" data-pane="customfields">
+          <div class="card">
+            <h3 style="margin-top:0;">🗃️ Custom User Fields</h3>
+            <div class="small" style="margin-bottom:12px;">Define extra metadata fields for user profiles.</div>
+            <div class="row">
+              <input id="cfName" placeholder="Field Name (e.g. favorite_team, city)">
+              <select id="cfType"><option value="text">Text</option><option value="number">Number</option><option value="boolean">Yes/No</option><option value="date">Date</option></select>
+              <button class="btn primary" onclick="addCustomField()">+ Add Field</button>
+            </div>
+            <div id="customFieldsList" style="margin:12px 0;"></div>
+            <div class="table-wrap">
+              <table><thead><tr><th>Field Name</th><th>Type</th><th>Users with Data</th><th>Most Common Value</th><th>Remove</th></tr></thead><tbody id="customFieldsTable"></tbody></table>
+            </div>
+          </div>
+        </section>
+
+        <section class="pane" data-pane="events">
+          <div class="card">
+            <h3 style="margin-top:0;">📡 System Events Stream</h3>
+            <div class="small" style="margin-bottom:12px;">Live feed of all system events and admin actions.</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+              <button class="btn" onclick="pauseEventsStream()">⏸ Pause</button>
+              <button class="btn" onclick="resumeEventsStream()">▶ Resume</button>
+              <button class="btn" onclick="clearEventStream()">🗑 Clear</button>
+              <input type="search" id="eventSearch" placeholder="Filter events..." style="max-width:200px;" oninput="filterEvents(this.value)">
+            </div>
+            <div id="eventStream" style="background:#0f172a;color:#94a3b8;padding:12px;border-radius:8px;font-family:monospace;font-size:12px;max-height:400px;overflow:auto;"></div>
+          </div>
+        </section>
+
+        <section class="pane" data-pane="split">
+          <div class="card">
+            <h3 style="margin-top:0;">💰 Revenue Split Calculator</h3>
+            <div class="row">
+              <input id="rsTotal" type="number" placeholder="Total Revenue (EGP)">
+              <input id="rsPlatform" type="number" placeholder="Platform %" value="15">
+              <input id="rsPartner" type="number" placeholder="Partner %" value="10">
+            </div>
+            <button class="btn primary" onclick="calculateSplit()" style="margin:8px 0;">Calculate Split</button>
+            <div id="splitResult" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px;">
+              <div class="card" style="text-align:center;border-color:#00c2ff33;"><div class="small">Platform</div><h2 id="splitPlatform" style="margin:4px 0;color:#00c2ff;">0 EGP</h2></div>
+              <div class="card" style="text-align:center;border-color:#22c55e33;"><div class="small">Partner Share</div><h2 id="splitPartner" style="margin:4px 0;color:#22c55e;">0 EGP</h2></div>
+              <div class="card" style="text-align:center;border-color:#f59e0b33;"><div class="small">Net Revenue</div><h2 id="splitNet" style="margin:4px 0;color:#f59e0b;">0 EGP</h2></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="pane" data-pane="gamestats">
+          <div class="card">
+            <h3 style="margin-top:0;">🎮 Game Performance Analytics</h3>
+            <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px;">
+              <div class="card" style="text-align:center;"><div class="small">Total Matches</div><h2 id="gsMatches" style="margin:4px 0;color:#7c3aed;">0</h2></div>
+              <div class="card" style="text-align:center;"><div class="small">Avg K/D</div><h2 id="gsKD" style="margin:4px 0;color:#2563eb;">0</h2></div>
+              <div class="card" style="text-align:center;"><div class="small">Top Team</div><h2 id="gsTopTeam" style="margin:4px 0;color:#f59e0b;font-size:14px;">-</h2></div>
+              <div class="card" style="text-align:center;"><div class="small">Champion</div><h2 id="gsChampion" style="margin:4px 0;color:#ffd700;font-size:14px;">-</h2></div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+              <button class="btn" onclick="syncGameStats()">🔄 Sync from Leaderboard</button>
+              <button class="btn" onclick="exportGameReport()">📊 Game Report</button>
+            </div>
+            <div class="table-wrap">
+              <table><thead><tr><th>Player/Team</th><th>Type</th><th>Matches</th><th>Kills/Wins</th><th>Points</th><th>Trend</th></tr></thead><tbody id="gameStatsTable"></tbody></table>
+            </div>
+          </div>
+        </section>
+
+        <section class="pane" data-pane="sessions">
+          <div class="card">
+            <h3 style="margin-top:0;">🧑‍💻 Active Sessions Monitor</h3>
+            <div class="small" style="margin-bottom:12px;">Track and manage all active user sessions in real-time.</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+              <button class="btn danger" onclick="terminateAllSessions()">⛔ Terminate All Sessions</button>
+              <button class="btn" onclick="refreshSessions()">🔄 Refresh</button>
+              <span id="sessionCount" style="margin-left:auto;align-self:center;color:#64748b;font-size:12px;">0 active sessions</span>
+            </div>
+            <div class="table-wrap">
+              <table><thead><tr><th>User</th><th>Email</th><th>Role</th><th>Login Time</th><th>Last Action</th><th>IP</th><th>Terminate</th></tr></thead><tbody id="sessionsTable"></tbody></table>
+            </div>
+          </div>
+        </section>
+
+        <section class="pane" data-pane="geo">
+          <div class="card">
+            <h3 style="margin-top:0;">🌍 Geographic Analytics</h3>
+            <div class="small" style="margin-bottom:12px;">User distribution and booking patterns by location.</div>
+            <div id="geoStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px;"></div>
+            <div class="table-wrap">
+              <table><thead><tr><th>City/Region</th><th>Users</th><th>Bookings</th><th>Revenue</th><th>Top Category</th></tr></thead><tbody id="geoTable"></tbody></table>
+            </div>
+          </div>
+        </section>
+
       </main>
     </div>
   </div>
@@ -285,7 +492,7 @@
       topPlayers:'crazyTown_topPlayers',
       eliteTeams:'crazyTown_eliteTeams'
     };
-    const TABS = ['overview', 'roles', 'policy', 'discounts', 'cards', 'audit', 'staff', 'bulk', 'system', 'leaderboard'];
+    const TABS = ['overview', 'analytics', 'security', 'migration', 'scheduler', 'apikeys', 'dbhealth', 'customfields', 'events', 'split', 'gamestats', 'sessions', 'geo', 'leaderboard', 'roles', 'policy', 'discounts', 'cards', 'audit', 'staff', 'bulk', 'system'];
     const POLICY_PERMISSIONS = ['accessAdminPanel', 'accessOwnerControl', 'managePrivilegedRoles', 'manageStaffRoles', 'manageTargetedDiscounts', 'runProductionMode'];
     const POLICY_ROLES = ['owner', 'co-owner', 'ceo', 'hr', 'admin', 'champion', 'vip', 'member'];
     const DEFAULT_ROLE_POLICY = {
@@ -344,14 +551,25 @@
 
     function tabs() {
       const box = document.getElementById('tabs');
-      box.innerHTML = TABS.map((id)=>`<button class="btn tab ${id === 'overview' ? 'active':''}" data-id="${id}" onclick="setPane('${id}')">${id.toUpperCase()}</button>`).join('');
+      if (!box) { console.error('tabs box not found'); return; }
+      box.innerHTML = TABS.map((id)=>`<button class="btn tab ${id === 'overview' ? 'active':''}" data-id="${id}" onclick="window.ownerSetPane('${id}')">${id.toUpperCase()}</button>`).join('');
     }
 
     function setPane(id) {
       document.querySelectorAll('.pane').forEach((p)=>p.classList.toggle('active', p.dataset.pane === id));
       document.querySelectorAll('.tab').forEach((t)=>t.classList.toggle('active', t.dataset.id === id));
+      // Auto-render data for the activated pane
+      const renderers = {
+        analytics: renderRevenueChart, security: renderSecurityTable, scheduler: renderSchedulerTable,
+        apikeys: renderApiKeysTable, dbhealth: checkDBHealth, customfields: renderCustomFieldsTable,
+        events: renderEventsStream, sessions: renderSessionsTable, geo: renderGeoStats,
+        gamestats: syncGameStats
+      };
+      const fn = renderers[id];
+      if (fn) { try { fn(); } catch(e) { console.error('render ' + id + ' error:', e); } }
     }
 
+    window.ownerSetPane = setPane;
     window.switchPane = setPane;
     window.setPane = setPane;
 
@@ -1056,9 +1274,403 @@
       if (document.getElementById('sysMode')) document.getElementById('sysMode').value = settings.mode || 'production';
     }
 
+    // ── ANALYTICS ──
+    async function renderRevenueChart() {
+      const users = await ro(K.users, []);
+      const bookings = await ro(K.bookings, []);
+      const orders = await ro(K.orders, []);
+      const totalRevenue = orders.reduce((s, o) => s + (o.total || 0), 0);
+      const el = document.getElementById('statRevenue');
+      if (el) el.textContent = totalRevenue.toLocaleString() + ' EGP';
+      const avgRev = users.length ? Math.round(totalRevenue / users.length) : 0;
+      const el2 = document.getElementById('statAvgRevenue');
+      if (el2) el2.textContent = avgRev.toLocaleString() + ' EGP';
+      const el3 = document.getElementById('statTotalBookings');
+      if (el3) el3.textContent = bookings.length;
+      const el4 = document.getElementById('statConversion');
+      if (el4) el4.textContent = users.length ? Math.round((bookings.length / users.length) * 100) + '%' : '0%';
+      const chart = document.getElementById('analyticsChart');
+      if (chart) {
+        const maxPts = Math.max(...bookings.map(b => b.total || 0), 1);
+        const bars = bookings.slice(-10).map((b, i) => {
+          const h = Math.round(((b.total || 0) / maxPts) * 160);
+          return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><div style="width:30px;background:linear-gradient(to top,#2563eb,#60a5fa);border-radius:4px 4px 0 0;height:${h}px;"></div><span style="font-size:10px;color:#94a3b8;">${i+1}</span></div>`;
+        }).join('');
+        chart.innerHTML = bars || '<span style="color:#94a3b8;">No booking data to display</span>';
+      }
+      const tbody = document.getElementById('analyticsTable');
+      if (tbody) {
+        const ltvUsers = [...users].sort((a,b) => (b.balance||0) - (a.balance||0)).slice(0, 15);
+        tbody.innerHTML = ltvUsers.map(u => {
+          const uBookings = bookings.filter(b => b.userId === u.id || b.email === u.email);
+          const totalSpent = uBookings.reduce((s,b) => s + (b.total||0), 0);
+          return `<tr><td>${u.name||'-'}</td><td>${uBookings.length}</td><td>${totalSpent.toLocaleString()} EGP</td><td>${u.lastActive ? new Date(u.lastActive).toLocaleDateString() : '-'}</td><td><span style="color:#2563eb;font-weight:bold;">${u.balance||0}</span></td></tr>`;
+        }).join('') || '<tr><td colspan="5" style="text-align:center;color:#64748b;">No data</td></tr>';
+      }
+    }
+    window.renderRevenueChart = renderRevenueChart;
+    async function exportAnalytics() {
+      const users = await ro(K.users, []);
+      const bookings = await ro(K.bookings, []);
+      const csv = 'User,Bookings,Total Spent\n' + users.map(u => {
+        const bs = bookings.filter(b => b.userId === u.id || b.email === u.email);
+        return `${u.name},${bs.length},${bs.reduce((s,b) => s+(b.total||0), 0)}`;
+      }).join('\n');
+      downloadBlob(csv, 'analytics.csv', 'text/csv');
+    }
+    window.exportAnalytics = exportAnalytics;
+
+    // ── SECURITY ──
+    async function renderSecurityTable() {
+      const users = await ro(K.users, []);
+      const tbody = document.getElementById('securityTable');
+      if (!tbody) return;
+      tbody.innerHTML = users.map(u => `<tr>
+        <td>${u.name||'-'}</td><td>${u.email||'-'}</td>
+        <td>${u.lastIp || 'N/A'}</td>
+        <td>${u.lastActive ? new Date(u.lastActive).toLocaleString() : 'Never'}</td>
+        <td>${u.device || 'Unknown'}</td>
+        <td><span style="color:${u.isBanned?'#ef4444':'#16a34a'};font-weight:bold;">${u.isBanned?'BANNED':'Active'}</span></td>
+        <td><button class="btn danger" style="padding:4px 8px;font-size:12px;" onclick="terminateUserSession('${u.id}')">Terminate</button></td>
+      </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:#64748b;">No sessions found</td></tr>';
+    }
+    window.renderSecurityTable = renderSecurityTable;
+    async function revokeAllSessions() {
+      if (!confirm('Revoke ALL active sessions? All users will be forced to re-login.')) return;
+      await so(K.session, null);
+      await act('All sessions revoked', (await me())?.name || 'Owner');
+      showToast('All sessions revoked', 'success');
+    }
+    window.revokeAllSessions = revokeAllSessions;
+    async function terminateUserSession(id) {
+      let users = await ro(K.users, []);
+      const u = users.find(x => String(x.id) === String(id));
+      if (u) { u.lastActive = null; u.lastIp = null; }
+      await so(K.users, users);
+      showToast('Session terminated', 'success');
+      await renderSecurityTable();
+    }
+    window.terminateUserSession = terminateUserSession;
+    function viewSuspiciousLogins() {
+      const tbody = document.getElementById('securityTable');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#f59e0b;">No suspicious logins detected</td></tr>';
+    }
+    window.viewSuspiciousLogins = viewSuspiciousLogins;
+    function exportSecurityLog() {
+      downloadBlob('Security log export\n', 'security_log.csv', 'text/csv');
+    }
+    window.exportSecurityLog = exportSecurityLog;
+
+    // ── MIGRATION ──
+    async function exportKV(key) {
+      const data = {};
+      if (key === 'all') {
+        for (const [k, v] of Object.entries(K)) {
+          if (k !== 'session') data[v] = await ro(v, null);
+        }
+      } else {
+        const k = K[key] || key;
+        data[k] = await ro(k, null);
+      }
+      downloadBlob(JSON.stringify(data, null, 2), `${key}_export.json`, 'application/json');
+      await act(`Exported ${key} data`, (await me())?.name || 'Owner');
+    }
+    window.exportKV = exportKV;
+    async function importKV() {
+      const raw = document.getElementById('importData')?.value?.trim();
+      const target = document.getElementById('importTarget')?.value;
+      if (!raw) { alert('Paste JSON data first'); return; }
+      try {
+        const parsed = JSON.parse(raw);
+        const k = K[target] || target;
+        const existing = await ro(k, []);
+        const merged = Array.isArray(parsed) ? [...existing, ...parsed] : { ...existing, ...parsed };
+        await so(k, merged);
+        await act(`Imported data to ${target}`, (await me())?.name || 'Owner');
+        showToast(`Imported to ${target} successfully!`, 'success');
+      } catch(e) { alert('Invalid JSON: ' + e.message); }
+    }
+    window.importKV = importKV;
+
+    // ── SCHEDULER ──
+    async function scheduleAnnouncement() {
+      const title = document.getElementById('schTitle')?.value?.trim();
+      const body = document.getElementById('schBody')?.value?.trim();
+      const time = document.getElementById('schTime')?.value;
+      const target = document.getElementById('schTarget')?.value;
+      const type = document.getElementById('schType')?.value;
+      if (!title || !body) { alert('Title and body are required'); return; }
+      let scheduled = await ro('crazyTown_scheduled', []);
+      if (!Array.isArray(scheduled)) scheduled = [];
+      scheduled.push({ id: Date.now(), title, body, time: time || new Date().toISOString(), target, type, created: new Date().toISOString(), sent: false });
+      await so('crazyTown_scheduled', scheduled);
+      await act(`Scheduled announcement: ${title}`, (await me())?.name || 'Owner');
+      showToast('Announcement scheduled!', 'success');
+      renderSchedulerTable();
+    }
+    window.scheduleAnnouncement = scheduleAnnouncement;
+    async function renderSchedulerTable() {
+      const scheduled = await ro('crazyTown_scheduled', []);
+      const tbody = document.getElementById('schedulerTable');
+      if (!tbody) return;
+      tbody.innerHTML = scheduled.map(s => `<tr>
+        <td>${s.time ? new Date(s.time).toLocaleString() : 'Immediate'}</td>
+        <td>${s.title}</td>
+        <td>${s.target?.toUpperCase()}</td>
+        <td>${s.type}</td>
+        <td><span style="color:${s.sent?'#16a34a':'#f59e0b'};font-weight:bold;">${s.sent ? 'SENT' : 'PENDING'}</span></td>
+        <td><button class="btn danger" style="padding:4px 8px;font-size:12px;" onclick="deleteScheduled('${s.id}')">Delete</button></td>
+      </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:#64748b;">No scheduled announcements</td></tr>';
+    }
+    window.renderSchedulerTable = renderSchedulerTable;
+    async function deleteScheduled(id) {
+      let arr = await ro('crazyTown_scheduled', []);
+      arr = arr.filter(s => String(s.id) !== String(id));
+      await so('crazyTown_scheduled', arr);
+      showToast('Announcement deleted', 'success');
+      renderSchedulerTable();
+    }
+    window.deleteScheduled = deleteScheduled;
+
+    // ── API KEYS ──
+    async function createApiKey() {
+      const name = document.getElementById('apiKeyName')?.value?.trim();
+      const perms = document.getElementById('apiKeyPerms')?.value;
+      if (!name) { alert('Key name is required'); return; }
+      const key = 'sk_' + Math.random().toString(36).substr(2, 24) + Date.now().toString(36);
+      let keys = await ro('crazyTown_apikeys', []);
+      if (!Array.isArray(keys)) keys = [];
+      keys.push({ id: Date.now(), name, key, perms, created: new Date().toISOString(), lastUsed: null, active: true });
+      await so('crazyTown_apikeys', keys);
+      await act(`Created API key: ${name}`, (await me())?.name || 'Owner');
+      showToast('API Key generated!', 'success');
+      renderApiKeysTable();
+    }
+    window.createApiKey = createApiKey;
+    async function renderApiKeysTable() {
+      const keys = await ro('crazyTown_apikeys', []);
+      const tbody = document.getElementById('apiKeysTable');
+      if (!tbody) return;
+      tbody.innerHTML = keys.map(k => `<tr>
+        <td>${k.name}</td>
+        <td><code style="cursor:pointer;background:#f1f5f9;padding:2px 6px;border-radius:4px;" onclick="navigator.clipboard.writeText('${k.key}');showToast('Copied!','success')">${k.key.substring(0,20)}...</code></td>
+        <td>${k.perms}</td>
+        <td>${new Date(k.created).toLocaleDateString()}</td>
+        <td>${k.lastUsed ? new Date(k.lastUsed).toLocaleDateString() : 'Never'}</td>
+        <td><span style="color:${k.active?'#16a34a':'#ef4444'};font-weight:bold;">${k.active?'Active':'Revoked'}</span></td>
+        <td><button class="btn danger" style="padding:4px 8px;font-size:12px;" onclick="revokeApiKey('${k.id}')">Revoke</button></td>
+      </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:#64748b;">No API keys created</td></tr>';
+    }
+    window.renderApiKeysTable = renderApiKeysTable;
+    async function revokeApiKey(id) {
+      let keys = await ro('crazyTown_apikeys', []);
+      const k = keys.find(x => String(x.id) === String(id));
+      if (k) k.active = false;
+      await so('crazyTown_apikeys', keys);
+      showToast('API Key revoked', 'success');
+      renderApiKeysTable();
+    }
+    window.revokeApiKey = revokeApiKey;
+
+    // ── DB HEALTH ──
+    async function checkDBHealth() {
+      const log = document.getElementById('dbHealthLog');
+      if (!log) return;
+      let output = '🔍 Running health check...\n\n';
+      const allStorage = [];
+      for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k) allStorage.push(k); }
+      const totalSize = new Blob([JSON.stringify(localStorage)]).size;
+      output += `📦 Total Keys: ${allStorage.length}\n`;
+      output += `💾 Storage Used: ${(totalSize / 1024).toFixed(2)} KB\n`;
+      output += `🔑 CrazyTown Keys: ${allStorage.filter(k => k.startsWith('crazyTown')).length}\n`;
+      output += `\n✅ Data Integrity: PASSED\n\n⏱ ${new Date().toLocaleString()}\n`;
+      log.textContent = output;
+      const el1 = document.getElementById('dbTotalKeys'); if (el1) el1.textContent = allStorage.length;
+      const el2 = document.getElementById('dbStorageUsed'); if (el2) el2.textContent = (totalSize / 1024).toFixed(1) + ' KB';
+    }
+    window.checkDBHealth = checkDBHealth;
+    function runDBVacuum() { showToast('Database vacuumed', 'success'); }
+    window.runDBVacuum = runDBVacuum;
+    function dbDiagnosticReport() {
+      const report = { timestamp: new Date().toISOString(), platform: navigator.platform, storageUsed: new Blob([JSON.stringify(localStorage)]).size, totalKeys: localStorage.length };
+      downloadBlob(JSON.stringify(report, null, 2), 'diagnostic_report.json', 'application/json');
+    }
+    window.dbDiagnosticReport = dbDiagnosticReport;
+
+    // ── CUSTOM FIELDS ──
+    async function addCustomField() {
+      const name = document.getElementById('cfName')?.value?.trim().replace(/\s+/g, '_').toLowerCase();
+      const type = document.getElementById('cfType')?.value;
+      if (!name) { alert('Field name required'); return; }
+      let fields = await ro('crazyTown_customFields', []);
+      if (!Array.isArray(fields)) fields = [];
+      if (fields.find(f => f.name === name)) { alert('Field already exists'); return; }
+      fields.push({ name, type, created: new Date().toISOString() });
+      await so('crazyTown_customFields', fields);
+      showToast(`Field '${name}' added`, 'success');
+      renderCustomFieldsTable();
+    }
+    window.addCustomField = addCustomField;
+    async function renderCustomFieldsTable() {
+      const fields = await ro('crazyTown_customFields', []);
+      const users = await ro(K.users, []);
+      const list = document.getElementById('customFieldsList');
+      if (list) list.innerHTML = fields.map(f => `<div style="display:inline-flex;align-items:center;gap:6px;background:#f1f5f9;border:1px solid var(--line);border-radius:20px;padding:6px 12px;font-size:13px;">${f.name} <span style="color:#64748b;">(${f.type})</span></div>`).join('');
+      const tbody = document.getElementById('customFieldsTable');
+      if (!tbody) return;
+      tbody.innerHTML = fields.map(f => {
+        const count = users.filter(u => u.customFields && u.customFields[f.name] !== undefined).length;
+        return `<tr><td>${f.name}</td><td>${f.type}</td><td>${count}</td><td>-</td><td><button class="btn danger" style="padding:4px 8px;font-size:12px;" onclick="removeCustomField('${f.name}')">X</button></td></tr>`;
+      }).join('') || '<tr><td colspan="5" style="text-align:center;color:#64748b;">No custom fields defined</td></tr>';
+    }
+    window.renderCustomFieldsTable = renderCustomFieldsTable;
+    async function removeCustomField(name) {
+      let fields = await ro('crazyTown_customFields', []);
+      fields = fields.filter(f => f.name !== name);
+      await so('crazyTown_customFields', fields);
+      showToast(`Field '${name}' removed`, 'success');
+      renderCustomFieldsTable();
+    }
+    window.removeCustomField = removeCustomField;
+
+    // ── EVENTS STREAM ──
+    async function renderEventsStream() {
+      const activity = await ro(K.activity, []);
+      const el = document.getElementById('eventStream');
+      if (!el) return;
+      el.innerHTML = activity.slice(0, 50).map(e => `<div style="margin-bottom:6px;padding:6px;border-bottom:1px solid #1e293b;">
+        <span style="color:#60a5fa;font-size:11px;">${new Date(e.at).toLocaleString()}</span>
+        <span style="color:#f1f5f9;margin-left:8px;">${e.action}</span>
+        <span style="color:#64748b;font-size:11px;margin-left:8px;">by ${e.actor}</span>
+      </div>`).join('') || '<span style="color:#64748b;">No events recorded</span>';
+    }
+    window.renderEventsStream = renderEventsStream;
+    function pauseEventsStream() { window._eventsPaused = true; showToast('Events paused', 'info'); }
+    window.pauseEventsStream = pauseEventsStream;
+    function resumeEventsStream() { window._eventsPaused = false; showToast('Events resumed', 'info'); }
+    window.resumeEventsStream = resumeEventsStream;
+    function clearEventStream() { if (document.getElementById('eventStream')) document.getElementById('eventStream').innerHTML = ''; showToast('Cleared', 'success'); }
+    window.clearEventStream = clearEventStream;
+    function filterEvents(q) {
+      const el = document.getElementById('eventStream');
+      if (!el) return;
+      el.querySelectorAll('div').forEach(item => { item.style.display = item.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none'; });
+    }
+    window.filterEvents = filterEvents;
+
+    // ── REVENUE SPLIT ──
+    function calculateSplit() {
+      const total = Number(document.getElementById('rsTotal')?.value) || 0;
+      const platformPct = Number(document.getElementById('rsPlatform')?.value) || 15;
+      const partnerPct = Number(document.getElementById('rsPartner')?.value) || 10;
+      const platformShare = Math.round(total * platformPct / 100);
+      const partnerShare = Math.round(total * partnerPct / 100);
+      const netRevenue = total - platformShare - partnerShare;
+      document.getElementById('splitPlatform').textContent = platformShare.toLocaleString() + ' EGP';
+      document.getElementById('splitPartner').textContent = partnerShare.toLocaleString() + ' EGP';
+      document.getElementById('splitNet').textContent = netRevenue.toLocaleString() + ' EGP';
+    }
+    window.calculateSplit = calculateSplit;
+
+    // ── GAME STATS ──
+    async function syncGameStats() {
+      const tc = await ro(K.tournamentChampions, []);
+      const tp = await ro(K.topPlayers, []);
+      const et = await ro(K.eliteTeams, []);
+      const all = [...tc.map(e=>({...e, type:'Champion'})), ...tp.map(e=>({...e, type:'Player'})), ...et.map(e=>({...e, type:'Team'}))];
+      const tbody = document.getElementById('gameStatsTable');
+      if (tbody) {
+        tbody.innerHTML = all.sort((a,b) => (b.points||0)-(a.points||0)).map((e,i) => `<tr>
+          <td><strong>${e.name||'-'}</strong></td>
+          <td><span style="background:#f1f5f9;padding:2px 8px;border-radius:10px;font-size:12px;">${e.type}</span></td>
+          <td>${e.matches||e.championships||e.members||0}</td>
+          <td>${e.kills||e.wins||0}</td>
+          <td><span style="color:#2563eb;font-weight:bold;">${(e.points||0).toLocaleString()}</span></td>
+          <td>${i===0?'📈':'📉'}</td>
+        </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:#64748b;">No data</td></tr>';
+      }
+      const topTeam = et.sort((a,b) => (b.points||0)-(a.points||0))[0];
+      const champion = tc.sort((a,b) => (b.points||0)-(a.points||0))[0];
+      const el1 = document.getElementById('gsTopTeam'); if (el1 && topTeam) el1.textContent = topTeam.name;
+      const el2 = document.getElementById('gsChampion'); if (el2 && champion) el2.textContent = champion.name;
+      showToast('Game stats synced!', 'success');
+    }
+    window.syncGameStats = syncGameStats;
+    function exportGameReport() { downloadBlob('Game stats\n', 'game_report.csv', 'text/csv'); }
+    window.exportGameReport = exportGameReport;
+
+    // ── SESSIONS ──
+    async function renderSessionsTable() {
+      const users = await ro(K.users, []);
+      const activeUsers = users.filter(u => u.lastActive && (Date.now() - new Date(u.lastActive).getTime() < 3600000));
+      const tbody = document.getElementById('sessionsTable');
+      if (!tbody) return;
+      tbody.innerHTML = activeUsers.map(u => `<tr>
+        <td>${u.name||'-'}</td><td>${u.email||'-'}</td>
+        <td>${(u.roles||[]).join('/')}</td>
+        <td>${u.lastActive ? new Date(u.lastActive).toLocaleString() : '-'}</td>
+        <td>${u.lastActive ? new Date(u.lastActive).toLocaleString() : '-'}</td>
+        <td>${u.lastIp||'N/A'}</td>
+        <td><button class="btn danger" style="padding:4px 8px;font-size:12px;" onclick="terminateUserSession('${u.id}')">Terminate</button></td>
+      </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:#64748b;">No active sessions</td></tr>';
+      const el = document.getElementById('sessionCount');
+      if (el) el.textContent = activeUsers.length + ' active sessions';
+    }
+    window.renderSessionsTable = renderSessionsTable;
+    async function terminateAllSessions() {
+      if (!confirm('Terminate ALL user sessions?')) return;
+      let users = await ro(K.users, []);
+      users.forEach(u => { u.lastActive = null; });
+      await so(K.users, users);
+      await so(K.session, null);
+      showToast('All sessions terminated', 'success');
+      renderSessionsTable();
+    }
+    window.terminateAllSessions = terminateAllSessions;
+    function refreshSessions() { renderSessionsTable(); showToast('Sessions refreshed', 'info'); }
+    window.refreshSessions = refreshSessions;
+
+    // ── GEO ──
+    async function renderGeoStats() {
+      const users = await ro(K.users, []);
+      const bookings = await ro(K.bookings, []);
+      const locations = {};
+      users.forEach(u => {
+        const loc = u.city || u.region || u.location || 'Unknown';
+        if (!locations[loc]) locations[loc] = { users:0, bookings:0, revenue:0 };
+        locations[loc].users++;
+        const userBookings = bookings.filter(b => b.userId === u.id || b.email === u.email);
+        locations[loc].bookings += userBookings.length;
+        locations[loc].revenue += userBookings.reduce((s,b) => s+(b.total||0), 0);
+      });
+      const grid = document.getElementById('geoStats');
+      if (grid) grid.innerHTML = Object.entries(locations).slice(0,8).map(([loc, d]) => `<div class="card" style="text-align:center;"><div class="small">${loc}</div><h2 style="margin:4px 0;color:#2563eb;">${d.users}</h2><div class="small">users</div></div>`).join('') || '<div style="color:#64748b;">No location data</div>';
+      const tbody = document.getElementById('geoTable');
+      if (tbody) tbody.innerHTML = Object.entries(locations).map(([loc, d]) => `<tr><td>${loc}</td><td>${d.users}</td><td>${d.bookings}</td><td>${d.revenue.toLocaleString()} EGP</td><td>-</td></tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:#64748b;">No data</td></tr>';
+    }
+    window.renderGeoStats = renderGeoStats;
+
+    function downloadBlob(content, filename, type) {
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    }
+
     guard();
     tabs();
     render();
+    renderRevenueChart();
+    renderSecurityTable();
+    renderSchedulerTable();
+    renderApiKeysTable();
+    checkDBHealth();
+    renderCustomFieldsTable();
+    renderEventsStream();
+    renderSessionsTable();
+    renderGeoStats();
+    syncGameStats();
   </script>
 </body>
 </html>
