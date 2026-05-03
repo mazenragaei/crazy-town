@@ -233,7 +233,7 @@
       if(!user) return location.href='index.html';
       const idx = users.findIndex(u=>u.id===user.id);
       if(idx===-1) return;
-      const price = 1999;
+      const price = 3999;
       if(Number(users[idx].balance||0) < price) return alert(`Not enough balance. Need ${price} EGP`);
       users[idx].balance = Number(users[idx].balance||0) - price;
       users[idx].roles = users[idx].roles || ['member'];
