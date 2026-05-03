@@ -3570,19 +3570,41 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
         }
 
         // Normal login flow
-        const { data } = await loginUser(identifier, password);
+        let { data, error } = await supabase.auth.signInWithPassword({
+          email: identifier,
+          password: password
+        });
+
+        // If email login failed AND identifier is a phone, try phone auth instead
+        if (error && identifier.startsWith('+') && identifier.length > 10) {
+          console.log("Phone login attempt:", identifier);
+          const { data: phoneData, error: phoneError } = await supabase.auth.signInWithPassword({
+            phone: identifier,
+            password: password
+          });
+          if (!phoneError) { data = phoneData; error = null; }
+        }
+
+        if (error) throw new Error(error.message || 'Invalid credentials');
+
         if (data?.user) {
           const users = await getUsers();
           const safeUsers = Array.isArray(users) ? users : [];
-          user = safeUsers.find((u) => u.email === identifier);
 
-          // If user exists in Supabase Auth but NOT in crazyTown_users, create their profile
+          // Try to find user by email OR phone - identifier could be either
+          user = safeUsers.find((u) =>
+            (u.email && u.email.toLowerCase() === identifier.toLowerCase()) ||
+            (u.phone && u.phone === identifier)
+          );
+
+          // If not found but Supabase Auth succeeded, create profile from Auth data
           if (!user && data.user) {
+            const meta = data.user.user_metadata || {};
             user = {
-              id: data.user?.id || `u-${Date.now()}`,
-              name: data.user?.user_metadata?.name || identifier.split('@')[0],
-              email: data.user?.email || identifier,
-              phone: data.user?.user_metadata?.phone || '',
+              id: data.user.id || `u-${Date.now()}`,
+              name: meta.name || meta.full_name || identifier.split('@')[0],
+              email: data.user.email || identifier,
+              phone: meta.phone || identifier,
               rank: 'Recruit',
               roles: ['player'],
               profileImage: '',
@@ -3606,7 +3628,18 @@ import { supabase, registerUser, loginUser, logoutUser, getCurrentUser, getKV, s
         await forceSyncSession();
         await checkAuth();
       } catch (err) {
-        showToast(err.message || 'Login failed - try "root" / "mazenragaei"', 'error');
+        // More helpful error messages based on error type
+        const msg = err.message || '';
+        if (msg.includes('Invalid login')) {
+          showToast('Wrong email or password. Check your credentials.', 'error');
+        } else if (msg.includes('Email not confirmed')) {
+          showToast('Please confirm your email first. Check your inbox.', 'warning');
+        } else if (msg.includes('User not found')) {
+          showToast('No account found with this email. Register first.', 'warning');
+        } else {
+          showToast(msg || 'Login failed - check console for details', 'error');
+        }
+        console.error('Login error:', err);
       }
     }
 
