@@ -30,6 +30,7 @@
     table { width:100%; border-collapse:collapse; min-width:820px; }
     th, td { border-bottom:1px solid var(--line); text-align:left; padding:10px; font-size:14px; }
     .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:12px; margin-top:8px; }
+    @keyframes toastSlide { from { transform:translateX(400px);opacity:0; } to { transform:translateX(0);opacity:1; } }
     @media (max-width: 980px) { .layout { grid-template-columns:1fr; } .sidebar { position:relative; top:0; max-height:none; } }
   </style>
 </head>
@@ -151,26 +152,81 @@
 
         <section class="pane" data-pane="cards">
           <div class="card">
-            <h3 style="margin-top:0;">Member Card Management (VIP/Elite/Special)</h3>
-            <div class="row">
-              <select id="cardUser" style="min-width:250px;">
-                <option value="">Select User</option>
-              </select>
-              <select id="cardType">
-                <option value="vip">VIP Card</option>
-                <option value="elite">Elite Card</option>
-                <option value="special">Special Card</option>
-              </select>
-              <input id="cardNumber" placeholder="Card Number (16 digits)" maxlength="16">
-              <input id="cardExpires" type="month">
+            <h3 style="margin-top:0;">🪪 Member Card Management Center</h3>
+            <div class="small" style="margin-bottom:14px;">Issue, manage, and revoke membership cards (VIP/Elite/Special). Cards grant holders special access and privileges.</div>
+
+            <!-- Issue New Card -->
+            <div style="background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px;">
+              <h4 style="margin:0 0 10px;color:var(--accent);">✨ Issue New Card</h4>
+              <div class="row">
+                <select id="cardUser" style="min-width:250px;"><option value="">Loading users...</option></select>
+                <select id="cardType">
+                  <option value="vip">VIP Card</option>
+                  <option value="elite">Elite Card</option>
+                  <option value="special">Special Card</option>
+                </select>
+                <input id="cardLevel" type="number" placeholder="Level (1-10)" min="1" max="10" style="max-width:120px;">
+              </div>
+              <div class="row">
+                <input id="cardNumber" placeholder="Card Number (e.g. VIP-2024-0001)" style="font-family:monospace;">
+                <input id="cardExpires" type="month">
+                <input id="cardColor" type="color" value="#2563eb" style="width:60px;height:40px;padding:2px;border-radius:8px;cursor:pointer;">
+              </div>
+              <textarea id="cardPerks" placeholder="Card perks & benefits (one per line)" style="margin:8px 0;height:60px;border:1px solid var(--line);border-radius:8px;padding:8px;width:100%;resize:vertical;"></textarea>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn primary" onclick="issueCard()">🎴 Issue Card</button>
+                <button class="btn" onclick="openBulkCardIssue()">📋 Bulk Issue</button>
+                <button class="btn" onclick="renderCardsTable()">🔄 Refresh</button>
+              </div>
             </div>
-            <div style="margin-top:12px;">
-              <button class="btn primary" onclick="issueCard()">Issue Card</button>
-              <button class="btn danger" onclick="revokeCard()">Revoke Card</button>
+
+            <!-- Card Stats -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px;">
+              <div style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;padding:12px;border-radius:10px;text-align:center;">
+                <div class="small" style="color:#e9d5ff;">Total Cards</div>
+                <h2 id="cardStatTotal" style="margin:4px 0;">0</h2>
+              </div>
+              <div style="background:linear-gradient(135deg,#2563eb,#60a5fa);color:#fff;padding:12px;border-radius:10px;text-align:center;">
+                <div class="small" style="color:#dbeafe;">Active VIP</div>
+                <h2 id="cardStatVip" style="margin:4px 0;">0</h2>
+              </div>
+              <div style="background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;padding:12px;border-radius:10px;text-align:center;">
+                <div class="small" style="color:#dcfce7;">Active Elite</div>
+                <h2 id="cardStatElite" style="margin:4px 0;">0</h2>
+              </div>
+              <div style="background:linear-gradient(135deg,#f59e0b,#eab308);color:#fff;padding:12px;border-radius:10px;text-align:center;">
+                <div class="small" style="color:#fef9c3;">Special</div>
+                <h2 id="cardStatSpecial" style="margin:4px 0;">0</h2>
+              </div>
+              <div style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:12px;border-radius:10px;text-align:center;">
+                <div class="small" style="color:#fee2e2;">Revoked</div>
+                <h2 id="cardStatRevoked" style="margin:4px 0;">0</h2>
+              </div>
             </div>
-            <div class="table-wrap" style="margin-top:12px;">
-              <table id="cardTable">
-                <thead><tr><th>User</th><th>Type</th><th>Number</th><th>Expires</th><th>Status</th><th>Action</th></tr></thead>
+
+            <!-- Search & Filter -->
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+              <input type="search" id="cardSearch" placeholder="Search by user, card number..." style="max-width:260px;" oninput="renderCardsTable(this.value)">
+              <select id="cardFilterType" onchange="renderCardsTable(document.getElementById('cardSearch').value)" style="max-width:150px;">
+                <option value="">All Types</option>
+                <option value="vip">VIP</option>
+                <option value="elite">Elite</option>
+                <option value="special">Special</option>
+              </select>
+              <select id="cardFilterStatus" onchange="renderCardsTable(document.getElementById('cardSearch').value)" style="max-width:150px;">
+                <option value="">All Status</option>
+                <option value="active">Active</option>
+                <option value="expired">Expired</option>
+                <option value="revoked">Revoked</option>
+              </select>
+              <button class="btn danger" style="margin-left:auto;" onclick="clearAllCards()">🗑 Clear All Cards</button>
+            </div>
+
+            <!-- Cards Table -->
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>User</th><th>Type</th><th>Level</th><th>Card Number</th><th>Expires</th><th>Status</th><th>Perks</th><th>Actions</th></tr></thead>
+                <tbody id="cardsTableBody"></tbody>
               </table>
             </div>
           </div>
@@ -593,7 +649,8 @@
         analytics: renderRevenueChart, security: renderSecurityTable, scheduler: renderSchedulerTable,
         apikeys: renderApiKeysTable, dbhealth: checkDBHealth, customfields: renderCustomFieldsTable,
         events: renderEventsStream, sessions: renderSessionsTable, geo: renderGeoStats,
-        gamestats: syncGameStats
+        gamestats: syncGameStats,
+        cards: async () => { await populateCardUsers(); await renderCardsTable(); }
       };
       const fn = renderers[id];
       if (fn) { try { fn(); } catch(e) { console.error('render ' + id + ' error:', e); } }
@@ -613,6 +670,7 @@
       } catch (e) { console.error('Activity error:', e); }
     }
 
+    
     function exportAllBackup() {
       const data = {};
       Object.values(K).forEach((k)=>{ if (k !== K.session) data[k] = ro(k, null); });
@@ -757,6 +815,292 @@
       document.getElementById('cfgNotification').value = '';
     }
 
+    // ═══════════════════════════════════════════════════
+    // CARD MANAGEMENT SYSTEM
+    // ═══════════════════════════════════════════════════
+    const CARDS_KEY = 'crazyTown_cards';
+    const CARD_COLORS = { vip: '#7c3aed', elite: '#16a34a', special: '#f59e0b' };
+
+    async function loadCards() {
+      try {
+        const data = localStorage.getItem(CARDS_KEY);
+        return data ? JSON.parse(data) : [];
+      } catch { return []; }
+    }
+    async function saveCards(cards) {
+      localStorage.setItem(CARDS_KEY, JSON.stringify(cards));
+    }
+
+    async function populateCardUsers() {
+      const users = await ro(K.users, []);
+      const sel = document.getElementById('cardUser');
+      if (!sel) return;
+      const activeUserIds = (await loadCards()).map(c => c.userId);
+      sel.innerHTML = '<option value="">-- Select User --</option>' +
+        users.filter(u => !u.isBanned).map(u => {
+          const hasCard = activeUserIds.includes(u.id);
+          return `<option value="${u.id}">${u.name || 'Unknown'} ${hasCard ? '⭐' : ''} (${u.email || 'no email'})</option>`;
+        }).join('');
+    }
+
+    async function issueCard() {
+      const userId = document.getElementById('cardUser')?.value;
+      const type = document.getElementById('cardType')?.value;
+      const level = parseInt(document.getElementById('cardLevel')?.value) || 1;
+      const cardNumber = document.getElementById('cardNumber')?.value?.trim();
+      const expires = document.getElementById('cardExpires')?.value;
+      const color = document.getElementById('cardColor')?.value || CARD_COLORS[type] || '#2563eb';
+      const perksText = document.getElementById('cardPerks')?.value?.trim() || '';
+
+      if (!userId) { showToast('Please select a user first', 'error'); return; }
+      if (!cardNumber) { showToast('Card number is required', 'error'); return; }
+
+      const users = await ro(K.users, []);
+      const user = users.find(u => String(u.id) === String(userId));
+      if (!user) { showToast('User not found', 'error'); return; }
+
+      const cards = await loadCards();
+      const existing = cards.find(c => c.userId === userId && c.type === type && c.status === 'active');
+      if (existing) { showToast('User already has an active ' + type.toUpperCase() + ' card!', 'error'); return; }
+
+      const perks = perksText ? perksText.split('\n').filter(p => p.trim()) : [];
+      const newCard = {
+        id: 'card-' + Date.now(),
+        userId, userName: user.name, userEmail: user.email,
+        type, level,
+        cardNumber: cardNumber || `${type.toUpperCase()}-${Date.now()}`,
+        expires: expires || new Date(Date.now() + 365*24*60*60*1000).toISOString().slice(0,7),
+        color,
+        perks,
+        status: 'active',
+        issuedAt: new Date().toISOString(),
+        issuedBy: (await me())?.name || 'Owner'
+      };
+
+      cards.push(newCard);
+      await saveCards(cards);
+
+      // Also add card type role to user
+      if (!user.roles) user.roles = [];
+      if (!user.roles.includes(type)) user.roles.push(type);
+      await so(K.users, users);
+
+      await act(`Issued ${type} card to ${user.name}`, (await me())?.name || 'Owner');
+      showToast(`${type.toUpperCase()} card issued for ${user.name}!`, 'success');
+      clearCardForm();
+      await renderCardsTable();
+      await populateCardUsers();
+    }
+    window.issueCard = issueCard;
+
+    async function revokeCard(cardId) {
+      if (cardId && !confirm('Revoke this card?')) return;
+      const cards = await loadCards();
+      const targetId = cardId || document.getElementById('cardUser')?.value;
+      const card = cardId ? cards.find(c => c.id === cardId) : cards.find(c => c.userId === targetId && c.status === 'active');
+      if (!card) { showToast('Card not found', 'error'); return; }
+
+      card.status = 'revoked';
+      card.revokedAt = new Date().toISOString();
+      card.revokedBy = (await me())?.name || 'Owner';
+      await saveCards(cards);
+
+      // Remove role from user
+      const users = await ro(K.users, []);
+      const u = users.find(x => x.id === card.userId);
+      if (u && u.roles) u.roles = u.roles.filter(r => r !== card.type);
+      await so(K.users, users);
+
+      await act(`Revoked ${card.type} card from ${card.userName}`, (await me())?.name || 'Owner');
+      showToast('Card revoked!', 'success');
+      await renderCardsTable();
+      await populateCardUsers();
+    }
+    window.revokeCard = revokeCard;
+
+    async function deleteCard(cardId) {
+      if (!confirm('Delete this card permanently?')) return;
+      const cards = await loadCards();
+      const card = cards.find(c => c.id === cardId);
+      if (!card) return;
+      cards.splice(cards.findIndex(c => c.id === cardId), 1);
+      await saveCards(cards);
+
+      // Remove role
+      const users = await ro(K.users, []);
+      const u = users.find(x => x.id === card.userId);
+      if (u && u.roles) u.roles = u.roles.filter(r => r !== card.type);
+      await so(K.users, users);
+
+      showToast('Card deleted', 'success');
+      await renderCardsTable();
+      await populateCardUsers();
+    }
+    window.deleteCard = deleteCard;
+
+    async function editCard(cardId) {
+      const cards = await loadCards();
+      const card = cards.find(c => c.id === cardId);
+      if (!card) { showToast('Card not found', 'error'); return; }
+      const newLevel = prompt('New level (1-10):', card.level);
+      if (newLevel === null) return;
+      card.level = Math.max(1, Math.min(10, parseInt(newLevel) || card.level));
+      card.cardNumber = prompt('Card number:', card.cardNumber) || card.cardNumber;
+      card.expires = prompt('Expires (YYYY-MM):', card.expires) || card.expires;
+      await saveCards(cards);
+      showToast('Card updated!', 'success');
+      await renderCardsTable();
+    }
+    window.editCard = editCard;
+
+    async function clearAllCards() {
+      if (!confirm('Delete ALL cards? This cannot be undone.')) return;
+      const cards = await loadCards();
+      const users = await ro(K.users, []);
+      // Remove card roles from all users
+      cards.forEach(card => {
+        const u = users.find(x => x.id === card.userId);
+        if (u && u.roles) u.roles = u.roles.filter(r => r !== card.type);
+      });
+      await so(K.users, users);
+      await saveCards([]);
+      await act('Cleared all cards', (await me())?.name || 'Owner');
+      showToast('All cards cleared!', 'success');
+      await renderCardsTable();
+      await populateCardUsers();
+    }
+    window.clearAllCards = clearAllCards;
+
+    function openBulkCardIssue() {
+      const html = `
+      <div style="padding:20px;min-width:480px;">
+        <h3 style="margin-top:0;">📋 Bulk Card Issue</h3>
+        <p class="small" style="margin-bottom:12px;">Paste user IDs or emails (one per line) to issue cards in bulk.</p>
+        <textarea id="bulkCardUsers" placeholder="user-id-1&#10;user-id-2&#10;email@example.com" style="width:100%;height:120px;border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:10px;"></textarea>
+        <div class="row">
+          <select id="bulkCardType" style="flex:1;">
+            <option value="vip">VIP Card</option><option value="elite">Elite Card</option><option value="special">Special Card</option>
+          </select>
+          <input id="bulkCardLevel" type="number" placeholder="Level" value="1" min="1" max="10" style="max-width:80px;">
+          <input id="bulkCardPrefix" placeholder="Prefix (e.g. VIP-2024)" style="flex:1;">
+        </div>
+        <button class="btn primary" style="margin-top:10px;width:100%;" onclick="executeBulkCardIssue()">🎴 Issue Bulk Cards</button>
+      </div>`;
+      document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay" style="display:flex;align-items:center;justify-content:center;z-index:9999;" onclick="if(event.target===this)this.remove()"><div class="card" style="max-width:560px;">${html}</div></div>`;
+    }
+    window.openBulkCardIssue = openBulkCardIssue;
+
+    async function executeBulkCardIssue() {
+      const raw = document.getElementById('bulkCardUsers')?.value?.trim();
+      const type = document.getElementById('bulkCardType')?.value;
+      const level = parseInt(document.getElementById('bulkCardLevel')?.value) || 1;
+      const prefix = document.getElementById('bulkCardPrefix')?.value || type.toUpperCase() + '-' + new Date().getFullYear();
+      if (!raw) { showToast('No users entered', 'error'); return; }
+      const lines = raw.split('\n').filter(l => l.trim());
+      const users = await ro(K.users, []);
+      let issued = 0;
+      const cards = await loadCards();
+      for (const line of lines) {
+        const trimmed = line.trim();
+        const user = users.find(u => String(u.id) === trimmed || String(u.email) === trimmed.toLowerCase());
+        if (!user || user.isBanned) continue;
+        if (cards.find(c => c.userId === user.id && c.type === type && c.status === 'active')) continue;
+        cards.push({
+          id: 'card-' + Date.now() + Math.random(),
+          userId: user.id, userName: user.name, userEmail: user.email,
+          type, level,
+          cardNumber: `${prefix}-${String(issued + 1).padStart(4, '0')}`,
+          expires: new Date(Date.now() + 365*24*60*60*1000).toISOString().slice(0,7),
+          color: CARD_COLORS[type],
+          perks: [],
+          status: 'active',
+          issuedAt: new Date().toISOString(),
+          issuedBy: (await me())?.name || 'Owner'
+        });
+        if (!user.roles) user.roles = [];
+        if (!user.roles.includes(type)) user.roles.push(type);
+        issued++;
+      }
+      await so(K.users, users);
+      await saveCards(cards);
+      await act(`Bulk issued ${issued} ${type} cards`, (await me())?.name || 'Owner');
+      document.getElementById('modalContainer').innerHTML = '';
+      showToast(`Bulk issued ${issued} ${type.toUpperCase()} cards!`, 'success');
+      await renderCardsTable();
+      await populateCardUsers();
+    }
+    window.executeBulkCardIssue = executeBulkCardIssue;
+
+    async function renderCardsTable(search = '') {
+      const cards = await loadCards();
+      const users = await ro(K.users, []);
+      const typeFilter = document.getElementById('cardFilterType')?.value;
+      const statusFilter = document.getElementById('cardFilterStatus')?.value;
+      const q = search?.toLowerCase() || '';
+
+      // Update stats
+      const total = cards.length;
+      const activeVip = cards.filter(c => c.type === 'vip' && c.status === 'active').length;
+      const activeElite = cards.filter(c => c.type === 'elite' && c.status === 'active').length;
+      const activeSpecial = cards.filter(c => c.type === 'special' && c.status === 'active').length;
+      const revoked = cards.filter(c => c.status === 'revoked').length;
+      const el = id => document.getElementById(id);
+      if (el('cardStatTotal')) el('cardStatTotal').textContent = total;
+      if (el('cardStatVip')) el('cardStatVip').textContent = activeVip;
+      if (el('cardStatElite')) el('cardStatElite').textContent = activeElite;
+      if (el('cardStatSpecial')) el('cardStatSpecial').textContent = activeSpecial;
+      if (el('cardStatRevoked')) el('cardStatRevoked').textContent = revoked;
+
+      const filtered = cards.filter(c => {
+        if (typeFilter && c.type !== typeFilter) return false;
+        if (statusFilter && c.status !== statusFilter) return false;
+        if (q && !(c.userName||'').toLowerCase().includes(q) && !(c.cardNumber||'').toLowerCase().includes(q)) return false;
+        return true;
+      });
+
+      const tbody = document.getElementById('cardsTableBody');
+      if (!tbody) return;
+
+      tbody.innerHTML = filtered.sort((a,b) => new Date(b.issuedAt) - new Date(a.issuedAt)).map(card => {
+        const isExpired = card.expires && new Date(card.expires + '-01') < new Date();
+        const displayStatus = card.status === 'revoked' ? 'revoked' : (isExpired ? 'expired' : 'active');
+        const statusColor = displayStatus === 'active' ? '#16a34a' : displayStatus === 'revoked' ? '#dc2626' : '#f59e0b';
+        const rowStyle = displayStatus !== 'active' ? 'opacity:0.55;' : '';
+        const perksStr = (card.perks || []).slice(0, 2).join(', ') + ((card.perks||[]).length > 2 ? ` +${card.perks.length-2}` : '');
+        return `<tr style="${rowStyle}">
+          <td><strong>${card.userName || '-'}</strong><br><span style="font-size:11px;color:#64748b;">${card.userEmail || ''}</span></td>
+          <td><span style="background:${card.color || CARD_COLORS[card.type]}22;color:${card.color || CARD_COLORS[card.type]};padding:3px 10px;border-radius:20px;font-size:12px;font-weight:bold;">${(card.type||'').toUpperCase()}</span></td>
+          <td><span style="background:#f1f5f9;padding:2px 8px;border-radius:6px;">Lv.${card.level || 1}</span></td>
+          <td><code style="font-family:monospace;font-size:12px;">${card.cardNumber || '-'}</code></td>
+          <td><span style="font-size:12px;color:${isExpired?'#dc2626':'#64748b'};">${card.expires || 'N/A'}</span></td>
+          <td><span style="color:${statusColor};font-weight:bold;font-size:12px;">${displayStatus.toUpperCase()}</span></td>
+          <td><span style="font-size:11px;color:#64748b;">${perksStr || '-'}</span></td>
+          <td style="white-space:nowrap;">
+            <button class="btn" style="padding:4px 8px;font-size:12px;" onclick="editCard('${card.id}')">✏️</button>
+            ${card.status !== 'revoked' ? `<button class="btn danger" style="padding:4px 8px;font-size:12px;" onclick="revokeCard('${card.id}')">⛔</button>` : ''}
+            <button class="btn danger" style="padding:4px 8px;font-size:12px;color:#dc2626;" onclick="deleteCard('${card.id}')">🗑</button>
+          </td>
+        </tr>`;
+      }).join('') || '<tr><td colspan="8" style="text-align:center;color:#64748b;padding:24px;">No cards found. Issue one above!</td></tr>';
+    }
+    window.renderCardsTable = renderCardsTable;
+
+    function clearCardForm() {
+      const fields = ['cardUser','cardNumber','cardLevel','cardExpires','cardPerks'];
+      fields.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    }
+
+    function showToast(msg, type = 'info') {
+      const colors = { success:'#16a34a', error:'#dc2626', info:'#2563eb', warning:'#f59e0b' };
+      const el = document.createElement('div');
+      el.style.cssText = `position:fixed;bottom:20px;right:20px;padding:12px 20px;border-radius:10px;z-index:99999;font-weight:bold;font-size:14px;background:${colors[type]||colors.info};color:#fff;box-shadow:0 4px 20px rgba(0,0,0,0.3);animation:toastSlide .3s ease-out`;
+      el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 3500);
+    }
+    window.showToast = showToast;
+
+    
     function exportUsersCSV() {
       const users = window._bulkUsers || [];
       const rows = [['Name','Email','Phone','Roles','Balance','Banned','Joined']];
@@ -1146,8 +1490,7 @@
     }
 
     function closeModal() { document.getElementById('modalContainer').innerHTML = ''; }
-    function showToast(msg, type) { const el = document.createElement('div'); el.style = 'position:fixed;bottom:20px;right:20px;padding:12px 20px;border-radius:8px;z-index:9999;font-size:14px;font-weight:bold;' + (type==='success'?'background:#22c55e;color:#fff;':type==='error'?'background:#ef4444;color:#fff;':'background:#1a1a2e;color:#fff;border:1px solid #2a2a42;'); el.textContent = msg; document.body.appendChild(el); setTimeout(()=>el.remove(),3000); }
-
+    
     async function removeStaffRole(id) {
       let users = await ro(K.users, []);
       const u = users.find(x => String(x.id) === String(id));
