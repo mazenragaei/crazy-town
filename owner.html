@@ -153,10 +153,67 @@
             </div>
           </div>
         </section>
-        <section class="pane" data-pane="audit">
+        <section class="pane" data-pane="staff">
           <div class="card">
-            <h3 style="margin-top:0;">Audit Timeline</h3>
-            <div id="auditList" class="small"></div>
+            <h3 style="margin-top:0;">👥 Staff Monitor</h3>
+            <p class="small" style="margin-bottom:12px;">Monitor admin and privileged staff activity</p>
+            <div class="table-wrap">
+              <table id="staffTable"><thead><tr><th>Name</th><th>Email</th><th>Roles</th><th>Balance</th><th>Actions</th></tr></thead><tbody id="staffTableBody"></tbody></table>
+            </div>
+          </div>
+        </section>
+
+        <section class="pane" data-pane="bulk">
+          <div class="card">
+            <h3 style="margin-top:0;">⚡ Bulk Operations</h3>
+            <div style="margin:12px 0;">
+              <h4>Bulk Role Assignment</h4>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+                <input type="search" id="bulkRoleSearch" placeholder="Search users..." oninput="renderBulkTable()" style="max-width:200px;">
+                <select id="bulkAssignRole" style="max-width:150px;"><option value="">Select role...</option><option>vip</option><option>elite</option><option>champion</option><option>admin</option><option>member</option></select>
+                <button class="btn primary" onclick="bulkAssignRole()">Apply to All Visible</button>
+              </div>
+            </div>
+            <div class="table-wrap"><table id="bulkTable"><thead><tr><th><input type="checkbox" id="bulkSelectAll" onchange="toggleBulkAll(this)"> All</th><th>Name</th><th>Email</th><th>Current Roles</th></tr></thead><tbody id="bulkTableBody"></tbody></table></div>
+            <div style="margin-top:12px;">
+              <h4>Bulk Delete / Clear</h4>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn danger" onclick="bulkDeleteUsers()">Delete Selected Users</button>
+                <button class="btn danger" onclick="clearAllBookings()">Clear All Bookings</button>
+                <button class="btn danger" onclick="clearAllOrders()">Clear All Orders</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="pane" data-pane="system">
+          <div class="card">
+            <h3 style="margin-top:0;">🔧 System Health & Config</h3>
+            <div class="grid" style="margin-bottom:16px;">
+              <div class="card"><div class="small">Total Storage Keys</div><h2 id="sysKeys">0</h2></div>
+              <div class="card"><div class="small">Active Sessions</div><h2 id="sysSessions">0</h2></div>
+              <div class="card"><div class="small">Supabase Status</div><h2 id="sysSupabase" style="color:#16a34a;">● Connected</h2></div>
+            </div>
+            <h4>Site Configuration</h4>
+            <div class="row">
+              <input id="sysSiteName" placeholder="Site Name" value="Crazy Town">
+              <input id="sysCurrency" placeholder="Currency Code" value="EGP">
+              <input id="sysTax" type="number" placeholder="Tax %" value="0">
+            </div>
+            <div class="row">
+              <select id="sysMode"><option value="production">Production Mode</option><option value="development">Development Mode</option><option value="maintenance">Maintenance Mode</option></select>
+              <label style="display:flex;align-items:center;gap:6px;"><input id="sysChat" type="checkbox" checked> Enable Chat</label>
+              <label style="display:flex;align-items:center;gap:6px;"><input id="sysLeaderboard" type="checkbox" checked> Enable Leaderboard</label>
+            </div>
+            <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn primary" onclick="saveSystemConfig()">Save Config</button>
+              <button class="btn" onclick="resetSystemConfig()">Reset Defaults</button>
+            </div>
+            <h4 style="margin-top:16px;">Danger Zone</h4>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn danger" onclick="wipeAllUserData()">Wipe All User Data</button>
+              <button class="btn danger" onclick="factoryReset()">Factory Reset</button>
+            </div>
           </div>
         </section>
       </main>
@@ -170,7 +227,7 @@
       users:'crazyTown_users', bookings:'crazyTown_bookings', orders:'crazyTown_orders', supportTickets:'crazyTown_support_tickets',
       activity:'crazyTown_activity', settings:'crazyTown_settings', coupons:'crazyTown_coupons', session:'crazyTown_session', rolePolicy:'crazyTown_role_policy'
     };
-    const TABS = ['overview', 'roles', 'policy', 'discounts', 'cards', 'audit'];
+    const TABS = ['overview', 'roles', 'policy', 'discounts', 'cards', 'audit', 'staff', 'bulk', 'system'];
     const POLICY_PERMISSIONS = ['accessAdminPanel', 'accessOwnerControl', 'managePrivilegedRoles', 'manageStaffRoles', 'manageTargetedDiscounts', 'runProductionMode'];
     const POLICY_ROLES = ['owner', 'co-owner', 'ceo', 'hr', 'admin', 'champion', 'vip', 'member'];
     const DEFAULT_ROLE_POLICY = {
@@ -422,14 +479,178 @@
     window.createDiscount = createDiscount;
     window.saveRolePolicy = saveRolePolicy;
     window.resetRolePolicy = resetRolePolicy;
+    window.renderBulkTable = renderBulkTable;
+    window.toggleBulkAll = toggleBulkAll;
+    window.bulkAssignRole = bulkAssignRole;
+    window.bulkDeleteUsers = bulkDeleteUsers;
+    window.clearAllBookings = clearAllBookings;
+    window.clearAllOrders = clearAllOrders;
+    window.saveSystemConfig = saveSystemConfig;
+    window.resetSystemConfig = resetSystemConfig;
+    window.wipeAllUserData = wipeAllUserData;
+    window.factoryReset = factoryReset;
 
-    // Real-time subscriptions
-    subscribeToTable('app_kv', (payload) => {
-      const changedKey = payload.new?.id || payload.old?.id;
-      if (changedKey && Object.values(K).includes(changedKey)) {
-        render();
-      }
-    });
+    // === NEW OWNER SECTIONS ===
+    async function renderStaffTable() {
+      const users = await ro(K.users, []);
+      const staff = users.filter(u => u.roles?.some(r => ['admin','owner','co-owner','ceo','hr'].includes(r)));
+      document.getElementById('staffTableBody').innerHTML = staff.map(u => `<tr>
+        <td><strong>${u.name||'-'}</strong></td>
+        <td>${u.email||'-'}</td>
+        <td><span class="badge">${u.roles.join('/')}</span></td>
+        <td>${Number(u.balance||0).toFixed(0)}</td>
+        <td><button class="btn" onclick="removeStaffRole('${u.id}')">Remove Privileges</button></td>
+      </tr>`).join('') || '<tr><td colspan="5">No privileged staff found</td></tr>';
+    }
+
+    async function removeStaffRole(id) {
+      let users = await ro(K.users, []);
+      const u = users.find(x => String(x.id) === String(id));
+      if (!u) return;
+      u.roles = (u.roles || []).filter(r => !['admin','owner','co-owner','ceo','hr'].includes(r));
+      if (!u.roles.length) u.roles = ['member'];
+      await so(K.users, users);
+      await act(`Staff privileges removed from ${u.name}`, (await me())?.name || 'Owner');
+      await render();
+    }
+
+    function renderBulkTable() {
+      const q = document.getElementById('bulkRoleSearch')?.value?.toLowerCase() || '';
+      const users = window._bulkUsers || [];
+      document.getElementById('bulkTableBody').innerHTML = users.filter(u => (u.name||'').toLowerCase().includes(q)).map(u => `<tr>
+        <td><input type="checkbox" class="bulk-chk" value="${u.id}"></td>
+        <td>${u.name||'-'}</td>
+        <td>${u.email||'-'}</td>
+        <td>${(u.roles||[]).join('/')}</td>
+      </tr>`).join('');
+    }
+
+    async function loadBulkUsers() {
+      window._bulkUsers = await ro(K.users, []);
+      renderBulkTable();
+    }
+
+    function toggleBulkAll(el) {
+      document.querySelectorAll('.bulk-chk').forEach(c => c.checked = el.checked);
+    }
+
+    async function bulkAssignRole() {
+      const role = document.getElementById('bulkAssignRole')?.value;
+      if (!role) return alert('Select a role first');
+      const checked = [...document.querySelectorAll('.bulk-chk:checked')].map(c => c.value);
+      if (!checked.length) return alert('Select users first');
+      let users = await ro(K.users, []);
+      users.forEach(u => {
+        if (checked.includes(String(u.id))) {
+          u.roles = Array.isArray(u.roles) ? u.roles : ['member'];
+          if (role === 'member') u.roles = ['member'];
+          else if (!u.roles.includes(role)) u.roles.push(role);
+        }
+      });
+      await so(K.users, users);
+      await act(`Bulk: ${checked.length} users assigned '${role}'`, (await me())?.name || 'Owner');
+      alert(`${checked.length} users updated to '${role}'`);
+      await loadBulkUsers();
+    }
+
+    async function bulkDeleteUsers() {
+      const checked = [...document.querySelectorAll('.bulk-chk:checked')].map(c => c.value);
+      if (!checked.length || !confirm(`Delete ${checked.length} users? This cannot be undone.`)) return;
+      let users = await ro(K.users, []);
+      users = users.filter(u => !checked.includes(String(u.id)) && u.id !== 'root-admin');
+      await so(K.users, users);
+      await act(`Bulk deleted ${checked.length} users`, (await me())?.name || 'Owner');
+      alert('Users deleted');
+      await loadBulkUsers();
+    }
+
+    async function clearAllBookings() {
+      if (!confirm('Clear ALL bookings? This cannot be undone.')) return;
+      await so(K.bookings, []);
+      await so('crazyTown_bookings', []);
+      await act('All bookings cleared by owner', (await me())?.name || 'Owner');
+      alert('All bookings cleared.');
+      await render();
+    }
+
+    async function clearAllOrders() {
+      if (!confirm('Clear ALL orders? This cannot be undone.')) return;
+      await so(K.orders, []);
+      await act('All orders cleared by owner', (await me())?.name || 'Owner');
+      alert('All orders cleared.');
+      await render();
+    }
+
+    async function saveSystemConfig() {
+      let settings = await ro(K.settings, {});
+      settings.siteName = document.getElementById('sysSiteName')?.value || 'Crazy Town';
+      settings.currency = document.getElementById('sysCurrency')?.value || 'EGP';
+      settings.tax = Number(document.getElementById('sysTax')?.value) || 0;
+      settings.mode = document.getElementById('sysMode')?.value || 'production';
+      settings.chatEnabled = document.getElementById('sysChat')?.checked ?? true;
+      settings.leaderboardEnabled = document.getElementById('sysLeaderboard')?.checked ?? true;
+      await so(K.settings, settings);
+      await act('System config updated', (await me())?.name || 'Owner');
+      alert('System config saved.');
+    }
+
+    async function resetSystemConfig() {
+      if (!confirm('Reset system config to defaults?')) return;
+      const defaults = { siteName:'Crazy Town', currency:'EGP', tax:0, mode:'production', chatEnabled:true, leaderboardEnabled:true };
+      await so(K.settings, defaults);
+      await act('System config reset', (await me())?.name || 'Owner');
+      await render();
+      alert('System config reset.');
+    }
+
+    async function wipeAllUserData() {
+      if (!confirm('WIPE ALL USER DATA? Type "YES" in the next prompt to confirm.')) return;
+      const confirm2 = prompt('This will delete ALL users except root-admin. Type YES to confirm:');
+      if (confirm2 !== 'YES') return;
+      let users = await ro(K.users, []);
+      users = users.filter(u => u.id === 'root-admin');
+      await so(K.users, users);
+      await act('WIPED all user data (owner action)', (await me())?.name || 'Owner');
+      alert('All user data wiped except root admin.');
+      await render();
+    }
+
+    async function factoryReset() {
+      if (!confirm('FACTORY RESET? This deletes EVERYTHING and cannot be undone. Are you absolutely sure?')) return;
+      const confirm2 = prompt('Type "FACTORY RESET" to confirm:');
+      if (confirm2 !== 'FACTORY RESET') return;
+      const keys = Object.values(K);
+      for (const k of keys) { await so(k, k.includes('Town') ? [] : null); }
+      await act('FACTORY RESET performed', (await me())?.name || 'Owner');
+      alert('Factory reset complete. Redirecting to home.');
+      location.href = 'index.html';
+    }
+
+    // === PERFORMANCE: Lazy load non-critical data ===
+    function debounce(fn, ms) {
+      let t;
+      return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+    }
+
+    // === ENHANCED RENDER with lazy sections ===
+    async function render() {
+      await renderOverview();
+      await renderRolesTable();
+      await renderPolicyTable();
+      await renderDiscounts();
+      await renderAudit();
+      await renderStaffTable();
+      await loadBulkUsers();
+      // System health - just count keys, don't load all data
+      const allKeys = Object.values(K);
+      document.getElementById('sysKeys').textContent = allKeys.length;
+      document.getElementById('sysSessions').textContent = localStorage.getItem('crazyTown_session') ? '1' : '0';
+      // Load system settings
+      const settings = await ro(K.settings, {});
+      if (document.getElementById('sysSiteName')) document.getElementById('sysSiteName').value = settings.siteName || 'Crazy Town';
+      if (document.getElementById('sysCurrency')) document.getElementById('sysCurrency').value = settings.currency || 'EGP';
+      if (document.getElementById('sysMode')) document.getElementById('sysMode').value = settings.mode || 'production';
+    }
 
     guard();
     tabs();

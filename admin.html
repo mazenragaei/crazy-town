@@ -84,7 +84,8 @@
       users: 'crazyTown_users', bookings: 'crazyTown_bookings', orders: 'crazyTown_orders',
       leaderboard: 'crazyTown_leaderboard', activity: 'crazyTown_activity', coupons: 'crazyTown_coupons',
       inventory: 'crazyTown_inventory', news: 'crazyTown_news', teams: 'crazyTown_teams',
-      tournaments: 'crazyTown_tournaments', settings: 'crazyTown_settings', cart: 'crazyTown_cart'
+      tournaments: 'crazyTown_tournaments', settings: 'crazyTown_settings', cart: 'crazyTown_cart',
+      chat: 'crazyTown_chat', bookings2: 'crazyTown_bookings'
     };
 
     function hasRole(u, r) { return u && Array.isArray(u.roles) && u.roles.includes(r); }
@@ -100,12 +101,50 @@
     function goBack() { window.history.back(); }
     function goHome() { window.location.href = 'index.html'; }
 
-    async function loadAllData() {
-      const keys = Object.values(DB_KEYS);
-      const data = {};
-      for (const k of keys) { data[k] = await getKV(k, k.includes('Town') ? [] : null); }
-      return data;
+    // Client-side cache to speed up page loads on back navigation
+    const DATA_CACHE = { data: null, timestamp: 0, TTL: 30000 }; // 30s cache
+    const pendingLoads = new Map(); // prevent duplicate concurrent loads
+
+    async function loadAllData(useCache = true) {
+      const now = Date.now();
+      // Return cached data if fresh (within 30s) and already loaded
+      if (useCache && DATA_CACHE.data && (now - DATA_CACHE.timestamp) < DATA_CACHE.TTL) {
+        return DATA_CACHE.data;
+      }
+
+      // Deduplicate concurrent requests
+      const cacheKey = 'adminData';
+      if (pendingLoads.has(cacheKey)) {
+        return pendingLoads.get(cacheKey);
+      }
+
+      const loadPromise = (async () => {
+        const keys = Object.values(DB_KEYS);
+        const data = {};
+        // Load all in parallel using Promise.all for speed
+        const results = await Promise.all(keys.map(k => getKV(k, k.includes('Town') ? [] : null).then(v => [k, v])));
+        results.forEach(([k, v]) => { data[k] = v; });
+        DATA_CACHE.data = data;
+        DATA_CACHE.timestamp = now;
+        pendingLoads.delete(cacheKey);
+        return data;
+      })();
+
+      pendingLoads.set(cacheKey, loadPromise);
+      return loadPromise;
     }
+
+    function invalidateCache() {
+      DATA_CACHE.data = null;
+      DATA_CACHE.timestamp = 0;
+    }
+
+    // Auto-invalidate cache on storage changes (cross-tab sync)
+    window.addEventListener('storage', (e) => {
+      if (e.key && Object.values(DB_KEYS).includes(e.key)) {
+        invalidateCache();
+      }
+    });
 
     function renderStats(data) {
       const users = Array.isArray(data[DB_KEYS.users]) ? data[DB_KEYS.users] : [];
@@ -136,6 +175,7 @@
         {id:'tournaments', label:'Tournaments', icon:'&#127942;'},
         {id:'operations', label:'Operations', icon:'&#9881;'},
         {id:'customers', label:'Customers', icon:'&#128079;'},
+        {id:'export', label:'Card Export', icon:'&#128204;'},
         {id:'news', label:'News', icon:'&#128240;'},
         {id:'support', label:'Support', icon:'&#128172;'},
         {id:'activity', label:'Activity', icon:'&#128221;'}
@@ -156,6 +196,7 @@
       const d = {
         users: Array.isArray(data[DB_KEYS.users]) ? data[DB_KEYS.users] : [],
         bookings: Array.isArray(data[DB_KEYS.bookings]) ? data[DB_KEYS.bookings] : [],
+        bookings2: Array.isArray(data[DB_KEYS.bookings2]) ? data[DB_KEYS.bookings2] : [],
         orders: Array.isArray(data[DB_KEYS.orders]) ? data[DB_KEYS.orders] : [],
         leaderboard: Array.isArray(data[DB_KEYS.leaderboard]) ? data[DB_KEYS.leaderboard] : [],
         activity: Array.isArray(data[DB_KEYS.activity]) ? data[DB_KEYS.activity] : [],
@@ -163,26 +204,67 @@
         inventory: Array.isArray(data[DB_KEYS.inventory]) ? data[DB_KEYS.inventory] : [],
         news: Array.isArray(data[DB_KEYS.news]) ? data[DB_KEYS.news] : [],
         teams: Array.isArray(data[DB_KEYS.teams]) ? data[DB_KEYS.teams] : [],
-        tournaments: Array.isArray(data[DB_KEYS.tournaments]) ? data[DB_KEYS.tournaments] : []
+        tournaments: Array.isArray(data[DB_KEYS.tournaments]) ? data[DB_KEYS.tournaments] : [],
+        chat: Array.isArray(data[DB_KEYS.chat]) ? data[DB_KEYS.chat] : [],
+        settings: data[DB_KEYS.settings] || {}
       };
 
       let html = '';
       switch(id) {
         case 'insights':
           const pendingBookings = d.bookings.filter(b => b.status === 'Pending').length;
+          const confirmedBookings = d.bookings.filter(b => b.status === 'Confirmed').length;
           const pendingOrders = d.orders.filter(o => o.status === 'Pending Confirmation').length;
           const lowStock = d.inventory.filter(i => (i.qty || 0) < 5).length;
-          html = `<div class="card"><h3>Quick Stats</h3><div class="grid">
-            <div><div class="small">Pending Bookings</div><h2>${pendingBookings}</h2></div>
-            <div><div class="small">Pending Orders</div><h2>${pendingOrders}</h2></div>
-            <div><div class="small">Low Stock</div><h2>${lowStock}</h2></div>
-            <div><div class="small">Active Teams</div><h2>${d.teams.length}</h2></div>
-          </div></div>`;
+          const totalRevenue = [...d.bookings, ...d.orders].reduce((s,b) => s + Number(b.price||b.total||0), 0);
+          const vipUsers = d.users.filter(u => u.roles?.includes('vip') || u.roles?.includes('elite') || u.roles?.includes('champion')).length;
+          const activeUsers = d.users.filter(u => !u.isBanned).length;
+          const bannedUsers = d.users.filter(u => u.isBanned).length;
+          const todayBookings = d.bookings.filter(b => b.date === new Date().toISOString().slice(0,10)).length;
+          html = `<div class="card"><h3 style="margin-bottom:16px;">📊 Command Center Insights</h3>
+            <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+              <div class="card" style="border:1px solid #22c55e33;"><div class="small">Total Revenue</div><h2 style="margin:4px 0 0;color:#22c55e;">${totalRevenue.toFixed(0)} EGP</h2></div>
+              <div class="card" style="border:1px solid #00c2ff33;"><div class="small">Total Users</div><h2 style="margin:4px 0 0;">${d.users.length}</h2><div class="small">${activeUsers} active, ${bannedUsers} banned</div></div>
+              <div class="card" style="border:1px solid #9d4edd33;"><div class="small">VIP/Elite/Champion</div><h2 style="margin:4px 0 0;color:#9d4edd;">${vipUsers}</h2></div>
+              <div class="card" style="border:1px solid #22c55e33;"><div class="small">Confirmed Missions</div><h2 style="margin:4px 0 0;color:#22c55e;">${confirmedBookings}</h2></div>
+              <div class="card" style="border:1px solid #f59e0b33;"><div class="small">Pending Missions</div><h2 style="margin:4px 0 0;color:#f59e0b;">${pendingBookings}</h2></div>
+              <div class="card" style="border:1px solid #ef444433;"><div class="small">Today's Missions</div><h2 style="margin:4px 0 0;color:#ef4444;">${todayBookings}</h2></div>
+              <div class="card" style="border:1px solid #ffd70033;"><div class="small">Pending Orders</div><h2 style="margin:4px 0 0;color:#ffd700;">${pendingOrders}</h2></div>
+              <div class="card" style="border:1px solid #ef444433;"><div class="small">Low Stock Items</div><h2 style="margin:4px 0 0;">${lowStock}</h2></div>
+              <div class="card" style="border:1px solid #22c55e33;"><div class="small">Active Teams</div><h2 style="margin:4px 0 0;">${d.teams.length}</h2></div>
+              <div class="card" style="border:1px solid #00c2ff33;"><div class="small">Tournaments</div><h2 style="margin:4px 0 0;">${d.tournaments.length}</h2></div>
+              <div class="card" style="border:1px solid #9d4edd33;"><div class="small">News Articles</div><h2 style="margin:4px 0 0;">${d.news.length}</h2></div>
+              <div class="card" style="border:1px solid #ffd70033;"><div class="small">Active Coupons</div><h2 style="margin:4px 0 0;">${d.coupons.filter(c=>c.active).length}</h2></div>
+            </div>
+            ${lowStock > 0 ? `<div style="margin-top:12px;padding:10px;background:#3b1a0a;border:1px solid #ef4444;border-radius:8px;color:#ef4444;">⚠️ <strong>${lowStock}</strong> items are running low on stock. <button class="btn" onclick="switchPane('commerce')">Restock Now</button></div>` : ''}
+          </div>`;
           break;
         case 'bookings':
-          html = `<div class="card"><h3>Bookings</h3>
-            <div class="table-wrap"><table><thead><tr><th>Ticket</th><th>Name</th><th>Date</th><th>Status</th><th>Price</th><th>Actions</th></tr></thead><tbody>
-            ${d.bookings.length ? d.bookings.map(b => `<tr><td>${b.ticketId || '-'}</td><td>${b.name || '-'}</td><td>${b.date || '-'} ${b.time || ''}</td><td><span class="badge ${b.status==='Confirmed'?'ok':'warn'}">${b.status || '-'}</span></td><td>${Number(b.price||0).toFixed(0)} EGP</td><td><button class="btn" onclick="toggleBooking('${b.id}')">${b.status==='Confirmed'?'Pending':'Confirm'}</button> <button class="btn" onclick="deleteBooking('${b.id}')">Delete</button></td></tr>`).join('') : '<tr><td colspan="6">No bookings</td></tr>'}
+          const confirmedCount = d.bookings.filter(b=>b.status==='Confirmed').length;
+          const pendingCount = d.bookings.filter(b=>b.status==='Pending').length;
+          html = `<div class="card"><h3>Bookings & Missions</h3>
+            <div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <div class="card" style="padding:8px 14px;border-color:#22c55e33;"><span style="color:#22c55e;">●</span> Confirmed: <strong>${confirmedCount}</strong></div>
+              <div class="card" style="padding:8px 14px;border-color:#f59e0b33;"><span style="color:#f59e0b;">●</span> Pending: <strong>${pendingCount}</strong></div>
+              <button class="btn" onclick="openAddMissionModal()" style="background:var(--accent);color:#000;margin-left:auto;">+ New Booking</button>
+              <button class="btn" onclick="exportBookingsCSV()">Export CSV</button>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Ticket</th><th>Name</th><th>Phone</th><th>Date</th><th>Time</th><th>Slot</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+            ${d.bookings.length ? d.bookings.map(b => `<tr>
+              <td><code style="background:#1a1a2e;padding:2px 6px;border-radius:4px;">${b.ticketId||'-'}</code></td>
+              <td><strong>${b.name||'-'}</strong></td>
+              <td>${b.phone||'-'}</td>
+              <td>${b.date||'-'}</td>
+              <td>${b.time||'-'}</td>
+              <td>#${b.playerNo||'-'}</td>
+              <td style="color:#22c55e;">${Number(b.price||0).toFixed(0)} EGP</td>
+              <td><span class="badge ${b.status==='Confirmed'?'ok':'warn'}">${b.status||'Pending'}</span></td>
+              <td>
+                <button class="btn" onclick="toggleBooking('${b.id}')">${b.status==='Confirmed'?'Pending':'Confirm'}</button>
+                <button class="btn" onclick="openEditBookingModal('${b.id}')">Edit</button>
+                <button class="btn" onclick="deleteBooking('${b.id}')" style="color:#ef4444;">Del</button>
+              </td>
+            </tr>`).join('') : '<tr><td colspan="9">No bookings found</td></tr>'}
             </tbody></table></div></div>`;
           break;
         case 'orders':
@@ -193,14 +275,42 @@
           break;
         case 'users':
           html = `<div class="card"><h3>Users <button class="btn" onclick="openAddUserModal()" style="float:right;margin-top:-8px;">+ Add User</button></h3>
-            <div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Rank</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-            ${d.users.map(u => `<tr><td>${u.name || '-'}</td><td>${u.email || '-'}</td><td>${u.rank || 'Recruit'}</td><td>${Number(u.balance||0).toFixed(0)}</td><td>${u.isBanned?'<span class="danger">Banned</span>':'<span class="ok">Active</span>'}</td><td>
-              <button class="btn" onclick="toggleAdmin('${u.id}')">${isAdmin(u)?'RemoveAdmin':'MakeAdmin'}</button>
-              <button class="btn" onclick="toggleBan('${u.id}')">${u.isBanned?'Unban':'Ban'}</button>
-              <button class="btn" onclick="openEditUserModal('${u.id}')">Edit</button>
-              <button class="btn" onclick="adjustBalance('${u.id}')">Balance</button>
-              <button class="btn" onclick="deleteUser('${u.id}')" style="color:#ef4444;">Delete</button>
-            </td></tr>`).join('')}
+            <div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <input type="search" id="userSearchBox" placeholder="Search users..." oninput="filterUserTable(this.value)" style="max-width:220px;">
+              <select id="userRoleFilter" onchange="filterUserTable('')" style="max-width:150px;">
+                <option value="">All Roles</option>
+                <option value="vip">VIP</option>
+                <option value="elite">Elite</option>
+                <option value="champion">Champion</option>
+                <option value="player">Player</option>
+              </select>
+              <button class="btn" onclick="bulkPromoteUsers()">Bulk Promote</button>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role/Rank</th><th>Balance</th><th>Status</th><th>Quick Actions</th></tr></thead><tbody id="usersTableBody">
+            ${d.users.map(u => {
+              const roles = Array.isArray(u.roles) ? u.roles : [];
+              const isVip = roles.includes('vip');
+              const isElite = roles.includes('elite');
+              const isChampion = roles.includes('champion');
+              const roleLabel = roles.length ? roles.join('/') : (u.rank||'Recruit');
+              const roleStyle = isElite ? 'border-color:#9d4edd;color:#9d4edd;' : isVip ? 'border-color:#ffd700;color:#ffd700;' : isChampion ? 'border-color:#ef4444;color:#ef4444;' : '';
+              return `<tr>
+                <td><strong>${u.name||'-'}</strong> ${u.isBanned?'<span class="danger">[Banned]</span>':''}</td>
+                <td>${u.email||'-'}</td>
+                <td><span class="badge" style="${roleStyle}">${roleLabel}</span></td>
+                <td>${Number(u.balance||0).toFixed(0)}</td>
+                <td>${u.isBanned?'<span class="danger">Banned</span>':'<span class="ok">Active</span>'}</td>
+                <td>
+                  <button class="btn" onclick="toggleUserRole('${u.id}','vip')" style="${isVip?'background:#ffd700;color:#000;border-color:#ffd700;':''}" title="Toggle VIP">VIP</button>
+                  <button class="btn" onclick="toggleUserRole('${u.id}','elite')" style="${isElite?'background:#9d4edd;color:#fff;border-color:#9d4edd;':''}" title="Toggle Elite">ELT</button>
+                  <button class="btn" onclick="toggleUserRole('${u.id}','champion')" style="${isChampion?'background:#ef4444;color:#fff;border-color:#ef4444;':''}" title="Toggle Champion">CHP</button>
+                  <button class="btn" onclick="toggleAdmin('${u.id}')">${isAdmin(u)?'✕ADM':'+ADM'}</button>
+                  <button class="btn" onclick="openEditUserModal('${u.id}')">Edit</button>
+                  <button class="btn" onclick="adjustBalance('${u.id}')">$</button>
+                  <button class="btn" onclick="toggleBan('${u.id}')">${u.isBanned?'Unban':'Ban'}</button>
+                </td>
+              </tr>`;
+            }).join('')}
             </tbody></table></div></div>`;
           break;
         case 'team':
@@ -281,16 +391,97 @@
             </td></tr>`).join('') : '<tr><td colspan="6">No tickets</td></tr>'}
             </tbody></table></div></div>`;
           break;
-        case 'activity':
-          html = `<div class="card"><h3>Activity Log</h3>
-            <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;">
-              <input type="search" id="activitySearch" placeholder="Filter activities..." oninput="filterActivity(this.value)" style="max-width:250px;">
-              <button class="btn" onclick="clearActivityLog()" style="color:#ef4444;border-color:#ef4444;">Clear All</button>
-              <button class="btn" onclick="exportActivityLog()">Export Log</button>
+        case 'operations':
+          const allBookings = [...d.bookings, ...d.bookings2];
+          const confirmedBookings = allBookings.filter(b => b.status === 'Confirmed');
+          const pendingBookings = allBookings.filter(b => b.status === 'Pending');
+          html = `<div class="card"><h3>Operations Center</h3>
+            <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn" onclick="openAddMissionModal()" style="background:var(--accent);color:#000;">+ Add Mission</button>
+              <button class="btn" onclick="switchPane('team')">Manage Teams</button>
             </div>
-            <div class="log" id="activityLogContent">
-            ${d.activity.slice(0,50).map(a => `<div style="margin-bottom:8px;border-bottom:1px solid #2a2a42;padding-bottom:8px;"><small style="color:#9ca3af;">${new Date(a.at).toLocaleString()}</small> <span style="background:#1b1b34;padding:1px 6px;border-radius:4px;">${a.actor||'System'}</span> ${a.action}</div>`).join('') || '<div>No activity</div>'}
-            </div></div>`;
+            <div class="grid" style="margin-bottom:16px;">
+              <div class="card" style="border:1px solid #22c55e33;"><div class="small">Confirmed Missions</div><h2 style="margin:4px 0 0;color:#22c55e;">${confirmedBookings.length}</h2></div>
+              <div class="card" style="border:1px solid #f59e0b33;"><div class="small">Pending</div><h2 style="margin:4px 0 0;color:#f59e0b;">${pendingBookings.length}</h2></div>
+              <div class="card" style="border:1px solid #00c2ff33;"><div class="small">Today</div><h2 style="margin:4px 0 0;color:#00c2ff;">${allBookings.filter(b => b.date === new Date().toISOString().slice(0,10)).length}</h2></div>
+              <div class="card" style="border:1px solid #9d4edd33;"><div class="small">Teams Active</div><h2 style="margin:4px 0 0;color:#9d4edd;">${d.teams.length}</h2></div>
+            </div>
+            <h4 style="margin:12px 0 8px;">Upcoming Missions</h4>
+            <div class="table-wrap"><table><thead><tr><th>Ticket</th><th>Player</th><th>Date</th><th>Time</th><th>Slot</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+            ${allBookings.length ? allBookings.slice(0,30).map(b => `<tr><td><code>${b.ticketId||'-'}</code></td><td>${b.name||'-'}</td><td>${b.date||'-'}</td><td>${b.time||'-'}</td><td>${b.playerNo||'-'}</td><td><span class="badge ${b.status==='Confirmed'?'ok':'warn'}">${b.status||'-'}</span></td><td>
+              <button class="btn" onclick="toggleBooking('${b.id}')">${b.status==='Confirmed'?'Pending':'Confirm'}</button>
+              <button class="btn" onclick="deleteBooking('${b.id}')" style="color:#ef4444;">Del</button>
+            </td></tr>`).join('') : '<tr><td colspan="7">No missions scheduled</td></tr>'}
+            </tbody></table></div></div>`;
+          break;
+        case 'customers':
+          html = `<div class="card"><h3>Customer Profiles</h3>
+            <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <input type="search" id="customerSearch" placeholder="Search by name/email/phone..." oninput="filterCustomers(this.value)" style="max-width:280px;">
+              <select id="customerRoleFilter" onchange="filterCustomersByRole(this.value)" style="max-width:160px;">
+                <option value="">All Roles</option>
+                <option value="vip">VIP</option>
+                <option value="elite">Elite</option>
+                <option value="champion">Champion</option>
+                <option value="player">Player</option>
+                <option value="admin">Admin</option>
+              </select>
+              <button class="btn" onclick="exportCustomersCSV()">Export CSV</button>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Role/Rank</th><th>Balance</th><th>Bookings</th><th>Joined</th><th>Actions</th></tr></thead><tbody id="customersTableBody">
+            ${d.users.map(u => `<tr>
+              <td><strong>${u.name||'-'}</strong> ${u.isBanned?'<span class="danger">[Banned]</span>':''}</td>
+              <td>${u.email||'-'}</td>
+              <td>${u.phone||'-'}</td>
+              <td><span class="badge" style="${u.roles?.includes('elite')?'border-color:#9d4edd;color:#9d4edd':u.roles?.includes('vip')?'border-color:#ffd700;color:#ffd700':''}">${Array.isArray(u.roles)?u.roles.join('/'):(u.rank||'Recruit')}</span></td>
+              <td>${Number(u.balance||0).toFixed(0)} EGP</td>
+              <td>${allBookings.filter(b => b.userId === u.id || b.email === u.email).length}</td>
+              <td>${u.joined?new Date(u.joined).toLocaleDateString():'-'}</td>
+              <td>
+                <button class="btn" onclick="openCustomerDetail('${u.id}')">View</button>
+                <button class="btn" onclick="openEditUserModal('${u.id}')">Edit</button>
+              </td>
+            </tr>`).join('')}
+            </tbody></table></div></div>`;
+          break;
+        case 'export':
+          const roleFilterOpts = `<select id="exportRoleFilter" style="margin:8px 0;">
+            <option value="all">All Users</option>
+            <option value="vip">VIP Only</option>
+            <option value="elite">Elite Only</option>
+            <option value="champion">Champion Only</option>
+            <option value="player">Players Only</option>
+          </select>`;
+          html = `<div class="card"><h3>🎴 Player Card Export</h3>
+            <p style="color:#9ca3af;margin-bottom:16px;">Generate printable ID cards for your players with custom designs.</p>
+            <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
+              <div class="form-section">
+                <h4 style="color:#00c2ff;">Card Design</h4>
+                <select id="cardDesign"><option value="tactical">Tactical (Black/Green)</option><option value="gold">Gold VIP</option><option value="purple">Elite Purple</option><option value="red">Champion Red</option></select>
+                ${roleFilterOpts}
+                <select id="cardStatusFilter"><option value="all">All Status</option><option value="active">Active Only</option><option value="banned">Banned Only</option></select>
+              </div>
+              <div class="form-section">
+                <h4 style="color:#22c55e;">Card Features</h4>
+                <label style="display:flex;gap:8px;align-items:center;margin:4px 0;"><input type="checkbox" id="inclRank" checked> Show Rank</label>
+                <label style="display:flex;gap:8px;align-items:center;margin:4px 0;"><input type="checkbox" id="inclBalance" checked> Show Balance</label>
+                <label style="display:flex;gap:8px;align-items:center;margin:4px 0;"><input type="checkbox" id="inclDate" checked> Show Join Date</label>
+                <label style="display:flex;gap:8px;align-items:center;margin:4px 0;"><input type="checkbox" id="inclEmail"> Show Email</label>
+              </div>
+              <div class="form-section">
+                <h4 style="color:#ffd700;">Discount & Perks</h4>
+                <label style="display:flex;gap:8px;align-items:center;margin:4px 0;"><input type="checkbox" id="addDiscount"> Add Discount Badge</label>
+                <select id="discountType" style="margin:4px 0;"><option value="none">No Discount</option><option value="10">10% Off</option><option value="15">15% Off</option><option value="20">20% Off</option><option value="25">25% Off</option><option value="30">30% Off</option><option value="vip">VIP Special (25%)</option><option value="elite">Elite Special (30%)</option></select>
+                <label style="display:flex;gap:8px;align-items:center;margin:4px 0;"><input type="checkbox" id="addPerks"> Add Perks Badge</label>
+              </div>
+            </div>
+            <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn" onclick="previewPlayerCards()" style="background:#1b1b34;border-color:#00c2ff;">👁 Preview Cards</button>
+              <button class="btn" onclick="exportPlayerCards()" style="background:var(--accent);color:#000;">🖨 Export as Image</button>
+              <button class="btn" onclick="exportPlayerCardsPDF()">📄 Export as PDF</button>
+            </div>
+            <div id="cardPreviewArea" style="margin-top:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;"></div>
+          </div>`;
           break;
         default:
           html = `<div class="card"><h3>${id.charAt(0).toUpperCase()+id.slice(1)}</h3><p>Coming soon...</p></div>`;
@@ -870,6 +1061,312 @@
       switchPane('team');
     }
 
+    // === CUSTOMER & OPERATIONS FUNCTIONS ===
+    function filterCustomers(q) {
+      const rows = document.querySelectorAll('#customersTableBody tr');
+      rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(q.toLowerCase()) ? '' : 'none';
+      });
+    }
+
+    function filterCustomersByRole(role) {
+      const rows = document.querySelectorAll('#customersTableBody tr');
+      rows.forEach(row => {
+        if (!role) { row.style.display = ''; return; }
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(role.toLowerCase()) ? '' : 'none';
+      });
+    }
+
+    function exportCustomersCSV() {
+      const users = window.allData[DB_KEYS.users] || [];
+      const bookings = [...(window.allData[DB_KEYS.bookings]||[]), ...(window.allData[DB_KEYS.bookings2]||[])];
+      const rows = [['Name','Email','Phone','Role','Balance','Bookings Count','Joined','Banned']];
+      users.forEach(u => {
+        rows.push([u.name||'', u.email||'', u.phone||'', Array.isArray(u.roles)?u.roles.join('/'):(u.rank||''), u.balance||0, bookings.filter(b => b.userId===u.id || b.email===u.email).length, u.joined||'', u.isBanned?'Yes':'No']);
+      });
+      const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'customers-export.csv';
+      a.click();
+      showToast('Customers exported!', 'success');
+    }
+
+    function filterUserTable(q) {
+      const searchVal = document.getElementById('userSearchBox')?.value?.toLowerCase() || '';
+      const roleVal = document.getElementById('userRoleFilter')?.value?.toLowerCase() || '';
+      document.querySelectorAll('#usersTableBody tr').forEach(row => {
+        const text = row.textContent.toLowerCase();
+        const matchSearch = !searchVal || text.includes(searchVal);
+        const matchRole = !roleVal || text.includes(roleVal);
+        row.style.display = matchSearch && matchRole ? '' : 'none';
+      });
+    }
+
+    async function toggleUserRole(id, role) {
+      let users = await getKV(DB_KEYS.users, []);
+      const u = users.find(x => x.id === id);
+      if (!u) return;
+      if (!Array.isArray(u.roles)) u.roles = ['player'];
+      if (u.roles.includes(role)) u.roles = u.roles.filter(r => r !== role);
+      else u.roles.push(role);
+      await setKV(DB_KEYS.users, users);
+      window.allData[DB_KEYS.users] = users;
+      showToast(`Role '${role}' ${u.roles.includes(role) ? 'added' : 'removed'}`, 'success');
+      switchPane('users');
+    }
+
+    function bulkPromoteUsers() {
+      const select = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+          <h3>Bulk Promote Users</h3>
+          <div class="form-section">
+            <p style="margin:0 0 12px;color:#9ca3af;">Select users and assign them a role in bulk.</p>
+            <input type="search" id="bulkUserSearch" placeholder="Filter by name..." oninput="document.getElementById('bulkUserList').innerHTML = filterBulkUserList(this.value)" style="margin-bottom:8px;">
+            <div id="bulkUserList" style="max-height:200px;overflow:auto;border:1px solid #2a2a42;border-radius:8px;padding:8px;"></div>
+            <select id="bulkNewRole" style="margin-top:12px;">
+              <option value="vip">VIP</option>
+              <option value="elite">Elite</option>
+              <option value="champion">Champion</option>
+              <option value="player">Player (remove special roles)</option>
+            </select>
+          </div>
+          <div class="modal-actions">
+            <button class="btn" onclick="closeModal()">Cancel</button>
+            <button class="btn" style="background:var(--accent);color:#000;" onclick="executeBulkPromote()">Apply to Selected</button>
+          </div>
+        </div></div>`;
+      document.getElementById('modalContainer').innerHTML = select;
+      document.getElementById('bulkUserSearch').dispatchEvent(new Event('input'));
+    }
+
+    function filterBulkUserList(q) {
+      const users = window.allData[DB_KEYS.users] || [];
+      return users.filter(u => (u.name||'').toLowerCase().includes(q.toLowerCase())).map(u =>
+        `<label style="display:flex;gap:8px;align-items:center;padding:6px;cursor:pointer;border-bottom:1px solid #2a2a42;">
+          <input type="checkbox" class="bulk-check" value="${u.id}">
+          <strong>${u.name||'Unknown'}</strong>
+          <span style="color:#9ca3af;font-size:12px;">${u.email||''} - ${Array.isArray(u.roles)?u.roles.join('/'):'player'}</span>
+        </label>`
+      ).join('') || '<div style="padding:12px;color:#555;">No users found</div>';
+    }
+
+    async function executeBulkPromote() {
+      const checked = [...document.querySelectorAll('.bulk-check:checked')].map(el => el.value);
+      if (!checked.length) { showToast('No users selected', 'error'); return; }
+      const newRole = document.getElementById('bulkNewRole').value;
+      let users = await getKV(DB_KEYS.users, []);
+      users.forEach(u => {
+        if (checked.includes(u.id)) {
+          if (newRole === 'player') u.roles = ['player'];
+          else { if (!Array.isArray(u.roles)) u.roles = ['player']; if (!u.roles.includes(newRole)) u.roles.push(newRole); }
+        }
+      });
+      await setKV(DB_KEYS.users, users);
+      window.allData[DB_KEYS.users] = users;
+      showToast(`Updated ${checked.length} users to '${newRole}'`, 'success');
+      closeModal();
+      switchPane('users');
+    }
+
+    function openEditBookingModal(id) {
+      const b = (window.allData[DB_KEYS.bookings]||[]).find(x => x.id === id);
+      if (!b) { showToast('Booking not found', 'error'); return; }
+      document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+          <h3>Edit Booking ${b.ticketId||''}</h3>
+          <div class="form-section">
+            <input type="text" id="editBkName" value="${b.name||''}" placeholder="Player name">
+            <input type="text" id="editBkPhone" value="${b.phone||''}" placeholder="Phone">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <input type="date" id="editBkDate" value="${b.date||''}">
+              <input type="time" id="editBkTime" value="${b.time||''}">
+            </div>
+            <input type="number" id="editBkPrice" value="${b.price||0}" placeholder="Price">
+            <select id="editBkStatus"><option value="Pending" ${b.status==='Pending'?'selected':''}>Pending</option><option value="Confirmed" ${b.status==='Confirmed'?'selected':''}>Confirmed</option></select>
+          </div>
+          <div class="modal-actions">
+            <button class="btn" onclick="closeModal()">Cancel</button>
+            <button class="btn" style="background:var(--accent);color:#000;" onclick="saveBookingEdit('${id}')">Save Changes</button>
+          </div>
+        </div></div>`;
+    }
+
+    async function saveBookingEdit(id) {
+      let bookings = await getKV(DB_KEYS.bookings, []);
+      const idx = bookings.findIndex(x => x.id === id);
+      if (idx >= 0) {
+        bookings[idx] = { ...bookings[idx], name: document.getElementById('editBkName').value.trim(), phone: document.getElementById('editBkPhone').value.trim(), date: document.getElementById('editBkDate').value, time: document.getElementById('editBkTime').value, price: Number(document.getElementById('editBkPrice').value), status: document.getElementById('editBkStatus').value };
+        await setKV(DB_KEYS.bookings, bookings);
+        window.allData[DB_KEYS.bookings] = bookings;
+        showToast('Booking updated', 'success');
+        closeModal();
+        switchPane('bookings');
+      }
+    }
+
+    function exportBookingsCSV() {
+      const bookings = window.allData[DB_KEYS.bookings]||[];
+      const rows = [['Ticket','Name','Email','Phone','Date','Time','Price','Status']];
+      bookings.forEach(b => rows.push([b.ticketId||'',b.name||'',b.email||'',b.phone||'',b.date||'',b.time||'',b.price||0,b.status||'']));
+      const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+      const blob = new Blob([csv], {type:'text/csv'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'bookings-export.csv';
+      a.click();
+      showToast('Bookings exported!', 'success');
+    }
+
+    function openCustomerDetail(id) {
+      const users = window.allData[DB_KEYS.users] || [];
+      const u = users.find(x => x.id === id);
+      if (!u) return;
+      const bookings = [...(window.allData[DB_KEYS.bookings]||[]), ...(window.allData[DB_KEYS.bookings2]||[])].filter(b => b.userId===id || b.email===u.email);
+      const orders = (window.allData[DB_KEYS.orders]||[]).filter(o => o.userId===id || o.email===u.email);
+      const userBookings = bookings.map(b => `<div style="background:#121226;padding:8px;margin:4px 0;border-radius:6px;border:1px solid #2a2a42;">
+        <strong>${b.ticketId||'-'}</strong> - ${b.date||'-'} ${b.time||''} -
+        <span class="badge ${b.status==='Confirmed'?'ok':'warn'}" style="margin-left:6px;">${b.status}</span>
+        <span style="float:right;">${Number(b.price||0).toFixed(0)} EGP</span>
+      </div>`).join('') || '<div style="color:#555;">No bookings</div>';
+      document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
+        <div class="modal" onclick="event.stopPropagation()" style="width:min(600px,90vw);">
+          <h3 style="color:var(--accent);">${u.name||'Unknown'}</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0;">
+            <div class="card" style="padding:12px;"><div class="small">Email</div><strong>${u.email||'-'}</strong></div>
+            <div class="card" style="padding:12px;"><div class="small">Phone</div><strong>${u.phone||'-'}</strong></div>
+            <div class="card" style="padding:12px;"><div class="small">Balance</div><strong style="color:#22c55e;">${Number(u.balance||0).toFixed(0)} EGP</strong></div>
+            <div class="card" style="padding:12px;"><div class="small">Role</div><strong>${Array.isArray(u.roles)?u.roles.join('/'):(u.rank||'Recruit')}</strong></div>
+          </div>
+          <h4 style="margin:12px 0 8px;">Bookings (${bookings.length})</h4>
+          <div style="max-height:200px;overflow:auto;">${userBookings}</div>
+          <div style="margin-top:12px;display:flex;gap:8px;">
+            <button class="btn" onclick="openEditUserModal('${id}')">Edit Profile</button>
+            <button class="btn" onclick="adjustBalance('${id}')">Adjust Balance</button>
+            ${u.isBanned ? `<button class="btn" onclick="toggleBan('${id}')" style="background:#166534;color:#fff;">Unban</button>` : `<button class="btn" onclick="toggleBan('${id}')" style="background:#991b1b;color:#fff;">Ban</button>`}
+          </div>
+          <div class="modal-actions" style="margin-top:12px;"><button class="btn" onclick="closeModal()">Close</button></div>
+        </div></div>`;
+    }
+
+    function openAddMissionModal() {
+      document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+          <h3>+ Add Mission / Booking</h3>
+          <div class="form-section">
+            <input type="text" id="missionName" placeholder="Player name">
+            <input type="email" id="missionEmail" placeholder="Player email">
+            <input type="text" id="missionPhone" placeholder="Phone">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <input type="date" id="missionDate">
+              <input type="time" id="missionTime">
+            </div>
+            <input type="number" id="missionPrice" placeholder="Price (EGP)">
+            <select id="missionStatus"><option value="Pending">Pending</option><option value="Confirmed">Confirmed</option></select>
+          </div>
+          <div class="modal-actions">
+            <button class="btn" onclick="closeModal()">Cancel</button>
+            <button class="btn" style="background:var(--accent);color:#000;" onclick="addMissionFromAdmin()">Create Mission</button>
+          </div>
+        </div></div>`;
+    }
+
+    async function addMissionFromAdmin() {
+      const name = document.getElementById('missionName').value.trim();
+      const email = document.getElementById('missionEmail').value.trim();
+      const phone = document.getElementById('missionPhone').value.trim();
+      const date = document.getElementById('missionDate').value;
+      const time = document.getElementById('missionTime').value;
+      const price = Number(document.getElementById('missionPrice').value) || 0;
+      const status = document.getElementById('missionStatus').value;
+      if (!name || !date) { showToast('Name and date required', 'error'); return; }
+      const bookings = await getKV(DB_KEYS.bookings, []);
+      const ticketId = 'TKT-' + Date.now().toString(36).toUpperCase();
+      const allBookings = [...bookings, ...(await getKV(DB_KEYS.bookings2, []))];
+      const newBooking = { id: `b-${Date.now()}`, ticketId, name, email, phone, date, time, price, status, playerNo: 1000 + allBookings.length + 1, created_at: new Date().toISOString() };
+      const idx = bookings.length > 0 ? 0 : 1; // Store in bookings2 if bookings is empty
+      if (idx === 0) { bookings.push(newBooking); await setKV(DB_KEYS.bookings, bookings); window.allData[DB_KEYS.bookings] = bookings; invalidateCache(); }
+      else { const b2 = await getKV(DB_KEYS.bookings2, []); b2.push(newBooking); await setKV(DB_KEYS.bookings2, b2); window.allData[DB_KEYS.bookings2] = b2; invalidateCache(); }
+      showToast('Mission created!', 'success');
+      closeModal();
+      switchPane('operations');
+    }
+
+    // === PLAYER CARD EXPORT FUNCTIONS ===
+    function previewPlayerCards() {
+      const design = document.getElementById('cardDesign')?.value || 'tactical';
+      const roleFilter = document.getElementById('exportRoleFilter')?.value || 'all';
+      const statusFilter = document.getElementById('cardStatusFilter')?.value || 'all';
+      const inclRank = document.getElementById('inclRank')?.checked ?? true;
+      const inclBalance = document.getElementById('inclBalance')?.checked ?? true;
+      const inclDate = document.getElementById('inclDate')?.checked ?? true;
+      const inclEmail = document.getElementById('inclEmail')?.checked ?? false;
+      const addDiscount = document.getElementById('addDiscount')?.checked ?? false;
+      const discountType = document.getElementById('discountType')?.value || 'none';
+      const addPerks = document.getElementById('addPerks')?.checked ?? false;
+
+      let users = window.allData[DB_KEYS.users] || [];
+      if (roleFilter !== 'all') users = users.filter(u => u.roles?.includes(roleFilter));
+      if (statusFilter === 'active') users = users.filter(u => !u.isBanned);
+      if (statusFilter === 'banned') users = users.filter(u => u.isBanned);
+
+      if (!users.length) { showToast('No users match filters', 'error'); return; }
+
+      const area = document.getElementById('cardPreviewArea');
+      area.innerHTML = users.slice(0,12).map(u => generatePlayerCard(u, { design, inclRank, inclBalance, inclDate, inclEmail, addDiscount, discountType, addPerks })).join('');
+      showToast(`Showing ${Math.min(users.length,12)} of ${users.length} cards`, 'success');
+    }
+
+    function generatePlayerCard(u, opts) {
+      const { design, inclRank, inclBalance, inclDate, inclEmail, addDiscount, discountType, addPerks } = opts;
+      const colors = { tactical: {bg:'#0f0f23',border:'#22c55e',accent:'#00c2ff',text:'#fff',sub:'#9ca3af'}, gold: {bg:'linear-gradient(135deg,#1a1400,#2d2000)',border:'#ffd700',accent:'#ffd700',text:'#ffd700',sub:'#c9a400'}, purple: {bg:'linear-gradient(135deg,#1a0f2e,#2e1a4a)',border:'#9d4edd',accent:'#9d4edd',text:'#c77dff',sub:'#9d4edd'}, red: {bg:'linear-gradient(135deg,#2e0f0f,#4a1a1a)',border:'#ef4444',accent:'#ef4444',text:'#ff6b6b',sub:'#ef4444'} };
+      const c = colors[design] || colors.tactical;
+      const roleBadge = u.roles?.includes('elite') ? 'ELITE' : u.roles?.includes('vip') ? 'VIP' : u.roles?.includes('champion') ? 'CHAMPION' : 'PLAYER';
+      const roleColor = u.roles?.includes('elite') ? '#9d4edd' : u.roles?.includes('vip') ? '#ffd700' : u.roles?.includes('champion') ? '#ef4444' : '#22c55e';
+      const discountBadge = addDiscount && discountType !== 'none' ? `<div style="position:absolute;top:10px;right:10px;background:${roleColor};color:#000;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:bold;">${discountType==='vip'?'VIP 25%':discountType==='elite'?'ELITE 30%':discountType+'% OFF'}</div>` : '';
+      const perksBadge = addPerks ? `<div style="margin-top:6px;padding:4px 8px;background:rgba(34,197,94,0.2);border:1px solid #22c55e;border-radius:6px;font-size:11px;color:#22c55e;">★ PERKS INCLUDED</div>` : '';
+      return `<div style="background:${c.bg};border:2px solid ${c.border};border-radius:16px;padding:20px;position:relative;min-width:300px;color:${c.text};font-family:Arial,sans-serif;">
+        ${discountBadge}
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div style="font-size:10px;color:${c.sub};letter-spacing:2px;">CRAZY TOWN</div>
+          <div style="font-size:11px;color:${roleColor};font-weight:bold;border:1px solid ${roleColor};padding:2px 8px;border-radius:4px;">${roleBadge}</div>
+        </div>
+        <div style="font-size:24px;font-weight:bold;margin-bottom:4px;">${u.name || 'Unknown'}</div>
+        ${inclEmail ? `<div style="font-size:12px;color:${c.sub};margin-bottom:8px;">${u.email||''}</div>` : ''}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">
+          ${inclRank ? `<div style="background:rgba(255,255,255,0.05);padding:8px;border-radius:8px;"><div style="font-size:10px;color:${c.sub};">Rank</div><div style="font-weight:bold;font-size:14px;">${Array.isArray(u.roles)?u.roles.join('/'):(u.rank||'Recruit')}</div></div>` : ''}
+          ${inclBalance ? `<div style="background:rgba(255,255,255,0.05);padding:8px;border-radius:8px;"><div style="font-size:10px;color:${c.sub};">Balance</div><div style="font-weight:bold;font-size:14px;">${Number(u.balance||0).toFixed(0)} EGP</div></div>` : ''}
+          ${inclDate ? `<div style="background:rgba(255,255,255,0.05);padding:8px;border-radius:8px;"><div style="font-size:10px;color:${c.sub};">Joined</div><div style="font-weight:bold;font-size:14px;">${u.joined?new Date(u.joined).toLocaleDateString('en-GB'):'-'}</div></div>` : ''}
+          <div style="background:rgba(255,255,255,0.05);padding:8px;border-radius:8px;"><div style="font-size:10px;color:${c.sub};">ID</div><div style="font-weight:bold;font-size:14px;">${(u.id||'---').slice(-8).toUpperCase()}</div></div>
+        </div>
+        ${perksBadge}
+      </div>`;
+    }
+
+    function exportPlayerCards() {
+      const design = document.getElementById('cardDesign')?.value || 'tactical';
+      const roleFilter = document.getElementById('exportRoleFilter')?.value || 'all';
+      let users = (window.allData[DB_KEYS.users]||[]).filter(u => !roleFilter || roleFilter==='all' || u.roles?.includes(roleFilter));
+      users = users.filter(u => !u.isBanned);
+      const cardsHtml = users.map(u => generatePlayerCard(u, {
+        design, inclRank: true, inclBalance: true, inclDate: true, inclEmail: false,
+        addDiscount: document.getElementById('addDiscount')?.checked ?? false,
+        discountType: document.getElementById('discountType')?.value || 'none',
+        addPerks: document.getElementById('addPerks')?.checked ?? false
+      })).join('<br><br>');
+      const win = window.open('', '_blank');
+      win.document.write(`<html><head><title>Crazy Town Player Cards</title><style>body{padding:20px;font-family:Arial;background:#0a0a0f;}</style></head><body>${cardsHtml}</body></html>`);
+      win.document.close();
+      showToast(`Exporting ${users.length} cards`, 'success');
+    }
+
+    function exportPlayerCardsPDF() {
+      showToast('PDF export coming soon - use Export as Image for now', 'info');
+    }
+
     // === ADD LEADBOARD ENTRY ===
     async function addLeaderboardEntryFromAdmin() {
       const name = prompt('Player name:');
@@ -1005,6 +1502,19 @@
     window.exportActivityLog = exportActivityLog;
     window.editTeam = editTeam;
     window.disbandTeam = disbandTeam;
+    window.filterCustomers = filterCustomers;
+    window.filterCustomersByRole = filterCustomersByRole;
+    window.exportCustomersCSV = exportCustomersCSV;
+    window.openCustomerDetail = openCustomerDetail;
+    window.openAddMissionModal = openAddMissionModal;
+    window.filterUserTable = filterUserTable;
+    window.toggleUserRole = toggleUserRole;
+    window.bulkPromoteUsers = bulkPromoteUsers;
+    window.openEditBookingModal = openEditBookingModal;
+    window.exportBookingsCSV = exportBookingsCSV;
+    window.previewPlayerCards = previewPlayerCards;
+    window.exportPlayerCards = exportPlayerCards;
+    window.exportPlayerCardsPDF = exportPlayerCardsPDF;
     window.addLeaderboardEntryFromAdmin = addLeaderboardEntryFromAdmin;
 
     // Keyboard shortcuts
