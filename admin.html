@@ -396,16 +396,16 @@
           break;
         case 'operations':
           const allBookings = [...d.bookings, ...d.bookings2];
-          const confirmedBookings = allBookings.filter(b => b.status === 'Confirmed');
-          const pendingBookings = allBookings.filter(b => b.status === 'Pending');
+          const confirmedMissions = allBookings.filter(b => b.status === 'Confirmed');
+          const pendingMissions = allBookings.filter(b => b.status === 'Pending');
           html = `<div class="card"><h3>Operations Center</h3>
             <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;">
               <button class="btn" onclick="openAddMissionModal()" style="background:var(--accent);color:#000;">+ Add Mission</button>
               <button class="btn" onclick="switchPane('team')">Manage Teams</button>
             </div>
             <div class="grid" style="margin-bottom:16px;">
-              <div class="card" style="border:1px solid #22c55e33;"><div class="small">Confirmed Missions</div><h2 style="margin:4px 0 0;color:#22c55e;">${confirmedBookings.length}</h2></div>
-              <div class="card" style="border:1px solid #f59e0b33;"><div class="small">Pending</div><h2 style="margin:4px 0 0;color:#f59e0b;">${pendingBookings.length}</h2></div>
+              <div class="card" style="border:1px solid #22c55e33;"><div class="small">Confirmed Missions</div><h2 style="margin:4px 0 0;color:#22c55e;">${confirmedMissions.length}</h2></div>
+              <div class="card" style="border:1px solid #f59e0b33;"><div class="small">Pending</div><h2 style="margin:4px 0 0;color:#f59e0b;">${pendingMissions.length}</h2></div>
               <div class="card" style="border:1px solid #00c2ff33;"><div class="small">Today</div><h2 style="margin:4px 0 0;color:#00c2ff;">${allBookings.filter(b => b.date === new Date().toISOString().slice(0,10)).length}</h2></div>
               <div class="card" style="border:1px solid #9d4edd33;"><div class="small">Teams Active</div><h2 style="margin:4px 0 0;color:#9d4edd;">${d.teams.length}</h2></div>
             </div>
