@@ -76,6 +76,7 @@
               <button class="btn" onclick="switchPane('roles')">🔐 Manage Roles</button>
               <button class="btn" onclick="switchPane('bulk')">⚡ Bulk Ops</button>
               <button class="btn" onclick="switchPane('system')">🔧 System Config</button>
+              <button class="btn" onclick="switchPane('leaderboard')">🏆 Leaderboard</button>
             </div>
           </div>
 
@@ -249,6 +250,27 @@
             </div>
           </div>
         </section>
+
+        <section class="pane" data-pane="leaderboard">
+          <div class="card">
+            <h3 style="margin-top:0;">🏆 Leaderboard Management</h3>
+            <p class="small" style="margin-bottom:10px;">Manage Tournament Champions, Top Players, and Elite Teams displayed on the main site.</p>
+            <div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;background:#f1f5f9;border:1px solid var(--line);border-radius:8px;padding:6px;">
+              <button class="btn" id="lbTabBtn1" onclick="switchOwnerLBPane('tc', this)" style="padding:6px 10px;font-size:12px;">🏆 Champions</button>
+              <button class="btn" id="lbTabBtn2" onclick="switchOwnerLBPane('tp', this)" style="padding:6px 10px;font-size:12px;">⚔️ Top Players</button>
+              <button class="btn" id="lbTabBtn3" onclick="switchOwnerLBPane('et', this)" style="padding:6px 10px;font-size:12px;">👥 Elite Teams</button>
+              <span id="ownerLBCount" style="margin-left:auto;color:#64748b;font-size:12px;align-self:center;"></span>
+            </div>
+            <div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="btn primary" onclick="openOwnerLBBulkModal()">+ Add / Edit List</button>
+              <button class="btn" onclick="loadOwnerLBSample()">📋 Load Sample Data</button>
+              <button class="btn danger" onclick="clearOwnerLB()">🗑 Clear All</button>
+            </div>
+            <div class="table-wrap">
+              <table id="ownerLBTable"><thead><tr><th>#</th><th>Avatar</th><th>Name</th><th>Stats</th><th>Points</th><th>Actions</th></tr></thead><tbody id="ownerLBBody"></tbody></table>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
   </div>
@@ -258,7 +280,10 @@
 
     const K = {
       users:'crazyTown_users', bookings:'crazyTown_bookings', orders:'crazyTown_orders', supportTickets:'crazyTown_support_tickets',
-      activity:'crazyTown_activity', settings:'crazyTown_settings', coupons:'crazyTown_coupons', session:'crazyTown_session', rolePolicy:'crazyTown_role_policy'
+      activity:'crazyTown_activity', settings:'crazyTown_settings', coupons:'crazyTown_coupons', session:'crazyTown_session', rolePolicy:'crazyTown_role_policy',
+      tournamentChampions:'crazyTown_tournamentChampions',
+      topPlayers:'crazyTown_topPlayers',
+      eliteTeams:'crazyTown_eliteTeams'
     };
     const TABS = ['overview', 'roles', 'policy', 'discounts', 'cards', 'audit', 'staff', 'bulk', 'system'];
     const POLICY_PERMISSIONS = ['accessAdminPanel', 'accessOwnerControl', 'managePrivilegedRoles', 'manageStaffRoles', 'manageTargetedDiscounts', 'runProductionMode'];
@@ -555,6 +580,164 @@
     window.toggleBanFromDetail = toggleBanFromDetail;
     window.adjustBalanceFromDetail = adjustBalanceFromDetail;
     window.closeModal = closeModal;
+    window.switchOwnerLBPane = switchOwnerLBPane;
+    window.openOwnerLBBulkModal = openOwnerLBBulkModal;
+    window.loadOwnerLBSample = loadOwnerLBSample;
+    window.saveOwnerLBCSV = saveOwnerLBCSV;
+    window.openOwnerLBEdit = openOwnerLBEdit;
+    window.saveOwnerLBEdit = saveOwnerLBEdit;
+    window.adjustOwnerLB = adjustOwnerLB;
+    window.deleteOwnerLB = deleteOwnerLB;
+    window.clearOwnerLB = clearOwnerLB;
+
+    // === LEADERBOARD MANAGEMENT (Owner) ===
+    async function ro(key, def) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch { return def; } }
+    async function wo(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+
+    window.switchOwnerLBPane = async function(type, btn) {
+      document.querySelectorAll('[id^="lbTabBtn"]').forEach(b => { b.classList.remove('primary'); b.style.background=''; b.style.color=''; });
+      if (btn) { btn.classList.add('primary'); btn.style.background='var(--accent)'; btn.style.color='#fff'; }
+      const keys = { tc: K.tournamentChampions, tp: K.topPlayers, et: K.eliteTeams };
+      const list = await ro(keys[type], []);
+      const countEl = document.getElementById('ownerLBCount');
+      if (countEl) countEl.textContent = `${list.length} entries`;
+      const statLabel = { tc: 'Champ', tp: 'Kills', et: 'Members' };
+      const statKey = { tc: 'championships', tp: 'kills', et: 'members' };
+      const statKey2 = { tc: 'wins', tp: 'matches', et: 'wins' };
+      document.getElementById('ownerLBBody').innerHTML = list.sort((a,b) => (b.points||0)-(a.points||0)).map((e,i) => `<tr>
+        <td><span style="font-weight:bold;color:${i<3?'#ffd700':'#64748b'};">#${i+1}</span></td>
+        <td><img src="${e.image||''}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+          <div style="display:none;width:36px;height:36px;background:linear-gradient(135deg,#2563eb,#7c3aed);border-radius:50%;align-items:center;justify-content:center;color:#fff;font-weight:bold;">${(e.name||'?')[0].toUpperCase()}</div></td>
+        <td><strong>${e.name||'-'}</strong></td>
+        <td style="color:#64748b;font-size:13px;">${e[statKey[type]]||0} ${statLabel[type]} • ${e[statKey2[type]]||0} ${statKey2[type]==='wins'?'Wins':statKey2[type]==='matches'?'Matches':'Wins'}</td>
+        <td><span style="font-weight:bold;color:#2563eb;">${(e.points||0).toLocaleString()}</span></td>
+        <td><button class="btn" onclick="openOwnerLBEdit('${type}','${e.id}')" style="padding:4px 8px;font-size:12px;">✏️ Edit</button>
+          <button class="btn" onclick="adjustOwnerLB('${type}','${e.id}',500)" style="padding:4px 8px;font-size:12px;background:#dcfce7;color:#166534;">+500</button>
+          <button class="btn" onclick="adjustOwnerLB('${type}','${e.id}',-500)" style="padding:4px 8px;font-size:12px;background:#fee2e2;color:#991b1b;">-500</button>
+          <button class="btn" onclick="deleteOwnerLB('${type}','${e.id}')" style="padding:4px 8px;font-size:12px;color:#dc2626;">🗑</button></td>
+      </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:#64748b;">No entries. Click "Load Sample Data" to populate.</td></tr>';
+    };
+
+    window.openOwnerLBBulkModal = function() {
+      const type = window.ownerLBType || 'tc';
+      const titles = { tc: '🏆 Tournament Champions', tp: '⚔️ Top Players', et: '👥 Elite Teams' };
+      const samples = {
+        tc: 'Name,Championships,Wins,WinRate,Points,Image\nMazen Ragaei,12,245,94,12450,https://...\nAbdallah Essam,10,198,91,11280,https://...',
+        tp: 'Name,Kills,Matches,KD,Points,Image\nMazen "Phantom" Hassan,487,156,3.12,15680,https://...\nMohamed "Viper" Ali,423,148,2.86,14250,https://...',
+        et: 'Name,Members,Wins,WinRate,Points,Image\nTeam Phantom,5,245,94,12450,https://...\nTeam Viper,5,198,91,11280,https://...'
+      };
+      document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
+        <div class="modal" onclick="event.stopPropagation()" style="max-width:600px;">
+          <h3>${titles[type] || 'Bulk Edit'}</h3>
+          <p class="small" style="margin-bottom:8px;">Paste CSV data (header + rows). Points auto-sort after import.</p>
+          <textarea id="ownerLBCsv" placeholder="${samples[type]}" style="width:100%;height:200px;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12px;white-space:pre-wrap;font-family:monospace;"></textarea>
+          <div class="modal-actions" style="margin-top:10px;">
+            <button class="btn" onclick="closeModal()">Cancel</button>
+            <button class="btn primary" onclick="saveOwnerLBCSV('${type}')" style="background:var(--accent);color:#fff;">💾 Save</button>
+          </div>
+        </div></div>`;
+    };
+
+    window.loadOwnerLBSample = async function() {
+      const type = window.ownerLBType || 'tc';
+      const samples = {
+        tc: [{id:'tc-1',name:'Mazen Ragaei',championships:12,wins:245,winRate:94,points:12450,image:'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop',rank:1},{id:'tc-2',name:'Abdallah Essam',championships:10,wins:198,winRate:91,points:11280,image:'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=100&h=100&fit=crop',rank:2},{id:'tc-3',name:'Shahd Yasser',championships:8,wins:176,winRate:88,points:10150,image:'https://images.unsplash.com/photo-1633332755192-727a05c40136?w=100&h=100&fit=crop',rank:3},{id:'tc-4',name:'Abdelrhman wael',championships:6,wins:154,winRate:85,points:9340,image:'https://images.unsplash.com/photo-1599566150163-29194dcabd36?w=100&h=100&fit=crop',rank:4},{id:'tc-5',name:'Sarah mostafa',championships:5,wins:142,winRate:82,points:8920,image:'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop',rank:5}],
+        tp: [{id:'tp-1',name:'Mazen "Phantom" Hassan',kills:487,matches:156,kd:3.12,points:15680,image:'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop',rank:1},{id:'tp-2',name:'Mohamed "Viper" Ali',kills:423,matches:148,kd:2.86,points:14250,image:'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=100&h=100&fit=crop',rank:2},{id:'tp-3',name:'Omar "Ghost" Mahmoud',kills:398,matches:142,kd:2.80,points:13890,image:'https://images.unsplash.com/photo-1633332755192-727a05c40136?w=100&h=100&fit=crop',rank:3},{id:'tp-4',name:'Ahmed "Shadow" Khaled',kills:367,matches:139,kd:2.64,points:12560,image:'https://images.unsplash.com/photo-1599566150163-29194dcabd36?w=100&h=100&fit=crop',rank:4},{id:'tp-5',name:'Ziad "Storm" Nasser',kills:341,matches:131,kd:2.60,points:11480,image:'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop',rank:5}],
+        et: [{id:'et-1',name:'Mazen Ragaei',members:5,wins:245,winRate:94,points:12450,image:'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop',rank:1},{id:'et-2',name:'Abdallah Essam',members:5,wins:198,winRate:91,points:11280,image:'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=100&h=100&fit=crop',rank:2},{id:'et-3',name:'Shahd Yasser',members:4,wins:176,winRate:88,points:10150,image:'https://images.unsplash.com/photo-1633332755192-727a05c40136?w=100&h=100&fit=crop',rank:3},{id:'et-4',name:'Abdelrhman wael',members:4,wins:154,winRate:85,points:9340,image:'https://images.unsplash.com/photo-1599566150163-29194dcabd36?w=100&h=100&fit=crop',rank:4},{id:'et-5',name:'Sarah mostafa',members:3,wins:142,winRate:82,points:8920,image:'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop',rank:5}]
+      };
+      const keys = { tc: K.tournamentChampions, tp: K.topPlayers, et: K.eliteTeams };
+      await wo(keys[type], samples[type]);
+      window.ownerLBType = type;
+      document.getElementById('lbTabBtn1').style.background = type==='tc'?'var(--accent)':'';
+      document.getElementById('lbTabBtn1').style.color = type==='tc'?'#fff':'';
+      document.getElementById('lbTabBtn2').style.background = type==='tp'?'var(--accent)':'';
+      document.getElementById('lbTabBtn2').style.color = type==='tp'?'#fff':'';
+      document.getElementById('lbTabBtn3').style.background = type==='et'?'var(--accent)':'';
+      document.getElementById('lbTabBtn3').style.color = type==='et'?'#fff':'';
+      switchOwnerLBPane(type, null);
+    };
+
+    window.saveOwnerLBCSV = async function(type) {
+      const csv = document.getElementById('ownerLBCsv').value.trim();
+      const lines = csv.split('\n').filter(l => l.trim());
+      if (lines.length < 2) { alert('Need header + at least 1 data row'); return; }
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      const parsed = [];
+      for (let i = 1; i < lines.length; i++) {
+        const vals = lines[i].split(',').map(v => v.trim());
+        const entry = { id: `${type}-${Date.now()}-${i}` };
+        headers.forEach((h, hi) => {
+          const v = vals[hi] || '';
+          entry[h] = isNaN(v) || h === 'name' || h === 'image' ? v : parseFloat(v);
+        });
+        parsed.push(entry);
+      }
+      parsed.sort((a,b) => (b.points||0) - (a.points||0));
+      parsed.forEach((e,i) => e.rank = i+1);
+      const keys = { tc: K.tournamentChampions, tp: K.topPlayers, et: K.eliteTeams };
+      await wo(keys[type], parsed);
+      closeModal();
+      switchOwnerLBPane(type, null);
+    };
+
+    window.openOwnerLBEdit = function(type, id) {
+      const keys = { tc: K.tournamentChampions, tp: K.topPlayers, et: K.eliteTeams };
+      ro(keys[type], []).then(list => {
+        const e = list.find(x => x.id === id);
+        if (!e) return;
+        const fields = { tc:['name','championships','wins','winRate','points','image'], tp:['name','kills','matches','kd','points','image'], et:['name','members','wins','winRate','points','image'] };
+        const labels = { tc:['Name','Championships','Wins','Win Rate%','Points','Image URL'], tp:['Name','Kills','Matches','K/D','Points','Image URL'], et:['Name','Members','Wins','Win Rate%','Points','Image URL'] };
+        const fieldHtml = fields[type].map((f, i) => `<div style="margin-bottom:8px;"><label style="font-size:12px;color:#64748b;display:block;margin-bottom:2px;">${labels[type][i]}</label><input type="${f==='image'||f==='name'?'text':'number'}" id="ole_${f}" value="${e[f]||''}" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;"></div>`).join('');
+        document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()"><div class="modal" onclick="event.stopPropagation()"><h3>✏️ Edit Entry</h3>${fieldHtml}<div style="margin:8px 0;display:flex;gap:6px;"><button class="btn" onclick="document.getElementById('ole_points').value=Number(document.getElementById('ole_points').value)+500" style="padding:6px 10px;background:#dcfce7;color:#166534;font-size:12px;">+500</button><button class="btn" onclick="document.getElementById('ole_points').value=Number(document.getElementById('ole_points').value)-500" style="padding:6px 10px;background:#fee2e2;color:#991b1b;font-size:12px;">-500</button></div><div class="modal-actions" style="margin-top:10px;"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveOwnerLBEdit('${type}','${e.id}')" style="background:var(--accent);color:#fff;">💾 Save</button></div></div></div>`;
+      });
+    };
+
+    window.saveOwnerLBEdit = async function(type, id) {
+      const keys = { tc: K.tournamentChampions, tp: K.topPlayers, et: K.eliteTeams };
+      const list = await ro(keys[type], []);
+      const idx = list.findIndex(x => x.id === id);
+      if (idx < 0) return;
+      const e = list[idx];
+      const fieldMap = { tc:['name','championships','wins','winRate','points','image'], tp:['name','kills','matches','kd','points','image'], et:['name','members','wins','winRate','points','image'] };
+      fieldMap[type].forEach(f => { const el = document.getElementById('ole_' + f); if (el) e[f] = isNaN(el.value) ? el.value : parseFloat(el.value); });
+      list.sort((a,b) => (b.points||0)-(a.points||0));
+      list.forEach((item,i) => item.rank = i+1);
+      await wo(keys[type], list);
+      closeModal();
+      switchOwnerLBPane(type, null);
+    };
+
+    window.adjustOwnerLB = async function(type, id, delta) {
+      const keys = { tc: K.tournamentChampions, tp: K.topPlayers, et: K.eliteTeams };
+      const list = await ro(keys[type], []);
+      const idx = list.findIndex(x => x.id === id);
+      if (idx < 0) return;
+      list[idx].points = Math.max(0, (list[idx].points||0) + delta);
+      list.sort((a,b) => (b.points||0)-(a.points||0));
+      list.forEach((e,i) => e.rank = i+1);
+      await wo(keys[type], list);
+      switchOwnerLBPane(type, null);
+    };
+
+    window.deleteOwnerLB = async function(type, id) {
+      if (!confirm('Delete this entry?')) return;
+      const keys = { tc: K.tournamentChampions, tp: K.topPlayers, et: K.eliteTeams };
+      let list = await ro(keys[type], []);
+      list = list.filter(x => x.id !== id);
+      list.forEach((e,i) => e.rank = i+1);
+      await wo(keys[type], list);
+      switchOwnerLBPane(type, null);
+    };
+
+    window.clearOwnerLB = async function() {
+      if (!confirm('Clear all entries?')) return;
+      const type = window.ownerLBType || 'tc';
+      const keys = { tc: K.tournamentChampions, tp: K.topPlayers, et: K.eliteTeams };
+      await wo(keys[type], []);
+      switchOwnerLBPane(type, null);
+    };
+
+    window.adjustOwnerLBPoints = async function(type, id, delta) { await adjustOwnerLB(type, id, delta); };
 
     // === NEW OWNER SECTIONS ===
     async function renderStaffTable(searchQuery) {

@@ -85,7 +85,10 @@
       leaderboard: 'crazyTown_leaderboard', activity: 'crazyTown_activity', coupons: 'crazyTown_coupons',
       inventory: 'crazyTown_inventory', news: 'crazyTown_news', teams: 'crazyTown_teams',
       tournaments: 'crazyTown_tournaments', settings: 'crazyTown_settings', cart: 'crazyTown_cart',
-      chat: 'crazyTown_chat', bookings2: 'crazyTown_bookings'
+      chat: 'crazyTown_chat', bookings2: 'crazyTown_bookings',
+      tournamentChampions: 'crazyTown_tournamentChampions',
+      topPlayers: 'crazyTown_topPlayers',
+      eliteTeams: 'crazyTown_eliteTeams'
     };
 
     function hasRole(u, r) { return u && Array.isArray(u.roles) && u.roles.includes(r); }
@@ -328,34 +331,125 @@
           break;
         case 'leaderboard':
           const lbSorted = [...(d.leaderboard||[])].sort((a,b) => (b.points||0) - (a.points||0));
-          html = `<div class="card"><h3>🏆 Leaderboard Control</h3>
-            <div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-              <button class="btn primary" onclick="openAddLeaderboardModal()" style="background:var(--accent);color:#000;">+ Add Player</button>
-              <button class="btn" onclick="openSyncLeaderboardModal()">🔄 Sync with Users</button>
-              <button class="btn" onclick="openBulkLeaderboardModal()">⚡ Bulk Actions</button>
-              <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
-                <input type="search" id="lbSearch" placeholder="Search players..." oninput="filterLeaderboard(this.value)" style="max-width:200px;">
-                <span style="color:#9ca3af;font-size:12px;">${lbSorted.length} players</span>
-              </div>
+          const tcSorted = [...(d.tournamentChampions||[])].sort((a,b) => (b.points||0) - (a.points||0));
+          const tpSorted = [...(d.topPlayers||[])].sort((a,b) => (b.points||0) - (a.points||0));
+          const etSorted = [...(d.eliteTeams||[])].sort((a,b) => (b.points||0) - (a.points||0));
+          const lbPane = window.activeLBPane || 'main';
+          html = `<div class="card"><h3>🏆 Full Leaderboard Control</h3>
+            <div style="margin-bottom:12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px;">
+              <button class="btn ${lbPane==='main'?'primary':''}" onclick="switchLBPane('main')" style="padding:6px 12px;font-size:12px;${lbPane==='main'?'background:var(--primary);color:#000;':''}">🎯 Main LB</button>
+              <button class="btn ${lbPane==='tc'?'primary':''}" onclick="switchLBPane('tc')" style="padding:6px 12px;font-size:12px;${lbPane==='tc'?'background:var(--gold);color:#000;':''}">🏆 Champions</button>
+              <button class="btn ${lbPane==='tp'?'primary':''}" onclick="switchLBPane('tp')" style="padding:6px 12px;font-size:12px;${lbPane==='tp'?'background:var(--accent);color:#000;':''}">⚔️ Top Players</button>
+              <button class="btn ${lbPane==='et'?'primary':''}" onclick="switchLBPane('et')" style="padding:6px 12px;font-size:12px;${lbPane==='et'?'background:var(--purple);color:#fff;':''}">👥 Elite Teams</button>
             </div>
-            <div class="table-wrap"><table><thead><tr><th>#</th><th>Avatar</th><th>Name</th><th>Points</th><th>Kills</th><th>Wins</th><th>Actions</th></tr></thead><tbody id="lbTableBody">
-            ${lbSorted.map((e,i) => `<tr id="lb-row-${e.id}">
-              <td><span style="font-weight:bold;color:${i<3?'var(--gold)':'var(--text-muted)'};">#${i+1}</span></td>
-              <td><div style="width:36px;height:36px;background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:bold;color:#fff;">${(e.name||'?')[0].toUpperCase()}</div></td>
-              <td><strong>${e.name||'-'}</strong><br><span style="font-size:0.7rem;color:var(--text-muted);">${e.tag||''}</span></td>
-              <td><span id="lb-pts-${e.id}" style="color:var(--primary);font-weight:bold;">${e.points||0}</span></td>
-              <td>${e.kills||0}</td>
-              <td>${e.wins||0}</td>
-              <td>
-                <div style="display:flex;gap:4px;flex-wrap:wrap;">
-                  <button class="btn" onclick="openEditLeaderboardModal('${e.id}')" style="padding:4px 8px;font-size:11px;">✏️ Edit</button>
+
+            <div id="lb-pane-main" style="${lbPane!=='main'?'display:none':''}">
+              <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                <button class="btn primary" onclick="openAddLeaderboardModal()" style="background:var(--accent);color:#000;">+ Add Player</button>
+                <button class="btn" onclick="openSyncLeaderboardModal()">🔄 Sync</button>
+                <button class="btn" onclick="openBulkLeaderboardModal()">⚡ Bulk</button>
+                <div style="margin-left:auto;"><input type="search" id="lbSearch" placeholder="Search..." oninput="filterLeaderboard(this.value)" style="max-width:180px;"></div>
+                <span style="color:#9ca3af;font-size:11px;">${lbSorted.length} players</span>
+              </div>
+              <div class="table-wrap"><table><thead><tr><th>#</th><th>Avatar</th><th>Name</th><th>Points</th><th>Kills</th><th>Wins</th><th>Actions</th></tr></thead><tbody>
+              ${lbSorted.map((e,i) => `<tr>
+                <td><span style="font-weight:bold;color:${i<3?'var(--gold)':'var(--text-muted)'};">#${i+1}</span></td>
+                <td><div style="width:36px;height:36px;background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:bold;color:#fff;">${(e.name||'?')[0].toUpperCase()}</div></td>
+                <td><strong>${e.name||'-'}</strong><br><span style="font-size:0.7rem;color:var(--text-muted);">${e.tag||''}</span></td>
+                <td><span id="lb-pts-${e.id}" style="color:var(--primary);font-weight:bold;">${e.points||0}</span></td>
+                <td>${e.kills||0}</td>
+                <td>${e.wins||0}</td>
+                <td><div style="display:flex;gap:4px;flex-wrap:wrap;">
+                  <button class="btn" onclick="openEditLeaderboardModal('${e.id}')" style="padding:4px 8px;font-size:11px;">✏️</button>
                   <button class="btn" onclick="adjustScore('${e.id}', 100)" style="padding:4px 8px;font-size:11px;background:#166534;color:#fff;">+100</button>
                   <button class="btn" onclick="adjustScore('${e.id}', -100)" style="padding:4px 8px;font-size:11px;background:#991b1b;color:#fff;">-100</button>
                   <button class="btn" onclick="deleteLeaderboardEntry('${e.id}')" style="padding:4px 8px;font-size:11px;color:#ef4444;">🗑</button>
-                </div>
-              </td>
-            </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:#555;">No leaderboard entries. Add players above.</td></tr>'}
-            </tbody></table></div></div>`;
+                </div></td>
+              </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:#555;">No entries</td></tr>'}
+              </tbody></table></div>
+            </div>
+
+            <div id="lb-pane-tc" style="${lbPane!=='tc'?'display:none':''}">
+              <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                <button class="btn primary" onclick="openLBListModal('tc')" style="background:var(--gold);color:#000;">+ Add / Edit</button>
+                <button class="btn" onclick="importLBFromCSV('tc')">📥 CSV</button>
+                <div style="margin-left:auto;"><input type="search" id="tcSearch" placeholder="Search..." oninput="filterLBList('tc',this.value)" style="max-width:180px;"></div>
+                <span style="color:#9ca3af;font-size:11px;">${tcSorted.length} champions</span>
+              </div>
+              <div class="table-wrap"><table><thead><tr><th>#</th><th>Img</th><th>Name</th><th>Champ</th><th>Wins</th><th>Win%</th><th>Points</th><th>Actions</th></tr></thead><tbody>
+              ${tcSorted.map((e,i) => `<tr id="tc-row-${e.id}">
+                <td><span style="font-weight:bold;color:${i<3?'var(--gold)':'var(--text-muted)'};">#${i+1}</span></td>
+                <td><img src="${e.image||''}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                  <div style="display:none;width:36px;height:36px;background:linear-gradient(135deg,var(--gold),var(--accent));border-radius:50%;align-items:center;justify-content:center;color:#fff;font-weight:bold;">${(e.name||'?')[0].toUpperCase()}</div></td>
+                <td><strong>${e.name||'-'}</strong></td>
+                <td>${e.championships||0}</td>
+                <td>${e.wins||0}</td>
+                <td>${e.winRate||0}%</td>
+                <td><span style="color:var(--gold);font-weight:bold;">${(e.points||0).toLocaleString()}</span></td>
+                <td><div style="display:flex;gap:4px;">
+                  <button class="btn" onclick="openLBEntryModal('tc','${e.id}')" style="padding:4px 8px;font-size:11px;">✏️</button>
+                  <button class="btn" onclick="adjustLBEntry('tc','${e.id}',500)" style="padding:4px 8px;font-size:11px;background:#166534;color:#fff;">+500</button>
+                  <button class="btn" onclick="adjustLBEntry('tc','${e.id}',-500)" style="padding:4px 8px;font-size:11px;background:#991b1b;color:#fff;">-500</button>
+                  <button class="btn" onclick="deleteLBEntry('tc','${e.id}')" style="padding:4px 8px;font-size:11px;color:#ef4444;">🗑</button>
+                </div></td>
+              </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:#555;">No champions yet</td></tr>'}
+              </tbody></table></div>
+            </div>
+
+            <div id="lb-pane-tp" style="${lbPane!=='tp'?'display:none':''}">
+              <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                <button class="btn primary" onclick="openLBListModal('tp')" style="background:var(--accent);color:#000;">+ Add / Edit</button>
+                <button class="btn" onclick="importLBFromCSV('tp')">📥 CSV</button>
+                <div style="margin-left:auto;"><input type="search" id="tpSearch" placeholder="Search..." oninput="filterLBList('tp',this.value)" style="max-width:180px;"></div>
+                <span style="color:#9ca3af;font-size:11px;">${tpSorted.length} players</span>
+              </div>
+              <div class="table-wrap"><table><thead><tr><th>#</th><th>Img</th><th>Name</th><th>Kills</th><th>Matches</th><th>K/D</th><th>Points</th><th>Actions</th></tr></thead><tbody>
+              ${tpSorted.map((e,i) => `<tr id="tp-row-${e.id}">
+                <td><span style="font-weight:bold;color:${i<3?'var(--gold)':'var(--text-muted)'};">#${i+1}</span></td>
+                <td><img src="${e.image||''}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                  <div style="display:none;width:36px;height:36px;background:linear-gradient(135deg,var(--accent),var(--primary));border-radius:50%;align-items:center;justify-content:center;color:#fff;font-weight:bold;">${(e.name||'?')[0].toUpperCase()}</div></td>
+                <td><strong>${e.name||'-'}</strong></td>
+                <td>${e.kills||0}</td>
+                <td>${e.matches||0}</td>
+                <td>${e.kd||0}</td>
+                <td><span style="color:var(--accent);font-weight:bold;">${(e.points||0).toLocaleString()}</span></td>
+                <td><div style="display:flex;gap:4px;">
+                  <button class="btn" onclick="openLBEntryModal('tp','${e.id}')" style="padding:4px 8px;font-size:11px;">✏️</button>
+                  <button class="btn" onclick="adjustLBEntry('tp','${e.id}',500)" style="padding:4px 8px;font-size:11px;background:#166534;color:#fff;">+500</button>
+                  <button class="btn" onclick="adjustLBEntry('tp','${e.id}',-500)" style="padding:4px 8px;font-size:11px;background:#991b1b;color:#fff;">-500</button>
+                  <button class="btn" onclick="deleteLBEntry('tp','${e.id}')" style="padding:4px 8px;font-size:11px;color:#ef4444;">🗑</button>
+                </div></td>
+              </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:#555;">No top players yet</td></tr>'}
+              </tbody></table></div>
+            </div>
+
+            <div id="lb-pane-et" style="${lbPane!=='et'?'display:none':''}">
+              <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                <button class="btn primary" onclick="openLBListModal('et')" style="background:var(--purple);color:#fff;">+ Add / Edit</button>
+                <button class="btn" onclick="importLBFromCSV('et')">📥 CSV</button>
+                <div style="margin-left:auto;"><input type="search" id="etSearch" placeholder="Search..." oninput="filterLBList('et',this.value)" style="max-width:180px;"></div>
+                <span style="color:#9ca3af;font-size:11px;">${etSorted.length} teams</span>
+              </div>
+              <div class="table-wrap"><table><thead><tr><th>#</th><th>Img</th><th>Name</th><th>Members</th><th>Wins</th><th>Win%</th><th>Points</th><th>Actions</th></tr></thead><tbody>
+              ${etSorted.map((e,i) => `<tr id="et-row-${e.id}">
+                <td><span style="font-weight:bold;color:${i<3?'var(--gold)':'var(--text-muted)'};">#${i+1}</span></td>
+                <td><img src="${e.image||''}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                  <div style="display:none;width:36px;height:36px;background:linear-gradient(135deg,var(--purple),var(--accent));border-radius:50%;align-items:center;justify-content:center;color:#fff;font-weight:bold;">${(e.name||'?')[0].toUpperCase()}</div></td>
+                <td><strong>${e.name||'-'}</strong></td>
+                <td>${e.members||0}</td>
+                <td>${e.wins||0}</td>
+                <td>${e.winRate||0}%</td>
+                <td><span style="color:var(--purple);font-weight:bold;">${(e.points||0).toLocaleString()}</span></td>
+                <td><div style="display:flex;gap:4px;">
+                  <button class="btn" onclick="openLBEntryModal('et','${e.id}')" style="padding:4px 8px;font-size:11px;">✏️</button>
+                  <button class="btn" onclick="adjustLBEntry('et','${e.id}',500)" style="padding:4px 8px;font-size:11px;background:#166534;color:#fff;">+500</button>
+                  <button class="btn" onclick="adjustLBEntry('et','${e.id}',-500)" style="padding:4px 8px;font-size:11px;background:#991b1b;color:#fff;">-500</button>
+                  <button class="btn" onclick="deleteLBEntry('et','${e.id}')" style="padding:4px 8px;font-size:11px;color:#ef4444;">🗑</button>
+                </div></td>
+              </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:#555;">No elite teams yet</td></tr>'}
+              </tbody></table></div>
+            </div>
+          </div>`;
           break;
         case 'commerce':
           const lowStockItems = d.inventory.filter(i => (i.qty || 0) < 5);
@@ -975,6 +1069,221 @@
     }
 
     window.executeBulkCsvImport = executeBulkCsvImport;
+
+    // === LEADERBOARD LIST MANAGEMENT (Tournament Champions, Top Players, Elite Teams) ===
+    window.switchLBPane = function(pane) {
+      window.activeLBPane = pane;
+      const panes = ['main','tc','tp','et'];
+      panes.forEach(p => {
+        const el = document.getElementById('lb-pane-' + p);
+        if (el) el.style.display = p === pane ? '' : 'none';
+      });
+      // Update buttons
+      document.querySelectorAll('[onclick^="switchLBPane"]').forEach(btn => {
+        const b = btn.getAttribute('onclick').match(/switchLBPane\('(\w+)'\)/);
+        if (b && b[1] === pane) btn.classList.add('primary');
+        else btn.classList.remove('primary');
+      });
+    };
+    window.activeLBPane = 'main';
+
+    window.openLBListModal = function(listType) {
+      const titles = { tc: '🏆 Tournament Champions', tp: '⚔️ Top Players', et: '👥 Elite Teams' };
+      const headers = {
+        tc: ['Name','Championships','Wins','WinRate','Points','ImageURL'],
+        tp: ['Name','Kills','Matches','K/D','Points','ImageURL'],
+        et: ['Name','Members','Wins','WinRate','Points','ImageURL']
+      };
+      const samples = {
+        tc: 'Mazen Ragaei,12,245,94,12450,https://...',
+        tp: 'Mazen "Phantom" Hassan,487,156,3.12,15680,https://...',
+        et: 'Team Phantom,5,245,94,12450,https://...'
+      };
+      document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
+        <div class="modal" onclick="event.stopPropagation()" style="max-width:600px;">
+          <h3>${titles[listType] || 'Manage'} - Bulk Edit</h3>
+          <p style="color:var(--text-muted);font-size:0.8rem;margin-bottom:8px;">Paste CSV data below. First row = headers. One entry per line.</p>
+          <textarea id="lbListCsv" placeholder="${samples[listType]}" style="width:100%;height:200px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px;font-size:0.8rem;white-space:pre-wrap;font-family:monospace;"></textarea>
+          <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn" onclick="clearLBList('${listType}')" style="background:#7f1d1d;color:#fff;">🗑 Clear All</button>
+            <button class="btn" onclick="loadSampleLBList('${listType}')" style="background:#1e3a5f;color:#fff;">📋 Load Sample</button>
+          </div>
+          <div class="modal-actions" style="margin-top:12px;">
+            <button class="btn" onclick="closeModal()">Cancel</button>
+            <button class="btn primary" style="background:var(--accent);color:#000;" onclick="saveLBListCSV('${listType}')">💾 Save All</button>
+          </div>
+        </div></div>`;
+    };
+
+    window.clearLBList = function(listType) {
+      if (!confirm('Clear all entries in this list?')) return;
+      const keys = { tc: DB_KEYS.tournamentChampions, tp: DB_KEYS.topPlayers, et: DB_KEYS.eliteTeams };
+      const stores = { tc: window.allData[DB_KEYS.tournamentChampions]||[], tp: window.allData[DB_KEYS.topPlayers]||[], et: window.allData[DB_KEYS.eliteTeams]||[] };
+      window.allData[keys[listType]] = [];
+      localStorage.setItem(keys[listType], JSON.stringify([]));
+      closeModal();
+      showToast('List cleared', 'success');
+      switchPane('leaderboard');
+    };
+
+    window.loadSampleLBList = function(listType) {
+      const samples = {
+        tc: [{id:'tc-1',name:'Mazen Ragaei',championships:12,wins:245,winRate:94,points:12450,image:'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop',rank:1},{id:'tc-2',name:'Abdallah Essam',championships:10,wins:198,winRate:91,points:11280,image:'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=100&h=100&fit=crop',rank:2},{id:'tc-3',name:'Shahd Yasser',championships:8,wins:176,winRate:88,points:10150,image:'https://images.unsplash.com/photo-1633332755192-727a05c40136?w=100&h=100&fit=crop',rank:3},{id:'tc-4',name:'Abdelrhman wael',championships:6,wins:154,winRate:85,points:9340,image:'https://images.unsplash.com/photo-1599566150163-29194dcabd36?w=100&h=100&fit=crop',rank:4},{id:'tc-5',name:'Sarah mostafa',championships:5,wins:142,winRate:82,points:8920,image:'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop',rank:5}],
+        tp: [{id:'tp-1',name:'Mazen "Phantom" Hassan',kills:487,matches:156,kd:3.12,points:15680,image:'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop',rank:1},{id:'tp-2',name:'Mohamed "Viper" Ali',kills:423,matches:148,kd:2.86,points:14250,image:'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=100&h=100&fit=crop',rank:2},{id:'tp-3',name:'Omar "Ghost" Mahmoud',kills:398,matches:142,kd:2.80,points:13890,image:'https://images.unsplash.com/photo-1633332755192-727a05c40136?w=100&h=100&fit=crop',rank:3},{id:'tp-4',name:'Ahmed "Shadow" Khaled',kills:367,matches:139,kd:2.64,points:12560,image:'https://images.unsplash.com/photo-1599566150163-29194dcabd36?w=100&h=100&fit=crop',rank:4},{id:'tp-5',name:'Ziad "Storm" Nasser',kills:341,matches:131,kd:2.60,points:11480,image:'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop',rank:5}],
+        et: [{id:'et-1',name:'Mazen Ragaei',members:5,wins:245,winRate:94,points:12450,image:'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop',rank:1},{id:'et-2',name:'Abdallah Essam',members:5,wins:198,winRate:91,points:11280,image:'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=100&h=100&fit=crop',rank:2},{id:'et-3',name:'Shahd Yasser',members:4,wins:176,winRate:88,points:10150,image:'https://images.unsplash.com/photo-1633332755192-727a05c40136?w=100&h=100&fit=crop',rank:3},{id:'et-4',name:'Abdelrhman wael',members:4,wins:154,winRate:85,points:9340,image:'https://images.unsplash.com/photo-1599566150163-29194dcabd36?w=100&h=100&fit=crop',rank:4},{id:'et-5',name:'Sarah mostafa',members:3,wins:142,winRate:82,points:8920,image:'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop',rank:5}]
+      };
+      document.getElementById('lbListCsv').value = samples[listType].map(e => Object.values(e).join(',')).join('\n');
+    };
+
+    window.saveLBListCSV = async function(listType) {
+      const csv = document.getElementById('lbListCsv').value.trim();
+      const keys = { tc: DB_KEYS.tournamentChampions, tp: DB_KEYS.topPlayers, et: DB_KEYS.eliteTeams };
+      const fields = {
+        tc: ['name','championships','wins','winRate','points','image'],
+        tp: ['name','kills','matches','kd','points','image'],
+        et: ['name','members','wins','winRate','points','image']
+      };
+      const lines = csv.split('\n').filter(l => l.trim());
+      const parsed = [];
+      lines.forEach((line, i) => {
+        const vals = line.split(',').map(v => v.trim());
+        if (vals.length >= 5) {
+          const entry = { id: `${listType}-${Date.now()}-${i}` };
+          fields[listType].forEach((f, fi) => {
+            const v = vals[fi] || '';
+            entry[f] = f === 'image' || f === 'name' ? v : (parseFloat(v) || 0);
+          });
+          parsed.push(entry);
+        }
+      });
+      // Re-sort by points descending and assign ranks
+      parsed.sort((a,b) => (b.points||0) - (a.points||0));
+      parsed.forEach((e,i) => e.rank = i+1);
+      await localStorage.setItem(keys[listType], JSON.stringify(parsed));
+      window.allData[keys[listType]] = parsed;
+      closeModal();
+      showToast(`${parsed.length} entries saved!`, 'success');
+      switchPane('leaderboard');
+    };
+
+    window.openLBEntryModal = function(listType, id) {
+      const keys = { tc: DB_KEYS.tournamentChampions, tp: DB_KEYS.topPlayers, et: DB_KEYS.eliteTeams };
+      const list = window.allData[keys[listType]] || [];
+      const e = list.find(x => x.id === id);
+      if (!e) return;
+      const titles = { tc: '✏️ Edit Champion', tp: '✏️ Edit Player', et: '✏️ Edit Team' };
+      const fields = {
+        tc: [
+          {label:'Name', id:'lbeName', val:e.name||'', type:'text'},
+          {label:'Championships', id:'lbeChamp', val:e.championships||0, type:'number'},
+          {label:'Wins', id:'lbeWins', val:e.wins||0, type:'number'},
+          {label:'Win Rate %', id:'lbeWR', val:e.winRate||0, type:'number'},
+          {label:'Points', id:'lbePts', val:e.points||0, type:'number'},
+          {label:'Image URL', id:'lbeImg', val:e.image||'', type:'text'}
+        ],
+        tp: [
+          {label:'Name', id:'lbeName', val:e.name||'', type:'text'},
+          {label:'Kills', id:'lbeKills', val:e.kills||0, type:'number'},
+          {label:'Matches', id:'lbeMatches', val:e.matches||0, type:'number'},
+          {label:'K/D Ratio', id:'lbeKD', val:e.kd||0, type:'number'},
+          {label:'Points', id:'lbePts', val:e.points||0, type:'number'},
+          {label:'Image URL', id:'lbeImg', val:e.image||'', type:'text'}
+        ],
+        et: [
+          {label:'Name', id:'lbeName', val:e.name||'', type:'text'},
+          {label:'Members', id:'lbeMem', val:e.members||0, type:'number'},
+          {label:'Wins', id:'lbeWins', val:e.wins||0, type:'number'},
+          {label:'Win Rate %', id:'lbeWR', val:e.winRate||0, type:'number'},
+          {label:'Points', id:'lbePts', val:e.points||0, type:'number'},
+          {label:'Image URL', id:'lbeImg', val:e.image||'', type:'text'}
+        ]
+      };
+      const htmlFields = fields[listType].map(f => `<div style="margin-bottom:8px;"><label style="font-size:0.75rem;color:var(--text-muted);display:block;margin-bottom:3px;">${f.label}</label><input type="${f.type}" id="${f.id}" value="${f.val}" style="width:100%;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.85rem;"></div>`).join('');
+      document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+          <h3>${titles[listType] || 'Edit Entry'}</h3>
+          ${htmlFields}
+          <div style="margin:12px 0;display:flex;gap:6px;">
+            <button class="btn" onclick="document.getElementById('lbePts').value = Number(document.getElementById('lbePts').value) + 500" style="padding:6px 10px;background:#166534;color:#fff;font-size:12px;">+500</button>
+            <button class="btn" onclick="document.getElementById('lbePts').value = Number(document.getElementById('lbePts').value) - 500" style="padding:6px 10px;background:#991b1b;color:#fff;font-size:12px;">-500</button>
+          </div>
+          <div class="modal-actions" style="margin-top:12px;">
+            <button class="btn" onclick="closeModal()">Cancel</button>
+            <button class="btn primary" style="background:var(--accent);color:#000;" onclick="saveLBEntry('${listType}','${e.id}')">💾 Save</button>
+          </div>
+        </div></div>`;
+    };
+
+    window.saveLBEntry = async function(listType, id) {
+      const keys = { tc: DB_KEYS.tournamentChampions, tp: DB_KEYS.topPlayers, et: DB_KEYS.eliteTeams };
+      const list = window.allData[keys[listType]] || [];
+      const idx = list.findIndex(x => x.id === id);
+      if (idx < 0) return;
+      const e = list[idx];
+      if (e.name !== undefined) e.name = document.getElementById('lbeName').value.trim();
+      if (e.championships !== undefined) e.championships = Number(document.getElementById('lbeChamp').value) || 0;
+      if (e.kills !== undefined) e.kills = Number(document.getElementById('lbeKills').value) || 0;
+      if (e.matches !== undefined) e.matches = Number(document.getElementById('lbeMatches').value) || 0;
+      if (e.kd !== undefined) e.kd = parseFloat(document.getElementById('lbeKD').value) || 0;
+      if (e.members !== undefined) e.members = Number(document.getElementById('lbeMem').value) || 0;
+      if (e.wins !== undefined) e.wins = Number(document.getElementById('lbeWins').value) || 0;
+      if (e.winRate !== undefined) e.winRate = Number(document.getElementById('lbeWR').value) || 0;
+      if (e.points !== undefined) e.points = Number(document.getElementById('lbePts').value) || 0;
+      if (e.image !== undefined) e.image = document.getElementById('lbeImg').value.trim();
+      // Re-rank
+      list.sort((a,b) => (b.points||0) - (a.points||0));
+      list.forEach((item,i) => item.rank = i+1);
+      await localStorage.setItem(keys[listType], JSON.stringify(list));
+      window.allData[keys[listType]] = list;
+      closeModal();
+      showToast('Entry updated!', 'success');
+      switchPane('leaderboard');
+    };
+
+    window.adjustLBEntry = async function(listType, id, delta) {
+      const keys = { tc: DB_KEYS.tournamentChampions, tp: DB_KEYS.topPlayers, et: DB_KEYS.eliteTeams };
+      const list = window.allData[keys[listType]] || [];
+      const idx = list.findIndex(x => x.id === id);
+      if (idx < 0) return;
+      list[idx].points = Math.max(0, (list[idx].points||0) + delta);
+      list.sort((a,b) => (b.points||0) - (a.points||0));
+      list.forEach((e,i) => e.rank = i+1);
+      await localStorage.setItem(keys[listType], JSON.stringify(list));
+      window.allData[keys[listType]] = list;
+      showToast(`${delta > 0 ? '+' : ''}${delta} points for ${list[idx].name}`, 'success');
+      switchPane('leaderboard');
+    };
+
+    window.deleteLBEntry = async function(listType, id) {
+      if (!confirm('Delete this entry?')) return;
+      const keys = { tc: DB_KEYS.tournamentChampions, tp: DB_KEYS.topPlayers, et: DB_KEYS.eliteTeams };
+      let list = window.allData[keys[listType]] || [];
+      list = list.filter(x => x.id !== id);
+      list.forEach((e,i) => e.rank = i+1);
+      await localStorage.setItem(keys[listType], JSON.stringify(list));
+      window.allData[keys[listType]] = list;
+      showToast('Entry deleted', 'success');
+      switchPane('leaderboard');
+    };
+
+    window.filterLBList = function(listType, query) {
+      query = query.toLowerCase();
+      const tbody = document.getElementById(listType + 'TableBody');
+      if (!tbody) return;
+      tbody.querySelectorAll('tr').forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(query) ? '' : 'none';
+      });
+    };
+
+    window.importLBFromCSV = function(listType) {
+      const url = prompt('Paste CSV file URL or raw CSV content:');
+      if (!url) return;
+      // Simple paste CSV import
+      const csv = url.trim();
+      if (!csv.includes(',')) { showToast('Invalid CSV data', 'error'); return; }
+      document.getElementById('lbListCsv').value = csv;
+      openLBListModal(listType);
+    };
 
     // === INVENTORY FUNCTIONS ===
     function openAddInventoryModal() {
