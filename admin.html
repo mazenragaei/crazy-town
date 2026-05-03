@@ -327,13 +327,34 @@
             </tbody></table></div></div>`;
           break;
         case 'leaderboard':
-          html = `<div class="card"><h3>Leaderboard</h3>
-            <div style="margin-bottom:12px;"><button class="btn" onclick="addLeaderboardEntryFromAdmin()" style="background:var(--accent);color:#000;">+ Add Player</button></div>
-            <div class="table-wrap"><table><thead><tr><th>Rank</th><th>Name</th><th>Points</th><th>Kills</th><th>Wins</th><th>Actions</th></tr></thead><tbody>
-            ${d.leaderboard.map((e,i) => `<tr><td>#${i+1}</td><td>${e.name||'-'}</td><td>${e.points||0}</td><td>${e.kills||0}</td><td>${e.wins||0}</td><td>
-              <button class="btn" onclick="editLeaderboardEntry('${e.id}')">Edit</button>
-              <button class="btn" onclick="deleteLeaderboardEntry('${e.id}')">Delete</button>
-            </td></tr>`).join('')}
+          const lbSorted = [...(d.leaderboard||[])].sort((a,b) => (b.points||0) - (a.points||0));
+          html = `<div class="card"><h3>🏆 Leaderboard Control</h3>
+            <div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <button class="btn primary" onclick="openAddLeaderboardModal()" style="background:var(--accent);color:#000;">+ Add Player</button>
+              <button class="btn" onclick="openSyncLeaderboardModal()">🔄 Sync with Users</button>
+              <button class="btn" onclick="openBulkLeaderboardModal()">⚡ Bulk Actions</button>
+              <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+                <input type="search" id="lbSearch" placeholder="Search players..." oninput="filterLeaderboard(this.value)" style="max-width:200px;">
+                <span style="color:#9ca3af;font-size:12px;">${lbSorted.length} players</span>
+              </div>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>#</th><th>Avatar</th><th>Name</th><th>Points</th><th>Kills</th><th>Wins</th><th>Actions</th></tr></thead><tbody id="lbTableBody">
+            ${lbSorted.map((e,i) => `<tr id="lb-row-${e.id}">
+              <td><span style="font-weight:bold;color:${i<3?'var(--gold)':'var(--text-muted)'};">#${i+1}</span></td>
+              <td><div style="width:36px;height:36px;background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:bold;color:#fff;">${(e.name||'?')[0].toUpperCase()}</div></td>
+              <td><strong>${e.name||'-'}</strong><br><span style="font-size:0.7rem;color:var(--text-muted);">${e.tag||''}</span></td>
+              <td><span id="lb-pts-${e.id}" style="color:var(--primary);font-weight:bold;">${e.points||0}</span></td>
+              <td>${e.kills||0}</td>
+              <td>${e.wins||0}</td>
+              <td>
+                <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                  <button class="btn" onclick="openEditLeaderboardModal('${e.id}')" style="padding:4px 8px;font-size:11px;">✏️ Edit</button>
+                  <button class="btn" onclick="adjustScore('${e.id}', 100)" style="padding:4px 8px;font-size:11px;background:#166534;color:#fff;">+100</button>
+                  <button class="btn" onclick="adjustScore('${e.id}', -100)" style="padding:4px 8px;font-size:11px;background:#991b1b;color:#fff;">-100</button>
+                  <button class="btn" onclick="deleteLeaderboardEntry('${e.id}')" style="padding:4px 8px;font-size:11px;color:#ef4444;">🗑</button>
+                </div>
+              </td>
+            </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:#555;">No leaderboard entries. Add players above.</td></tr>'}
             </tbody></table></div></div>`;
           break;
         case 'commerce':
@@ -632,6 +653,328 @@
       showToast('Entry deleted', 'success');
       switchPane('leaderboard');
     }
+
+    // === ADVANCED LEADERBOARD FUNCTIONS ===
+    function openAddLeaderboardModal() {
+      document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+          <h3>+ Add Leaderboard Entry</h3>
+          <div class="form-section">
+            <label style="font-size:0.8rem;color:var(--text-muted);">Player Name *</label>
+            <input type="text" id="lbName" placeholder="Enter player name">
+          </div>
+          <div class="form-section">
+            <label style="font-size:0.8rem;color:var(--text-muted);">Tag / Nickname</label>
+            <input type="text" id="lbTag" placeholder="Optional tag">
+          </div>
+          <div class="form-section" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+            <div>
+              <label style="font-size:0.8rem;color:var(--text-muted);">Points</label>
+              <input type="number" id="lbPoints" value="0" min="0">
+            </div>
+            <div>
+              <label style="font-size:0.8rem;color:var(--text-muted);">Kills</label>
+              <input type="number" id="lbKills" value="0" min="0">
+            </div>
+            <div>
+              <label style="font-size:0.8rem;color:var(--text-muted);">Wins</label>
+              <input type="number" id="lbWins" value="0" min="0">
+            </div>
+          </div>
+          <div class="form-section">
+            <label style="font-size:0.8rem;color:var(--text-muted);">Avatar Color</label>
+            <select id="lbColor" style="width:100%;">
+              <option value="primary">Cyan (Default)</option>
+              <option value="accent">Magenta</option>
+              <option value="gold">Gold</option>
+              <option value="purple">Purple</option>
+              <option value="orange">Orange</option>
+            </select>
+          </div>
+          <div class="modal-actions" style="margin-top:16px;">
+            <button class="btn" onclick="closeModal()">Cancel</button>
+            <button class="btn primary" style="background:var(--accent);color:#000;" onclick="addLeaderboardEntryFromModal()">Add Player</button>
+          </div>
+        </div></div>`;
+    }
+
+    window.openAddLeaderboardModal = openAddLeaderboardModal;
+
+    async function addLeaderboardEntryFromModal() {
+      const name = document.getElementById('lbName').value.trim();
+      if (!name) { showToast('Name is required', 'error'); return; }
+      const tag = document.getElementById('lbTag').value.trim();
+      const points = Number(document.getElementById('lbPoints').value || 0);
+      const kills = Number(document.getElementById('lbKills').value || 0);
+      const wins = Number(document.getElementById('lbWins').value || 0);
+      const color = document.getElementById('lbColor').value;
+      let lb = await getKV(DB_KEYS.leaderboard, []);
+      const newEntry = { id: `lb-${Date.now()}`, name, tag, points, kills, wins, color };
+      lb.push(newEntry);
+      await setKV(DB_KEYS.leaderboard, lb);
+      window.allData[DB_KEYS.leaderboard] = lb;
+      closeModal();
+      showToast(`Player "${name}" added to leaderboard!`, 'success');
+      switchPane('leaderboard');
+    }
+
+    window.addLeaderboardEntryFromModal = addLeaderboardEntryFromModal;
+
+    function openEditLeaderboardModal(id) {
+      const lb = window.allData[DB_KEYS.leaderboard] || [];
+      const e = lb.find(x => x.id === id);
+      if (!e) return;
+      document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+          <h3>✏️ Edit Leaderboard Entry</h3>
+          <div class="form-section">
+            <label style="font-size:0.8rem;color:var(--text-muted);">Player Name *</label>
+            <input type="text" id="lbEditName" value="${e.name||''}">
+          </div>
+          <div class="form-section">
+            <label style="font-size:0.8rem;color:var(--text-muted);">Tag / Nickname</label>
+            <input type="text" id="lbEditTag" value="${e.tag||''}">
+          </div>
+          <div class="form-section" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+            <div>
+              <label style="font-size:0.8rem;color:var(--text-muted);">Points</label>
+              <input type="number" id="lbEditPoints" value="${e.points||0}" min="0">
+            </div>
+            <div>
+              <label style="font-size:0.8rem;color:var(--text-muted);">Kills</label>
+              <input type="number" id="lbEditKills" value="${e.kills||0}" min="0">
+            </div>
+            <div>
+              <label style="font-size:0.8rem;color:var(--text-muted);">Wins</label>
+              <input type="number" id="lbEditWins" value="${e.wins||0}" min="0">
+            </div>
+          </div>
+          <div class="form-section" style="display:flex;gap:8px;align-items:center;">
+            <div style="flex:1;">
+              <label style="font-size:0.8rem;color:var(--text-muted);">Quick Adjust</label>
+              <div style="display:flex;gap:4px;">
+                <button class="btn" onclick="document.getElementById('lbEditPoints').value = Number(document.getElementById('lbEditPoints').value) + 100" style="padding:6px 10px;font-size:12px;background:#166534;color:#fff;">+100</button>
+                <button class="btn" onclick="document.getElementById('lbEditPoints').value = Number(document.getElementById('lbEditPoints').value) - 100" style="padding:6px 10px;font-size:12px;background:#991b1b;color:#fff;">-100</button>
+                <button class="btn" onclick="document.getElementById('lbEditPoints').value = Number(document.getElementById('lbEditPoints').value) + 500" style="padding:6px 10px;font-size:12px;background:#166534;color:#fff;">+500</button>
+                <button class="btn" onclick="document.getElementById('lbEditPoints').value = Number(document.getElementById('lbEditPoints').value) - 500" style="padding:6px 10px;font-size:12px;background:#991b1b;color:#fff;">-500</button>
+              </div>
+            </div>
+          </div>
+          <div class="form-section">
+            <label style="font-size:0.8rem;color:var(--text-muted);">Avatar Color</label>
+            <select id="lbEditColor" style="width:100%;">
+              <option value="primary" ${e.color==='primary'?'selected':''}>Cyan</option>
+              <option value="accent" ${e.color==='accent'?'selected':''}>Magenta</option>
+              <option value="gold" ${e.color==='gold'?'selected':''}>Gold</option>
+              <option value="purple" ${e.color==='purple'?'selected':''}>Purple</option>
+              <option value="orange" ${e.color==='orange'?'selected':''}>Orange</option>
+            </select>
+          </div>
+          <div class="modal-actions" style="margin-top:16px;">
+            <button class="btn" onclick="closeModal()">Cancel</button>
+            <button class="btn primary" style="background:var(--accent);color:#000;" onclick="saveLeaderboardEdit('${e.id}')">Save Changes</button>
+          </div>
+        </div></div>`;
+    }
+
+    window.openEditLeaderboardModal = openEditLeaderboardModal;
+
+    async function saveLeaderboardEdit(id) {
+      const lb = window.allData[DB_KEYS.leaderboard] || [];
+      const idx = lb.findIndex(x => x.id === id);
+      if (idx < 0) return;
+      lb[idx] = {
+        ...lb[idx],
+        name: document.getElementById('lbEditName').value.trim(),
+        tag: document.getElementById('lbEditTag').value.trim(),
+        points: Number(document.getElementById('lbEditPoints').value || 0),
+        kills: Number(document.getElementById('lbEditKills').value || 0),
+        wins: Number(document.getElementById('lbEditWins').value || 0),
+        color: document.getElementById('lbEditColor').value
+      };
+      await setKV(DB_KEYS.leaderboard, lb);
+      window.allData[DB_KEYS.leaderboard] = lb;
+      closeModal();
+      showToast('Leaderboard entry updated!', 'success');
+      switchPane('leaderboard');
+    }
+
+    window.saveLeaderboardEdit = saveLeaderboardEdit;
+
+    async function adjustScore(id, delta) {
+      const lb = window.allData[DB_KEYS.leaderboard] || [];
+      const idx = lb.findIndex(x => x.id === id);
+      if (idx < 0) return;
+      lb[idx].points = Math.max(0, (lb[idx].points || 0) + delta);
+      await setKV(DB_KEYS.leaderboard, lb);
+      window.allData[DB_KEYS.leaderboard] = lb;
+      // Update just the points cell in the table
+      const ptsEl = document.getElementById(`lb-pts-${id}`);
+      if (ptsEl) ptsEl.textContent = lb[idx].points;
+      showToast(`${delta > 0 ? '+' : ''}${delta} points for ${lb[idx].name}`, 'success');
+    }
+
+    window.adjustScore = adjustScore;
+
+    function filterLeaderboard(query) {
+      const rows = document.querySelectorAll('#lbTableBody tr');
+      query = query.toLowerCase();
+      rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(query) ? '' : 'none';
+      });
+    }
+
+    window.filterLeaderboard = filterLeaderboard;
+
+    function openSyncLeaderboardModal() {
+      document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+          <h3>🔄 Sync Leaderboard</h3>
+          <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:12px;">Sync leaderboard from registered users based on their activity. Top 20 users by booking count or balance will be added.</p>
+          <div class="form-section">
+            <label style="font-size:0.8rem;color:var(--text-muted);">Sync Mode</label>
+            <select id="syncMode" style="width:100%;">
+              <option value="bookings">By Booking Count (Top 20)</option>
+              <option value="balance">By Balance (Top 20)</option>
+              <option value="all">All Users</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:12px;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer;">
+              <input type="checkbox" id="syncMerge" checked> Merge with existing (keep current rankings)
+            </label>
+          </div>
+          <div style="background:#1a1a2e;border:1px solid var(--border);border-radius:8px;padding:12px;font-size:0.8rem;color:var(--text-muted);margin-bottom:12px;">
+            <strong style="color:var(--warning);">⚠️ Warning:</strong> This will overwrite existing leaderboard entries based on selected mode. Make sure to backup your data.
+          </div>
+          <div class="modal-actions">
+            <button class="btn" onclick="closeModal()">Cancel</button>
+            <button class="btn primary" style="background:var(--accent);color:#000;" onclick="executeSyncLeaderboard()">Sync Now</button>
+          </div>
+        </div></div>`;
+    }
+
+    window.openSyncLeaderboardModal = openSyncLeaderboardModal;
+
+    async function executeSyncLeaderboard() {
+      const mode = document.getElementById('syncMode').value;
+      const merge = document.getElementById('syncMerge').checked;
+      let users = await getKV(DB_KEYS.users, []);
+      users = users.filter(u => !u.isBanned);
+      let lb = [];
+      if (merge) lb = [...(window.allData[DB_KEYS.leaderboard] || [])];
+      let newEntries = [];
+      if (mode === 'bookings') {
+        const bookings = await getKV(DB_KEYS.bookings, []);
+        const counts = {};
+        bookings.forEach(b => { counts[b.userId || b.email] = (counts[b.userId || b.email] || 0) + 1; });
+        const top = users.map(u => ({ ...u, _score: counts[u.id] || counts[u.email] || 0 })).sort((a,b) => b._score - a._score).slice(0, 20);
+        newEntries = top.map(u => ({ id: u.id, name: u.name, tag: u.email, points: u._score * 100, kills: 0, wins: 0, color: 'primary' }));
+      } else if (mode === 'balance') {
+        const top = [...users].sort((a,b) => (b.balance||0) - (a.balance||0)).slice(0,20);
+        newEntries = top.map(u => ({ id: u.id, name: u.name, tag: u.email, points: Math.round(u.balance||0), kills: 0, wins: 0, color: 'primary' }));
+      } else {
+        newEntries = users.map(u => ({ id: u.id, name: u.name, tag: u.email, points: u.balance||0, kills: 0, wins: 0, color: 'primary' }));
+      }
+      if (merge) {
+        const existingIds = new Set(lb.map(e => e.id));
+        newEntries.forEach(ne => { if (!existingIds.has(ne.id)) lb.push(ne); });
+        lb = lb.sort((a,b) => (b.points||0) - (a.points||0)).slice(0, 100);
+      } else {
+        lb = newEntries;
+      }
+      await setKV(DB_KEYS.leaderboard, lb);
+      window.allData[DB_KEYS.leaderboard] = lb;
+      closeModal();
+      showToast(`Leaderboard synced with ${lb.length} entries!`, 'success');
+      switchPane('leaderboard');
+    }
+
+    window.executeSyncLeaderboard = executeSyncLeaderboard;
+
+    function openBulkLeaderboardModal() {
+      document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay show" onclick="if(event.target===this)closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+          <h3>⚡ Bulk Leaderboard Actions</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+            <button class="btn" onclick="bulkLeaderboardAction('reset')" style="padding:16px;background:#7f1d1d;color:#fff;border:none;border-radius:10px;">
+              <div style="font-size:1.2rem;">🗑️</div>
+              <div>Clear All Entries</div>
+            </button>
+            <button class="btn" onclick="bulkLeaderboardAction('resetpoints')" style="padding:16px;background:#1e3a5f;color:#fff;border:none;border-radius:10px;">
+              <div style="font-size:1.2rem;">⚡</div>
+              <div>Reset All Points to 0</div>
+            </button>
+            <button class="btn" onclick="bulkLeaderboardAction('sortkills')" style="padding:16px;background:#1e3a5f;color:#fff;border:none;border-radius:10px;">
+              <div style="font-size:1.2rem;">🔪</div>
+              <div>Sort by Kills</div>
+            </button>
+            <button class="btn" onclick="bulkLeaderboardAction('sortwins')" style="padding:16px;background:#1e3a5f;color:#fff;border:none;border-radius:10px;">
+              <div style="font-size:1.2rem;">🏆</div>
+              <div>Sort by Wins</div>
+            </button>
+          </div>
+          <div class="form-section">
+            <label style="font-size:0.8rem;color:var(--text-muted);">Import from CSV (paste below)</label>
+            <textarea id="lbCsvImport" placeholder="name,points,kills,wins&#10;Player1,1000,50,5&#10;Player2,800,40,3" style="width:100%;height:100px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px;font-size:0.8rem;"></textarea>
+          </div>
+          <div class="modal-actions">
+            <button class="btn" onclick="closeModal()">Cancel</button>
+            <button class="btn primary" style="background:var(--accent);color:#000;" onclick="executeBulkCsvImport()">Import CSV</button>
+          </div>
+        </div></div>`;
+    }
+
+    window.openBulkLeaderboardModal = openBulkLeaderboardModal;
+
+    async function bulkLeaderboardAction(action) {
+      let lb = await getKV(DB_KEYS.leaderboard, []);
+      if (action === 'reset') {
+        if (!confirm('Delete ALL leaderboard entries? This cannot be undone.')) return;
+        lb = [];
+      } else if (action === 'resetpoints') {
+        lb.forEach(e => e.points = 0);
+      } else if (action === 'sortkills') {
+        lb.sort((a,b) => (b.kills||0) - (a.kills||0));
+      } else if (action === 'sortwins') {
+        lb.sort((a,b) => (b.wins||0) - (a.wins||0));
+      }
+      await setKV(DB_KEYS.leaderboard, lb);
+      window.allData[DB_KEYS.leaderboard] = lb;
+      closeModal();
+      showToast('Bulk action completed!', 'success');
+      switchPane('leaderboard');
+    }
+
+    window.bulkLeaderboardAction = bulkLeaderboardAction;
+
+    async function executeBulkCsvImport() {
+      const csv = document.getElementById('lbCsvImport').value.trim();
+      if (!csv) { showToast('No CSV data', 'error'); return; }
+      const lines = csv.split('\n').filter(l => l.trim());
+      const existing = await getKV(DB_KEYS.leaderboard, []);
+      lines.forEach(line => {
+        const parts = line.split(',').map(p => p.trim());
+        if (parts.length >= 2) {
+          existing.push({
+            id: `lb-${Date.now()}-${Math.random().toString(36).substr(2,9)}`,
+            name: parts[0],
+            points: Number(parts[1]) || 0,
+            kills: Number(parts[2]) || 0,
+            wins: Number(parts[3]) || 0,
+            color: 'primary'
+          });
+        }
+      });
+      await setKV(DB_KEYS.leaderboard, existing);
+      window.allData[DB_KEYS.leaderboard] = existing;
+      closeModal();
+      showToast(`${lines.length} entries imported!`, 'success');
+      switchPane('leaderboard');
+    }
+
+    window.executeBulkCsvImport = executeBulkCsvImport;
 
     // === INVENTORY FUNCTIONS ===
     function openAddInventoryModal() {
@@ -1484,6 +1827,17 @@
     window.saveEditUser = saveEditUser;
     window.editLeaderboardEntry = editLeaderboardEntry;
     window.deleteLeaderboardEntry = deleteLeaderboardEntry;
+    window.openAddLeaderboardModal = openAddLeaderboardModal;
+    window.addLeaderboardEntryFromModal = addLeaderboardEntryFromModal;
+    window.openEditLeaderboardModal = openEditLeaderboardModal;
+    window.saveLeaderboardEdit = saveLeaderboardEdit;
+    window.adjustScore = adjustScore;
+    window.filterLeaderboard = filterLeaderboard;
+    window.openSyncLeaderboardModal = openSyncLeaderboardModal;
+    window.executeSyncLeaderboard = executeSyncLeaderboard;
+    window.openBulkLeaderboardModal = openBulkLeaderboardModal;
+    window.bulkLeaderboardAction = bulkLeaderboardAction;
+    window.executeBulkCsvImport = executeBulkCsvImport;
     window.openAddInventoryModal = openAddInventoryModal;
     window.editInventory = editInventory;
     window.deleteInventory = deleteInventory;
