@@ -285,7 +285,7 @@
       topPlayers:'crazyTown_topPlayers',
       eliteTeams:'crazyTown_eliteTeams'
     };
-    const TABS = ['overview', 'roles', 'policy', 'discounts', 'cards', 'audit', 'staff', 'bulk', 'system'];
+    const TABS = ['overview', 'roles', 'policy', 'discounts', 'cards', 'audit', 'staff', 'bulk', 'system', 'leaderboard'];
     const POLICY_PERMISSIONS = ['accessAdminPanel', 'accessOwnerControl', 'managePrivilegedRoles', 'manageStaffRoles', 'manageTargetedDiscounts', 'runProductionMode'];
     const POLICY_ROLES = ['owner', 'co-owner', 'ceo', 'hr', 'admin', 'champion', 'vip', 'member'];
     const DEFAULT_ROLE_POLICY = {
@@ -351,6 +351,9 @@
       document.querySelectorAll('.pane').forEach((p)=>p.classList.toggle('active', p.dataset.pane === id));
       document.querySelectorAll('.tab').forEach((t)=>t.classList.toggle('active', t.dataset.id === id));
     }
+
+    window.switchPane = setPane;
+    window.setPane = setPane;
 
     async function act(action, actor='Owner Control') {
       try {
@@ -580,6 +583,8 @@
     window.toggleBanFromDetail = toggleBanFromDetail;
     window.adjustBalanceFromDetail = adjustBalanceFromDetail;
     window.closeModal = closeModal;
+    window.switchPane = setPane;
+    window.setPane = setPane;
     window.switchOwnerLBPane = switchOwnerLBPane;
     window.openOwnerLBBulkModal = openOwnerLBBulkModal;
     window.loadOwnerLBSample = loadOwnerLBSample;
