@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Crazy Town | Egypt's Premier Tactical Simulation City - Dahshur</title>
   <meta name="description" content="15 acres of real-world tactical simulation in Dahshur. Live the game. No screens. Pure adrenaline. Book your mission now!">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -41,27 +41,26 @@
     button { cursor: pointer; border: none; font-family: inherit; transition: all 0.3s; }
     
     /* Utility Classes */
-    .container { 
-      max-width: 1440px !important; 
-      margin: 0 auto !important; 
-      width: 100% !important; 
-      padding: 0 24px; 
+    .container {
+      max-width: 1140px;
+      margin: 0 auto;
+      width: 100%;
+      padding: 0 20px;
       position: relative;
-      box-sizing: border-box;
     }
-    * { box-sizing: border-box !important; }
-    body { 
-      overflow-x: hidden !important; 
-      margin: 0 !important; 
-      padding: 0 !important;
-    } 
-    section { 
-      display: block !important; 
-      opacity: 1 !important; 
-      visibility: visible !important; 
-      min-height: 1px !important;
+    * { box-sizing: border-box; }
+    body {
+      overflow-x: hidden;
+      margin: 0;
+      padding: 0;
     }
-    section { padding: 100px 0 !important; }
+    section {
+      display: block;
+      opacity: 1;
+      visibility: visible;
+      min-height: 1px;
+      padding: 100px 0;
+    }
     .grid { display: grid; gap: 32px; }
     .grid-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
     .grid-3 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
@@ -160,18 +159,21 @@
     /* Header */
     header {
       position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
-      background: rgba(10,10,15,0.95); 
+      background: rgba(10,10,15,0.95);
       backdrop-filter: blur(20px);
-      border-bottom: 1px solid var(--border); 
-      padding: 20px 0;
+      border-bottom: 1px solid var(--border);
+      padding: 16px 0;
       transition: all 0.3s;
+      overflow: visible;
     }
-    header.scrolled { 
-      padding: 12px 0; 
+    header.scrolled {
+      padding: 10px 0;
       background: rgba(10,10,15,0.98);
       box-shadow: 0 4px 20px rgba(0,0,0,0.3);
     }
-    .nav { display: flex; align-items: center; justify-content: space-between; gap: 32px; }
+    .nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: nowrap; min-width: 0; }
+    .nav-links { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+    .nav-links::-webkit-scrollbar { display: none; }
     .logo { 
       display: flex; align-items: center; gap: 12px; 
       font-family: var(--font-heading);
@@ -188,14 +190,15 @@
       box-shadow: 0 0 20px rgba(0,212,255,0.4);
     }
     .logo span { color: var(--primary); }
-    .nav-links { display: flex; gap: 32px; align-items: center; }
-    .nav-links a { 
-      font-weight: 600; 
-      font-size: 1rem; 
-      color: var(--text-muted); 
+    .nav-links { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; min-width: 0; }
+    .nav-links a {
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: var(--text-muted);
       position: relative;
-      padding-bottom: 6px;
+      padding: 6px 10px;
       transition: color 0.25s ease, transform 0.25s ease;
+      white-space: nowrap;
     }
     .nav-links a::after {
       content: ''; position: absolute; bottom: -5px; left: 0; right: 0;
@@ -933,7 +936,15 @@
       .footer-grid { grid-template-columns: 1fr 1fr; }
       .leaderboard-container { padding: 24px; }
     }
-    
+
+    @media (max-width: 1024px) {
+      .nav-links { gap: 4px; }
+      .nav-links a { font-size: 0.8rem; padding: 6px 8px; }
+      .nav-links .btn { padding: 8px 12px !important; font-size: 0.75rem !important; }
+      #authButtons { gap: 4px; }
+      #authButtons .btn { padding: 8px 12px !important; font-size: 0.75rem !important; }
+    }
+
     @media (max-width: 768px) {
       .nav-links {
         display: none;
@@ -1699,20 +1710,20 @@
         <a href="#vip">VIP Cards</a>
         <a href="operations.html">Operations</a>
         <a href="support.html">Support</a>
-        <button class="btn btn-gold" style="padding: 10px 16px; font-size: 0.85rem;" onclick="openVipPortal()">
-          <i class="fas fa-crown"></i> VIP Portal
+        <button class="btn btn-gold" style="padding: 8px 12px; font-size: 0.75rem; flex-shrink: 0;" onclick="openVipPortal()">
+          <i class="fas fa-crown"></i> VIP
         </button>
-        <a href="#features">Features</a>
-        <a href="#location">Location</a>
-        <a href="#booking" class="btn btn-primary" style="padding: 12px 24px; font-size: 0.9rem;">
+        <a href="#features" style="font-size: 0.8rem; padding: 6px 10px;">Features</a>
+        <a href="#location" style="font-size: 0.8rem; padding: 6px 10px;">Location</a>
+        <a href="#booking" class="btn btn-primary" style="padding: 8px 16px; font-size: 0.8rem; flex-shrink: 0;">
           <i class="fas fa-ticket-alt"></i> Book Now
         </a>
         <!-- Auth Buttons (shown when not logged in) -->
-        <div id="authButtons" style="display: flex; gap: 12px;">
-          <button onclick="openLogin()" class="btn btn-outline" style="padding: 12px 24px; font-size: 0.9rem;">
+        <div id="authButtons" style="display: flex; gap: 6px; flex-shrink: 0;">
+          <button onclick="openLogin()" class="btn btn-outline" style="padding: 8px 16px; font-size: 0.8rem;">
             Sign In
           </button>
-          <button onclick="openRegister()" class="btn btn-accent" style="padding: 12px 24px; font-size: 0.9rem;">
+          <button onclick="openRegister()" class="btn btn-accent" style="padding: 8px 16px; font-size: 0.8rem;">
             Join
           </button>
         </div>
