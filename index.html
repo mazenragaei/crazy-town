@@ -172,8 +172,8 @@
       box-shadow: 0 4px 20px rgba(0,0,0,0.3);
     }
     header .container { max-width: 100%; padding: 0 20px; }
-    .nav { display: flex; align-items: center; justify-content: space-between; }
-    .nav-links { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+    .nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .nav-links { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; min-width: 0; }
     .nav-links::-webkit-scrollbar { display: none; }
     .nav-links a {
       font-weight: 600;
@@ -196,9 +196,9 @@
       transform: scaleX(1);
       box-shadow: 0 0 12px rgba(0, 212, 255, 0.45);
     }
-    .nav-links .btn {
-      padding: 8px 14px;
-      font-size: 0.85rem;
+    .nav-links .btn, #authButtons .btn {
+      padding: 8px 14px !important;
+      font-size: 0.8rem !important;
       white-space: nowrap;
     }
     #authButtons {
@@ -207,9 +207,17 @@
       flex-shrink: 0;
     }
     #authButtons .btn {
-      padding: 8px 16px;
-      font-size: 0.85rem;
-      white-space: nowrap;
+      padding: 8px 16px !important;
+    }
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .nav-actions .btn {
+      padding: 8px 14px !important;
+      font-size: 0.8rem !important;
     }
     .logo { 
       display: flex; align-items: center; gap: 12px; 
@@ -236,12 +244,12 @@
       transition: color 0.25s ease;
       white-space: nowrap;
     }
+    .nav-links a:hover { color: var(--text); }
     .nav-links a::after {
       content: ''; position: absolute; bottom: -5px; left: 0; right: 0;
       height: 2px; background: var(--primary);
       transform: scaleX(0); transition: transform 0.3s;
     }
-    .nav-links a:hover { color: var(--text); }
     .nav-links a:hover::after { transform: scaleX(1); }
     .nav-links a.active { color: var(--primary); }
     .nav-links a.active::after {
@@ -974,18 +982,13 @@
     }
 
     @media (max-width: 1280px) {
-      .nav-links { gap: 12px; }
-      .nav-links a { font-size: 0.9rem; padding: 8px 12px; }
-      .nav-links .btn { padding: 10px 14px !important; font-size: 0.85rem !important; }
-      #authButtons .btn { padding: 10px 14px !important; font-size: 0.85rem !important; }
+      .nav-links { gap: 8px; }
+      .nav-links a { font-size: 0.8rem; padding: 6px 10px; }
     }
 
     @media (max-width: 1024px) {
-      .nav-links { gap: 6px; }
-      .nav-links a { font-size: 0.8rem; padding: 6px 10px; }
-      .nav-links .btn { padding: 8px 12px !important; font-size: 0.75rem !important; }
-      #authButtons { gap: 4px; }
-      #authButtons .btn { padding: 8px 12px !important; font-size: 0.75rem !important; }
+      .nav-links { gap: 4px; }
+      .nav-links a { font-size: 0.75rem; padding: 5px 8px; }
     }
 
     @media (max-width: 768px) {
@@ -1005,6 +1008,11 @@
         -webkit-overflow-scrolling: touch;
       }
       .nav-links.active { display: flex; }
+      .nav-actions { display: none; }
+      .nav-links.active ~ .nav-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+      .nav-links.active ~ .nav-actions .btn { width: 100%; text-align: center; }
+      header .container { flex-wrap: wrap; }
+      .nav { flex-wrap: wrap; }
       .mobile-toggle {
         display: block;
         position: fixed;
@@ -1755,10 +1763,11 @@
         <a href="support.html">Support</a>
         <a href="#features">Features</a>
         <a href="#location">Location</a>
+      </nav>
+      <div class="nav-actions">
         <a href="#booking" class="btn btn-primary">
           <i class="fas fa-ticket-alt"></i> Book Now
         </a>
-        <!-- Auth Buttons (shown when not logged in) -->
         <div id="authButtons">
           <button onclick="openLogin()" class="btn btn-outline">
             Sign In
@@ -1767,6 +1776,7 @@
             Join
           </button>
         </div>
+      </div>
         <!-- User Menu (shown when logged in) -->
         <div id="userMenuContainer" style="display: none; position: relative;">
           <div class="user-nav-btn" onclick="toggleUserDropdown(event)" onkeydown="handleUserMenuKeydown(event)" role="button" tabindex="0" aria-expanded="false" aria-controls="userDropdown">
