@@ -1019,11 +1019,13 @@
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
       }
-      .nav-links.active { display: flex; }
+      .nav-links.active { display: flex; flex-direction: column; padding-top: 60px; }
       .nav-actions { display: none; }
-      .nav-links.active ~ .nav-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
-      .nav-links.active ~ .nav-actions .btn { width: 100%; text-align: center; }
-      header .container { flex-wrap: wrap; }
+      .nav-links.active .nav-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; width: 100%; }
+      .nav-links.active .nav-actions .btn { width: 100%; text-align: center; }
+      .nav-links.active #userMenuContainer { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; width: 100%; }
+      .nav-links.active #userMenuContainer .user-nav-btn { width: 100%; justify-content: center; }
+      header .container { flex-wrap: wrap; position: relative; }
       .nav { flex-wrap: wrap; }
       .mobile-toggle {
         display: block;
@@ -1831,40 +1833,39 @@
           </button>
         </div>
       </div>
-        <!-- User Menu (shown when logged in) -->
-        <div id="userMenuContainer" style="display: none; position: relative;">
-          <div class="user-nav-btn" onclick="toggleUserDropdown(event)" onkeydown="handleUserMenuKeydown(event)" role="button" tabindex="0" aria-expanded="false" aria-controls="userDropdown">
-            <div class="user-nav-avatar" id="navUserAvatar">A</div>
-            <span class="user-nav-name" id="navUserName">Mazen</span>
-            <i class="fas fa-chevron-down"></i>
-          </div>
-          <div class="user-dropdown hidden" id="userDropdown">
-            <div class="user-header">
-              <div class="user-avatar" id="dropdownAvatar">A</div>
-              <div class="user-info">
-                <h4 id="dropdownName">Mazen Ragaei</h4>
-                <span class="user-rank" id="dropdownRank">Recruit</span>
-                <div class="account-balance"><i class="fas fa-wallet"></i> Balance: <span id="dropdownBalance">0</span> EGP</div>
-              </div>
-            </div>
-            <ul class="user-menu">
-              <li><button onclick="showDashboard()"><i class="fas fa-chart-line"></i> Dashboard</button></li>
-              <li><button onclick="showBookings()"><i class="fas fa-ticket-alt"></i> My Bookings</button></li>
-              <li><button onclick="showProfile()"><i class="fas fa-user"></i> Edit Profile</button></li>
-              <li><button onclick="openTeamHub()"><i class="fas fa-users"></i> My Team Hub</button></li>
-              <li><button onclick="openOperationsCenter()"><i class="fas fa-person-rifle"></i> Operations Center</button></li>
-              <li><button onclick="openSupportCenter()"><i class="fas fa-headset"></i> Support Center</button></li>
-              <li><button onclick="openVipPortal()"><i class="fas fa-crown"></i> VIP Portal</button></li>
-              <li id="eliteMenuItem" style="display: none;"><button onclick="openElitePortal()"><i class="fas fa-star"></i> Elite Portal</button></li>
-              <li><button onclick="showLeaderboard()"><i class="fas fa-trophy"></i> Leaderboard</button></li>
-              <li id="adminMenuItem" style="display: none;"><button onclick="openAdminPanel()"><i class="fas fa-user-shield"></i> Admin Panel</button></li>
-              <li id="ownerMenuItem" style="display: none;"><button onclick="openOwnerControlPage()"><i class="fas fa-screwdriver-wrench"></i> Owner Control</button></li>
-              <li class="divider"></li>
-              <li><button onclick="logout()" class="logout"><i class="fas fa-sign-out-alt"></i> Sign Out</button></li>
-            </ul>
-          </div>
+      <!-- User Menu (shown when logged in) -->
+      <div id="userMenuContainer" style="display: none; position: relative;">
+        <div class="user-nav-btn" onclick="toggleUserDropdown(event)" onkeydown="handleUserMenuKeydown(event)" role="button" tabindex="0" aria-expanded="false" aria-controls="userDropdown">
+          <div class="user-nav-avatar" id="navUserAvatar">A</div>
+          <span class="user-nav-name" id="navUserName">Mazen</span>
+          <i class="fas fa-chevron-down"></i>
         </div>
-      </nav>
+        <div class="user-dropdown hidden" id="userDropdown">
+          <div class="user-header">
+            <div class="user-avatar" id="dropdownAvatar">A</div>
+            <div class="user-info">
+              <h4 id="dropdownName">Mazen Ragaei</h4>
+              <span class="user-rank" id="dropdownRank">Recruit</span>
+              <div class="account-balance"><i class="fas fa-wallet"></i> Balance: <span id="dropdownBalance">0</span> EGP</div>
+            </div>
+          </div>
+          <ul class="user-menu">
+            <li><button onclick="showDashboard()"><i class="fas fa-chart-line"></i> Dashboard</button></li>
+            <li><button onclick="showBookings()"><i class="fas fa-ticket-alt"></i> My Bookings</button></li>
+            <li><button onclick="showProfile()"><i class="fas fa-user"></i> Edit Profile</button></li>
+            <li><button onclick="openTeamHub()"><i class="fas fa-users"></i> My Team Hub</button></li>
+            <li><button onclick="openOperationsCenter()"><i class="fas fa-person-rifle"></i> Operations Center</button></li>
+            <li><button onclick="openSupportCenter()"><i class="fas fa-headset"></i> Support Center</button></li>
+            <li><button onclick="openVipPortal()"><i class="fas fa-crown"></i> VIP Portal</button></li>
+            <li id="eliteMenuItem" style="display: none;"><button onclick="openElitePortal()"><i class="fas fa-star"></i> Elite Portal</button></li>
+            <li><button onclick="showLeaderboard()"><i class="fas fa-trophy"></i> Leaderboard</button></li>
+            <li id="adminMenuItem" style="display: none;"><button onclick="openAdminPanel()"><i class="fas fa-user-shield"></i> Admin Panel</button></li>
+            <li id="ownerMenuItem" style="display: none;"><button onclick="openOwnerControlPage()"><i class="fas fa-screwdriver-wrench"></i> Owner Control</button></li>
+            <li class="divider"></li>
+            <li><button onclick="logout()" class="logout"><i class="fas fa-sign-out-alt"></i> Sign Out</button></li>
+          </ul>
+        </div>
+      </div>
     </div>
   </header>
 
